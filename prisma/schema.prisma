@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  DISPATCHER
+  ADVISOR
+  MANAGER
+}
+
+enum BlockerReason {
+  WAITING_ON_CUSTOMER_APPROVAL
+  PARTS_BACKORDERED
+  WRONG_OR_DEFECTIVE_PART
+  WAITING_ON_SUBLET_OR_OUTSIDE_VENDOR
+  WAITING_ON_EXTENDED_WARRANTY_AUTHORIZATION
+  QUALITY_CONTROL_REVIEW
+  RECHECK_OR_COMEBACK_IN_PROGRESS
+  TECH_OVERLOADED_TOO_MANY_JOBS_ASSIGNED
+  TECH_BEHIND_ON_CURRENT_JOB
+  TECH_UNAVAILABLE_OUT_BREAK_END_OF_DAY
+  ADVISOR_MUST_CONTACT_CUSTOMER
+  WAITING_ON_SPECIAL_ORDER_OR_SPECIALTY_PART
+  WAITING_ON_TSB_OR_TECHNICAL_INFORMATION
+  OTHER_NOTES_REQUIRED
+}
+
+enum ImportStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum ActivityType {
+  IMPORT_BATCH_CREATED
+  IMPORT_ROW_SYNCED
+  IMPORT_ROW_SKIPPED
+  RO_INACTIVATED
+  BLOCKER_UPSERTED
+  BLOCKER_CLEARED
+  CONTACT_UPDATED
+  CONTACT_RESET
+}
+
+model User {
+  id             String        @id @default(cuid())
+  name           String?
+  email          String        @unique
+  passwordHash   String
+  role           Role
+  asmNumber      Int?
+  active         Boolean       @default(true)
+  imports        ImportBatch[]
+  blockerEntries BlockerState[]
+  contactEntries ContactState[]
+  activities     ActivityLog[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model ImportBatch {
+  id               String         @id @default(cuid())
+  uploadedById     String
+  uploadedBy       User           @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  sourceFileName   String
+  sourceRowCount   Int
+  importedRowCount Int            @default(0)
+  skippedRowCount  Int            @default(0)
+  status           ImportStatus   @default(PENDING)
+  createdAt        DateTime       @default(now())
+  completedAt      DateTime?
+  repairOrders     RepairOrder[]
+  rowErrors        ImportRowError[]
+  activities       ActivityLog[]
+}
+
+model ImportRowError {
+  id            String      @id @default(cuid())
+  importBatchId String
+  importBatch   ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  rowNumber     Int
+  roNumber      Int?
+  reason        String
+  rawRowJson    Json
+  createdAt     DateTime    @default(now())
+
+  @@index([importBatchId, rowNumber])
+}
+
+model RepairOrder {
+  id                   String        @id @default(cuid())
+  roNumber             Int           @unique
+  tag                  String?
+  model                String
+  year                 Int
+  customerName         String
+  flags                String?
+  phone                String?
+  asmNumber            Int
+  advisorName          String?
+  techNumber           Int?
+  techName             String?
+  mode                 String
+  mtRaw                String?
+  ttRaw                String?
+  mtDisplayRaw         String?
+  ttDisplayRaw         String?
+  promisedRaw          String
+  promisedAtNormalized DateTime?
+  isActive             Boolean       @default(true)
+  lastImportBatchId    String?
+  lastImportBatch      ImportBatch?  @relation(fields: [lastImportBatchId], references: [id], onDelete: SetNull)
+  rawSourceData        Json
+  blockerState         BlockerState?
+  contactState         ContactState?
+  activities           ActivityLog[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@index([asmNumber, isActive])
+  @@index([mode, isActive])
+}
+
+model BlockerState {
+  id               String        @id @default(cuid())
+  repairOrderId    String        @unique
+  repairOrder      RepairOrder   @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  blockerReason    BlockerReason
+  foremanNotes     String?
+  blockerStartedAt DateTime      @default(now())
+  lastUpdatedAt    DateTime      @updatedAt
+  techPromisedDate DateTime?
+  dispatcherUserId String
+  dispatcherUser   User          @relation(fields: [dispatcherUserId], references: [id], onDelete: Restrict)
+  isBlocked        Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+}
+
+model ContactState {
+  id            String      @id @default(cuid())
+  repairOrderId String      @unique
+  repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  contacted     Boolean     @default(false)
+  contactedAt   DateTime?
+  customerNotes String?
+  advisorUserId String?
+  advisorUser   User?       @relation(fields: [advisorUserId], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model ActivityLog {
+  id            String        @id @default(cuid())
+  type          ActivityType
+  repairOrderId String?
+  repairOrder   RepairOrder?  @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  importBatchId String?
+  importBatch   ImportBatch?  @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  message       String
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+
+  @@index([repairOrderId, createdAt])
+  @@index([importBatchId, createdAt])
+}
