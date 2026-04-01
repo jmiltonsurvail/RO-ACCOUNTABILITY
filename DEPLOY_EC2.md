@@ -28,12 +28,16 @@ Run on the EC2 host:
 
 ```bash
 sudo dnf update -y
-sudo dnf install -y nodejs git nginx
+sudo dnf install -y git nginx
+sudo dnf list available 'nodejs*'
+sudo dnf install -y nodejs20
 node -v
 npm -v
 ```
 
-If you want a pinned Node version instead of the distro package, install Node 22 LTS with your usual runtime manager.
+Do not install the generic `nodejs` package if it gives you Node 18. This app requires Node `20.9+`.
+
+If `nodejs20` is not available in your image or repository configuration, install Node 22 LTS instead, then re-run `node -v` and confirm it is `>= 20.9.0`.
 
 ## 3. Copy the app to the server
 
@@ -113,6 +117,81 @@ sudo systemctl restart nginx
 
 This template proxies traffic to `127.0.0.1:3000`.
 
+## Cloudflare HTTPS
+
+If you use Cloudflare, the simplest production setup is:
+
+- DNS record proxied through Cloudflare
+- Cloudflare SSL/TLS mode set to `Full (strict)`
+- Cloudflare Origin CA certificate installed on the EC2 instance
+- `nginx` listening on `443` with that origin certificate
+
+### 1. Make sure the DNS record is proxied
+
+In Cloudflare DNS, point your hostname to the EC2 public IP and enable the orange-cloud proxy.
+
+### 2. Create a Cloudflare Origin Certificate
+
+In Cloudflare:
+
+- Go to `SSL/TLS`
+- Open `Origin Server`
+- Create a certificate
+- Include the hostname you will serve, for example `example.com` and `www.example.com`
+
+Save the certificate and private key.
+
+### 3. Install the certificate on the EC2 instance
+
+```bash
+sudo mkdir -p /etc/ssl/cloudflare
+sudo chmod 700 /etc/ssl/cloudflare
+sudo vi /etc/ssl/cloudflare/origin-cert.pem
+sudo vi /etc/ssl/cloudflare/origin-key.pem
+sudo chmod 600 /etc/ssl/cloudflare/origin-cert.pem /etc/ssl/cloudflare/origin-key.pem
+```
+
+### 4. Replace the nginx HTTP-only config with the Cloudflare TLS config
+
+Edit the provided template in [`deploy/ec2/nginx-ro-accountability-cloudflare-origin-ca.conf`](./deploy/ec2/nginx-ro-accountability-cloudflare-origin-ca.conf) and replace:
+
+- `example.com`
+- `www.example.com`
+
+Then install it:
+
+```bash
+sudo cp deploy/ec2/nginx-ro-accountability-cloudflare-origin-ca.conf /etc/nginx/conf.d/ro-accountability.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 5. Open port 443 on the EC2 security group
+
+Allow inbound `443`. If you want the fastest path, allow it from the internet first, then tighten it later.
+
+### 6. Set Cloudflare SSL mode
+
+In Cloudflare `SSL/TLS`, set encryption mode to `Full (strict)`.
+
+### 7. Force HTTPS at the edge
+
+In Cloudflare `SSL/TLS`, enable `Always Use HTTPS`.
+
+### 8. Verify
+
+From the EC2 host:
+
+```bash
+curl -kI https://127.0.0.1/api/health
+```
+
+From your machine:
+
+```bash
+curl -I https://example.com/api/health
+```
+
 ## 8. Verify the deployment
 
 From the instance:
@@ -127,6 +206,41 @@ Expected response:
 ```json
 {"service":"ro-accountability","status":"ok","timestamp":"..."}
 ```
+
+## Troubleshooting
+
+### `npm` / Prisma install dies during `@prisma/client` postinstall
+
+If you see Node `18.x`, fix Node first. A failing Prisma postinstall on this app is usually a symptom of the unsupported runtime, not the root cause.
+
+Check:
+
+```bash
+node -v
+npm -v
+```
+
+If the server is on Node 18, replace it with Node 20+:
+
+```bash
+sudo dnf remove -y nodejs npm
+sudo dnf clean all
+sudo dnf list available 'nodejs*'
+sudo dnf install -y nodejs20
+node -v
+```
+
+Then rerun:
+
+```bash
+npm ci
+npx prisma migrate deploy
+npm run build:ec2
+```
+
+### `npm install -g npm@11` fails with `EBADENGINE`
+
+That error is expected on Node 18. `npm@11` requires a newer Node version. Do not try to solve this by upgrading npm first. Upgrade Node first.
 
 ## Update flow
 
@@ -150,3 +264,4 @@ Run `npm run db:seed` only when you intentionally want to create or re-activate 
 - [`scripts/prepare-standalone.sh`](./scripts/prepare-standalone.sh): assembles the runtime bundle
 - [`deploy/ec2/ro-accountability.service`](./deploy/ec2/ro-accountability.service): `systemd` service
 - [`deploy/ec2/nginx-ro-accountability.conf`](./deploy/ec2/nginx-ro-accountability.conf): reverse proxy template
+- [`deploy/ec2/nginx-ro-accountability-cloudflare-origin-ca.conf`](./deploy/ec2/nginx-ro-accountability-cloudflare-origin-ca.conf): Cloudflare Origin CA TLS template
