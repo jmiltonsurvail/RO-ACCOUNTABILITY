@@ -1,16 +1,20 @@
 import { Role } from "@prisma/client";
+import { ActiveRoBoard } from "@/components/active-ro-board";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { AppShell } from "@/components/app-shell";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
 import { getServerAuthSession, requireRole } from "@/lib/auth";
 import { blockerReasonLabels } from "@/lib/constants";
-import { getManagerDashboardData } from "@/lib/data";
+import { getActiveRepairOrders, getManagerDashboardData } from "@/lib/data";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function ManagerPage() {
   await requireRole([Role.MANAGER]);
   const session = await getServerAuthSession();
-  const dashboard = await getManagerDashboardData();
+  const [dashboard, activeRepairOrders] = await Promise.all([
+    getManagerDashboardData(),
+    getActiveRepairOrders(),
+  ]);
 
   return (
     <AppShell
@@ -198,6 +202,40 @@ export default async function ManagerPage() {
             </div>
           </section>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <ActiveRoBoard
+          repairOrders={activeRepairOrders.map((repairOrder) => ({
+            asmNumber: repairOrder.asmNumber,
+            blockerState: repairOrder.blockerState
+              ? {
+                  blockerReason: repairOrder.blockerState.blockerReason,
+                  blockerStartedAt: repairOrder.blockerState.blockerStartedAt.toISOString(),
+                  foremanNotes: repairOrder.blockerState.foremanNotes,
+                  isBlocked: repairOrder.blockerState.isBlocked,
+                  techPromisedDate:
+                    repairOrder.blockerState.techPromisedDate?.toISOString() ?? null,
+                }
+              : null,
+            contactState: repairOrder.contactState
+              ? {
+                  contacted: repairOrder.contactState.contacted,
+                  customerNotes: repairOrder.contactState.customerNotes,
+                }
+              : null,
+            customerName: repairOrder.customerName,
+            mode: repairOrder.mode,
+            model: repairOrder.model,
+            phone: repairOrder.phone,
+            promisedAtNormalized: repairOrder.promisedAtNormalized?.toISOString() ?? null,
+            promisedRaw: repairOrder.promisedRaw,
+            roNumber: repairOrder.roNumber,
+            year: repairOrder.year,
+          }))}
+          subtitle="Use the broader active-RO board to find work by ASM, blocker status, customer-contact readiness, and due timing before drilling into the blocked-only stack above."
+          title="All Active ROs"
+        />
       </div>
     </AppShell>
   );

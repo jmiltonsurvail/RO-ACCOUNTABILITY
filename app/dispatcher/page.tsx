@@ -2,12 +2,12 @@ import { Role } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { DispatcherWorkspace } from "@/components/dispatcher-workspace";
 import { getServerAuthSession, requireRole } from "@/lib/auth";
-import { getDispatcherRepairOrders } from "@/lib/data";
+import { getActiveRepairOrders } from "@/lib/data";
 
 export default async function DispatcherPage() {
   await requireRole([Role.DISPATCHER]);
   const session = await getServerAuthSession();
-  const repairOrders = await getDispatcherRepairOrders();
+  const repairOrders = await getActiveRepairOrders();
 
   return (
     <AppShell
@@ -18,13 +18,6 @@ export default async function DispatcherPage() {
     >
       <DispatcherWorkspace
         repairOrders={repairOrders.map((repairOrder) => ({
-          activities: repairOrder.activities.map((activity) => ({
-            createdAt: activity.createdAt.toISOString(),
-            id: activity.id,
-            message: activity.message,
-            metadata: activity.metadata,
-            user: activity.user,
-          })),
           asmNumber: repairOrder.asmNumber,
           blockerState: repairOrder.blockerState
             ? {

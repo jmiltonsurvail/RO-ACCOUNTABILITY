@@ -1,23 +1,18 @@
 "use client";
 
+import { type BlockerReason } from "@prisma/client";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveBlockerAction, type ActionState } from "@/app/dispatcher/actions";
+import { ActiveRoBoard } from "@/components/active-ro-board";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
 import { blockerReasonOptions } from "@/lib/constants";
-import { formatDateOnly, formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 
 type DispatcherOrder = {
-  activities: Array<{
-    createdAt: string;
-    id: string;
-    message: string;
-    metadata: unknown;
-    user: { email: string; name: string | null } | null;
-  }>;
   asmNumber: number;
   blockerState: {
-    blockerReason: string;
+    blockerReason: BlockerReason;
     blockerStartedAt: string;
     foremanNotes: string | null;
     isBlocked: boolean;
@@ -60,9 +55,10 @@ export function DispatcherWorkspace({
   );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+    <div className="grid gap-6">
       <form
         action={formAction}
+        id="dispatcher-blocker-form"
         className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm"
       >
         <div className="grid gap-4">
@@ -207,45 +203,17 @@ export function DispatcherWorkspace({
         </div>
       </form>
 
-      <section className="space-y-4">
-        <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-950">Active imported ROs</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Search by RO number to prefill customer, vehicle, and current blocker context.
-          </p>
-          <div className="mt-5 max-h-[36rem] space-y-3 overflow-y-auto pr-1">
-            {repairOrders.map((repairOrder) => (
-              <button
-                key={repairOrder.roNumber}
-                className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-300 hover:bg-cyan-50"
-                onClick={() => setRoInput(repairOrder.roNumber.toString())}
-                type="button"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="font-medium text-slate-900">
-                    RO {repairOrder.roNumber} · ASM {repairOrder.asmNumber}
-                  </p>
-                  <span className="rounded-full bg-slate-900 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
-                    {repairOrder.mode}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-slate-700">
-                  {repairOrder.customerName} · {repairOrder.year} {repairOrder.model}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
-                  <span>Promised raw: {repairOrder.promisedRaw}</span>
-                  <span>
-                    Blocked since:{" "}
-                    {repairOrder.blockerState
-                      ? formatDateOnly(repairOrder.blockerState.blockerStartedAt)
-                      : "Not blocked"}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ActiveRoBoard
+        onSelectRo={(selectedRoNumber) => {
+          setRoInput(String(selectedRoNumber));
+          document
+            .getElementById("dispatcher-blocker-form")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+        repairOrders={repairOrders}
+        subtitle="Filter the live RO set by ASM, blocker status, contact readiness, and due timing before loading the job into the blocker form."
+        title="All Active ROs"
+      />
     </div>
   );
 }

@@ -36,6 +36,12 @@ The seed creates the initial manager user from:
 - `SEED_MANAGER_PASSWORD`
 - `SEED_MANAGER_NAME`
 
+## EC2 deployment
+
+The repo includes an EC2 deployment path using Next.js standalone output, `systemd`, and `nginx`.
+
+See [`DEPLOY_EC2.md`](./DEPLOY_EC2.md) for the full runbook.
+
 ## Daily import contract
 
 The manager import expects the exact Xtime CSV header:

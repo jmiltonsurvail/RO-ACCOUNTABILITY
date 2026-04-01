@@ -19,11 +19,16 @@ const roCardInclude = {
   },
 } satisfies Prisma.RepairOrderInclude;
 
-export async function getDispatcherRepairOrders() {
+const activeRepairOrderBoardInclude = {
+  blockerState: true,
+  contactState: true,
+} satisfies Prisma.RepairOrderInclude;
+
+export async function getActiveRepairOrders() {
   const repairOrders = await prisma.repairOrder.findMany({
     where: { isActive: true },
     orderBy: [{ asmNumber: "asc" }, { roNumber: "asc" }],
-    include: roCardInclude,
+    include: activeRepairOrderBoardInclude,
   });
 
   return repairOrders;

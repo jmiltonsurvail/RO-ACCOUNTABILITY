@@ -1,0 +1,18 @@
+[Unit]
+Description=RO Accountability Next.js service
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/opt/ro-accountability/current/.deploy/standalone
+EnvironmentFile=/etc/ro-accountability.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+SyslogIdentifier=ro-accountability
+
+[Install]
+WantedBy=multi-user.target
