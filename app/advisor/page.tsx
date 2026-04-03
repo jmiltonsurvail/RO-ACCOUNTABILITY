@@ -41,6 +41,7 @@ export default async function AdvisorPage() {
                 contactState: repairOrder.contactState
                   ? {
                       contacted: repairOrder.contactState.contacted,
+                      hasRentalCar: repairOrder.contactState.hasRentalCar,
                       customerNotes: repairOrder.contactState.customerNotes,
                     }
                   : null,

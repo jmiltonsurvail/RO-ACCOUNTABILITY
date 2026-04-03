@@ -19,6 +19,7 @@ type ActiveRepairOrder = {
   } | null;
   contactState: {
     contacted: boolean;
+    hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
   customerName: string;
@@ -530,6 +531,7 @@ export function ActiveRoBoard({
             const dueDate = getDueDate(repairOrder);
             const blocked = Boolean(blocker?.isBlocked);
             const contacted = repairOrder.contactState?.contacted ?? false;
+            const hasRentalCar = repairOrder.contactState?.hasRentalCar ?? false;
             const needsContact = blocked && !contacted;
             const overdue = isOverdue(dueDate, new Date());
             const dueToday = isDueToday(dueDate, new Date());
@@ -561,6 +563,11 @@ export function ActiveRoBoard({
                         <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
                           Tag {repairOrder.tag || "N/A"}
                         </span>
+                        {hasRentalCar ? (
+                          <span className="inline-flex size-8 animate-pulse items-center justify-center rounded-lg border border-rose-700 bg-rose-600 text-xs font-bold uppercase tracking-[0.18em] text-white">
+                            RC
+                          </span>
+                        ) : null}
                         <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
                           {repairOrder.mode}
                         </span>
@@ -706,6 +713,7 @@ export function ActiveRoBoard({
                             <InlineContactEditor
                               contacted={contacted}
                               customerNotes={repairOrder.contactState?.customerNotes ?? null}
+                              hasRentalCar={hasRentalCar}
                               phone={repairOrder.phone}
                               roNumber={repairOrder.roNumber}
                             />

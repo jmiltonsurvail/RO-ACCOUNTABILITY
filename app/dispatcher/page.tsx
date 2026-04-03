@@ -32,6 +32,7 @@ export default async function DispatcherPage() {
           contactState: repairOrder.contactState
             ? {
                 contacted: repairOrder.contactState.contacted,
+                hasRentalCar: repairOrder.contactState.hasRentalCar,
                 customerNotes: repairOrder.contactState.customerNotes,
               }
             : null,

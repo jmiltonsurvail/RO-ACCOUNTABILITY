@@ -17,6 +17,7 @@ type AdvisorRepairOrder = {
   } | null;
   contactState: {
     contacted: boolean;
+    hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
   customerName: string;
@@ -59,9 +60,14 @@ export function AdvisorContactCard({
           <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
             RO {repairOrder.roNumber}
           </p>
-          <span className="mt-2 inline-flex rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+        <span className="mt-2 inline-flex rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
             Tag {repairOrder.tag || "N/A"}
           </span>
+          {repairOrder.contactState?.hasRentalCar ? (
+            <span className="mt-2 ml-2 inline-flex size-8 animate-pulse items-center justify-center rounded-lg border border-rose-700 bg-rose-600 text-xs font-bold uppercase tracking-[0.18em] text-white">
+              RC
+            </span>
+          ) : null}
           <h2 className="mt-2 text-xl font-semibold text-slate-950">
             {repairOrder.customerName}
           </h2>
@@ -102,6 +108,15 @@ export function AdvisorContactCard({
           type="checkbox"
         />
         Customer contacted
+      </label>
+      <label className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-800">
+        <input
+          className="size-4 rounded border-slate-300"
+          defaultChecked={repairOrder.contactState?.hasRentalCar ?? false}
+          name="hasRentalCar"
+          type="checkbox"
+        />
+        Rental car on RO
       </label>
       <label className="mt-4 block">
         <span className="mb-2 block text-sm font-medium text-slate-700">

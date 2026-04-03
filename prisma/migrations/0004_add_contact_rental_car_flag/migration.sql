@@ -1,0 +1,2 @@
+ALTER TABLE "ContactState"
+ADD COLUMN "hasRentalCar" BOOLEAN NOT NULL DEFAULT false;

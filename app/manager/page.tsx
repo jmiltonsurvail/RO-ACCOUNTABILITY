@@ -96,6 +96,11 @@ export default async function ManagerPage() {
                           <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
                             Tag {repairOrder.tag || "N/A"}
                           </span>
+                          {repairOrder.contactState?.hasRentalCar ? (
+                            <span className="inline-flex size-8 animate-pulse items-center justify-center rounded-lg border border-rose-700 bg-rose-600 text-xs font-bold uppercase tracking-[0.18em] text-white">
+                              RC
+                            </span>
+                          ) : null}
                         </div>
                         <p className="mt-3 text-lg font-semibold text-slate-950">
                           {repairOrder.customerName} · {repairOrder.year} {repairOrder.model}
@@ -228,6 +233,7 @@ export default async function ManagerPage() {
             contactState: repairOrder.contactState
               ? {
                   contacted: repairOrder.contactState.contacted,
+                  hasRentalCar: repairOrder.contactState.hasRentalCar,
                   customerNotes: repairOrder.contactState.customerNotes,
                 }
               : null,

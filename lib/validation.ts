@@ -107,6 +107,9 @@ export const contactFormSchema = z.object({
   contacted: z.union([z.literal("on"), z.literal("true"), z.literal("false")]).transform((value) =>
     value === "on" || value === "true",
   ),
+  hasRentalCar: z.union([z.literal("on"), z.literal("true"), z.literal("false")]).transform((value) =>
+    value === "on" || value === "true",
+  ),
   customerNotes: optionalString.pipe(z.string().trim().max(2000).optional()),
 });
 

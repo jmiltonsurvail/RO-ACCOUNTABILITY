@@ -10,11 +10,13 @@ const initialState: ActionState = {};
 export function InlineContactEditor({
   contacted,
   customerNotes,
+  hasRentalCar,
   phone,
   roNumber,
 }: {
   contacted: boolean;
   customerNotes: string | null;
+  hasRentalCar: boolean;
   phone: string | null;
   roNumber: number;
 }) {
@@ -40,6 +42,16 @@ export function InlineContactEditor({
           type="checkbox"
         />
         Customer contacted
+      </label>
+
+      <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-800">
+        <input
+          className="size-4 rounded border-slate-300"
+          defaultChecked={hasRentalCar}
+          name="hasRentalCar"
+          type="checkbox"
+        />
+        Rental car on RO
       </label>
 
       <label className="block">

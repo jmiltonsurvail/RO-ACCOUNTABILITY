@@ -151,6 +151,7 @@ model ContactState {
   repairOrderId String      @unique
   repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
   contacted     Boolean     @default(false)
+  hasRentalCar  Boolean     @default(false)
   contactedAt   DateTime?
   customerNotes String?
   advisorUserId String?

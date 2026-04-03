@@ -14,6 +14,7 @@ type DispatcherOrder = {
   } | null;
   contactState: {
     contacted: boolean;
+    hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
   customerName: string;

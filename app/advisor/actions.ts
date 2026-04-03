@@ -19,6 +19,7 @@ export async function updateContactAction(
   const session = await requireRole([Role.ADVISOR, Role.DISPATCHER, Role.MANAGER]);
   const parsed = contactFormSchema.safeParse({
     contacted: formData.get("contacted") ?? "false",
+    hasRentalCar: formData.get("hasRentalCar") ?? "false",
     customerNotes: formData.get("customerNotes"),
     roNumber: formData.get("roNumber"),
   });
@@ -60,12 +61,14 @@ export async function updateContactAction(
         advisorUserId: session.user.id,
         contacted: parsed.data.contacted,
         contactedAt: parsed.data.contacted ? new Date() : null,
+        hasRentalCar: parsed.data.hasRentalCar,
         customerNotes: parsed.data.customerNotes || null,
       },
       create: {
         advisorUserId: session.user.id,
         contacted: parsed.data.contacted,
         contactedAt: parsed.data.contacted ? new Date() : null,
+        hasRentalCar: parsed.data.hasRentalCar,
         customerNotes: parsed.data.customerNotes || null,
         repairOrderId: repairOrder.id,
       },
@@ -80,6 +83,7 @@ export async function updateContactAction(
           actorRole: session.user.role,
           contacted: parsed.data.contacted,
           customerNotes: parsed.data.customerNotes || null,
+          hasRentalCar: parsed.data.hasRentalCar,
         } satisfies Prisma.InputJsonValue,
         repairOrderId: repairOrder.id,
         type: ActivityType.CONTACT_UPDATED,
