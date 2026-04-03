@@ -42,6 +42,7 @@ export default async function DispatcherPage() {
           promisedAtNormalized: repairOrder.promisedAtNormalized?.toISOString() ?? null,
           promisedRaw: repairOrder.promisedRaw,
           roNumber: repairOrder.roNumber,
+          tag: repairOrder.tag,
           techName: repairOrder.techName,
           techNumber: repairOrder.techNumber,
           year: repairOrder.year,

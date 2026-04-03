@@ -23,6 +23,7 @@ type DispatcherOrder = {
   promisedAtNormalized: string | null;
   promisedRaw: string;
   roNumber: number;
+  tag: string | null;
   techName: string | null;
   techNumber: number | null;
   year: number;

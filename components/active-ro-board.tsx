@@ -28,6 +28,7 @@ type ActiveRepairOrder = {
   promisedAtNormalized: string | null;
   promisedRaw: string;
   roNumber: number;
+  tag: string | null;
   techName: string | null;
   techNumber: number | null;
   year: number;
@@ -82,11 +83,13 @@ function hasActiveFilters(input: {
   dueFilter: DueFilter;
   modeFilter: string;
   search: string;
+  tagFilter: string;
   techFilter: string;
 }) {
   return Boolean(
     input.search.trim() ||
       input.asmFilter !== "all" ||
+      input.tagFilter !== "all" ||
       input.modeFilter !== "all" ||
       input.techFilter !== "all" ||
       input.blockerFilter !== "all" ||
@@ -112,6 +115,7 @@ export function ActiveRoBoard({
 }) {
   const [search, setSearch] = useState("");
   const [asmFilter, setAsmFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState("all");
   const [modeFilter, setModeFilter] = useState("all");
   const [techFilter, setTechFilter] = useState("all");
   const [blockerFilter, setBlockerFilter] = useState<BlockerFilter>("all");
@@ -132,6 +136,18 @@ export function ActiveRoBoard({
       Array.from(new Set(repairOrders.map((repairOrder) => repairOrder.mode))).sort((left, right) =>
         left.localeCompare(right),
       ),
+    [repairOrders],
+  );
+
+  const tagOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          repairOrders
+            .map((repairOrder) => repairOrder.tag)
+            .filter((tag): tag is string => Boolean(tag)),
+        ),
+      ).sort((left, right) => left.localeCompare(right)),
     [repairOrders],
   );
 
@@ -158,6 +174,7 @@ export function ActiveRoBoard({
         const contacted = repairOrder.contactState?.contacted ?? false;
         const searchIndex = [
           repairOrder.roNumber,
+          repairOrder.tag ?? "",
           repairOrder.customerName,
           repairOrder.model,
           repairOrder.mode,
@@ -179,6 +196,14 @@ export function ActiveRoBoard({
         }
 
         if (asmFilter !== "all" && String(repairOrder.asmNumber) !== asmFilter) {
+          return false;
+        }
+
+        if (tagFilter === "untagged" && repairOrder.tag !== null) {
+          return false;
+        }
+
+        if (tagFilter !== "all" && tagFilter !== "untagged" && repairOrder.tag !== tagFilter) {
           return false;
         }
 
@@ -267,7 +292,7 @@ export function ActiveRoBoard({
 
         return left.roNumber - right.roNumber;
       });
-  }, [asmFilter, blockerFilter, contactFilter, deferredSearch, dueFilter, modeFilter, repairOrders, techFilter]);
+  }, [asmFilter, blockerFilter, contactFilter, deferredSearch, dueFilter, modeFilter, repairOrders, tagFilter, techFilter]);
 
   const filteredStats = useMemo(() => {
     const now = new Date();
@@ -306,6 +331,7 @@ export function ActiveRoBoard({
   const resetFilters = () => {
     setSearch("");
     setAsmFilter("all");
+    setTagFilter("all");
     setModeFilter("all");
     setTechFilter("all");
     setBlockerFilter("all");
@@ -320,6 +346,7 @@ export function ActiveRoBoard({
     dueFilter,
     modeFilter,
     search,
+    tagFilter,
     techFilter,
   });
 
@@ -335,7 +362,7 @@ export function ActiveRoBoard({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-8">
         <label className="md:col-span-2 xl:col-span-2">
           <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
             Search
@@ -343,7 +370,7 @@ export function ActiveRoBoard({
           <input
             className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-500"
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="RO, customer, model, phone, tech, blocker"
+            placeholder="RO, tag, customer, model, phone, tech, blocker"
             value={search}
           />
         </label>
@@ -361,6 +388,25 @@ export function ActiveRoBoard({
             {asmOptions.map((asmNumber) => (
               <option key={asmNumber} value={String(asmNumber)}>
                 ASM {asmNumber}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Tag
+          </span>
+          <select
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+            onChange={(event) => setTagFilter(event.target.value)}
+            value={tagFilter}
+          >
+            <option value="all">All tags</option>
+            <option value="untagged">No tag</option>
+            {tagOptions.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
               </option>
             ))}
           </select>
@@ -512,6 +558,9 @@ export function ActiveRoBoard({
                         <span className="rounded-full bg-slate-950 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
                           ASM {repairOrder.asmNumber}
                         </span>
+                        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                          Tag {repairOrder.tag || "N/A"}
+                        </span>
                         <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
                           {repairOrder.mode}
                         </span>
@@ -589,6 +638,9 @@ export function ActiveRoBoard({
                       Work Snapshot
                     </p>
                     <div className="mt-3 space-y-2 text-sm text-slate-700">
+                      <p>
+                        Tag: {repairOrder.tag || "N/A"}
+                      </p>
                       <p>
                         Tech:{" "}
                         {repairOrder.techNumber !== null

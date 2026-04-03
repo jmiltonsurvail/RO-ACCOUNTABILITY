@@ -50,6 +50,7 @@ export default async function AdvisorPage() {
                 promisedAtNormalized:
                   repairOrder.promisedAtNormalized?.toISOString() ?? null,
                 roNumber: repairOrder.roNumber,
+                tag: repairOrder.tag,
                 year: repairOrder.year,
               }}
             />

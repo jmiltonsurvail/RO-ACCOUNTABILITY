@@ -93,6 +93,9 @@ export default async function ManagerPage() {
                           <span className="rounded-full bg-slate-950 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
                             ASM {repairOrder.asmNumber}
                           </span>
+                          <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                            Tag {repairOrder.tag || "N/A"}
+                          </span>
                         </div>
                         <p className="mt-3 text-lg font-semibold text-slate-950">
                           {repairOrder.customerName} · {repairOrder.year} {repairOrder.model}
@@ -130,6 +133,9 @@ export default async function ManagerPage() {
                         </p>
                         <p className="mt-2 text-sm leading-6 text-slate-700">
                           {repairOrder.contactState?.customerNotes || "No customer notes."}
+                        </p>
+                        <p className="mt-3 text-sm text-slate-600">
+                          Tag: {repairOrder.tag || "N/A"}
                         </p>
                       </div>
                     </div>
@@ -232,6 +238,7 @@ export default async function ManagerPage() {
             promisedAtNormalized: repairOrder.promisedAtNormalized?.toISOString() ?? null,
             promisedRaw: repairOrder.promisedRaw,
             roNumber: repairOrder.roNumber,
+            tag: repairOrder.tag,
             techName: repairOrder.techName,
             techNumber: repairOrder.techNumber,
             year: repairOrder.year,

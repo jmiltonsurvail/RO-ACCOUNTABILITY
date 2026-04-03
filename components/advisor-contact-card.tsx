@@ -24,6 +24,7 @@ type AdvisorRepairOrder = {
   phone: string | null;
   promisedAtNormalized: string | null;
   roNumber: number;
+  tag: string | null;
   year: number;
 };
 
@@ -58,6 +59,9 @@ export function AdvisorContactCard({
           <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
             RO {repairOrder.roNumber}
           </p>
+          <span className="mt-2 inline-flex rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+            Tag {repairOrder.tag || "N/A"}
+          </span>
           <h2 className="mt-2 text-xl font-semibold text-slate-950">
             {repairOrder.customerName}
           </h2>
