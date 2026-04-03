@@ -30,6 +30,7 @@ export async function createUserAction(
     name: formData.get("name"),
     password: formData.get("password"),
     role: formData.get("role"),
+    techNumber: formData.get("techNumber"),
   });
 
   if (!parsed.success) {
@@ -50,6 +51,7 @@ export async function createUserAction(
         name: parsed.data.name,
         passwordHash,
         role: parsed.data.role,
+        techNumber: parsed.data.techNumber ?? null,
       },
     });
   } catch (error) {
@@ -83,6 +85,7 @@ export async function updateUserAction(
     email: formData.get("email"),
     name: formData.get("name"),
     role: formData.get("role"),
+    techNumber: formData.get("techNumber"),
     userId: formData.get("userId"),
   });
 
@@ -110,6 +113,7 @@ export async function updateUserAction(
         email: parsed.data.email,
         name: parsed.data.name,
         role: parsed.data.role,
+        techNumber: parsed.data.techNumber ?? null,
       },
     });
   } catch (error) {

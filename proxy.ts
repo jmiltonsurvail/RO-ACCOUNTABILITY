@@ -19,7 +19,11 @@ export default withAuth(
       );
     }
 
-    if (pathname.startsWith("/dispatcher") && role !== "DISPATCHER") {
+    if (
+      pathname.startsWith("/dispatcher") &&
+      role !== "DISPATCHER" &&
+      role !== "MANAGER"
+    ) {
       return NextResponse.redirect(
         new URL(resolveDashboardPath(role), request.url),
       );

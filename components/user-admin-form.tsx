@@ -14,6 +14,10 @@ export function UserAdminForm() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<Role>(Role.DISPATCHER);
   const [state, formAction, pending] = useActionState(createUserAction, initialState);
+  const numberLabel = selectedRole === Role.ADVISOR ? "ASM Number" : "Tech Number";
+  const numberPlaceholder = selectedRole === Role.ADVISOR ? "785" : "416";
+  const showAsmField = selectedRole === Role.ADVISOR;
+  const showTechField = selectedRole === Role.TECH;
 
   useEffect(() => {
     if (state.success) {
@@ -24,16 +28,9 @@ export function UserAdminForm() {
   return (
     <form
       action={formAction}
-      className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm"
+      className="grid gap-4"
     >
       <div className="grid gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-950">Add user</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Create logins for dispatchers, advisors, and other managers.
-          </p>
-        </div>
-
         <label className="block">
           <span className="mb-2 block text-sm font-medium text-slate-700">Full name</span>
           <input
@@ -66,20 +63,35 @@ export function UserAdminForm() {
             >
               <option value={Role.DISPATCHER}>Dispatcher</option>
               <option value={Role.ADVISOR}>Advisor</option>
+              <option value={Role.TECH}>Tech</option>
               <option value={Role.MANAGER}>Manager</option>
             </select>
           </label>
 
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-700">
-              ASM Number
+              {showAsmField || showTechField ? numberLabel : "Staff Number"}
             </span>
             <input
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900 disabled:bg-slate-100 disabled:text-slate-400"
-              disabled={selectedRole !== Role.ADVISOR}
+              disabled={!showAsmField}
               name="asmNumber"
-              placeholder={selectedRole === Role.ADVISOR ? "785" : "Not used"}
-              required={selectedRole === Role.ADVISOR}
+              placeholder={showAsmField ? numberPlaceholder : "Not used"}
+              required={showAsmField}
+              type="number"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-slate-700">
+              {showTechField ? numberLabel : "Tech Number"}
+            </span>
+            <input
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900 disabled:bg-slate-100 disabled:text-slate-400"
+              disabled={!showTechField}
+              name="techNumber"
+              placeholder={showTechField ? numberPlaceholder : "Not used"}
+              required={showTechField}
               type="number"
             />
           </label>

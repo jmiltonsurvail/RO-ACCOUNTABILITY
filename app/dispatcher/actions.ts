@@ -27,7 +27,7 @@ export async function saveBlockerAction(
   formData: FormData,
 ): Promise<ActionState> {
   void previousState;
-  const session = await requireRole([Role.DISPATCHER]);
+  const session = await requireRole([Role.DISPATCHER, Role.MANAGER]);
   const parsed = blockerFormSchema.safeParse({
     blockerReason: formData.get("blockerReason"),
     fallbackAsmNumber: formData.get("fallbackAsmNumber"),
@@ -167,6 +167,7 @@ export async function saveBlockerAction(
 
   revalidatePath("/dispatcher");
   revalidatePath("/manager");
+  revalidatePath("/manager/reports");
 
   return { success: `Saved blocker for RO ${parsed.data.roNumber}.` };
 }
@@ -215,6 +216,7 @@ export async function clearBlockerAction(
   revalidatePath("/dispatcher");
   revalidatePath("/manager");
   revalidatePath("/advisor");
+  revalidatePath("/manager/reports");
 
   return { success: `Cleared blocker for RO ${parsed.data.roNumber}.` };
 }

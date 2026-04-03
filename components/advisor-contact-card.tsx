@@ -4,7 +4,7 @@ import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
 import { blockerReasonLabels } from "@/lib/constants";
-import { formatDateTime, hoursSince } from "@/lib/utils";
+import { formatDateTime, formatPhoneHref, hoursSince } from "@/lib/utils";
 
 const initialState: ActionState = {};
 
@@ -21,6 +21,7 @@ type AdvisorRepairOrder = {
   } | null;
   customerName: string;
   model: string;
+  phone: string | null;
   promisedAtNormalized: string | null;
   roNumber: number;
   year: number;
@@ -44,6 +45,7 @@ export function AdvisorContactCard({
   const blockerLabel = blocker
     ? blockerReasonLabels[blocker.blockerReason]
     : "No blocker";
+  const callHref = formatPhoneHref(repairOrder.phone);
 
   return (
     <form
@@ -85,6 +87,7 @@ export function AdvisorContactCard({
               blocker?.techPromisedDate ?? repairOrder.promisedAtNormalized,
             )}
           </p>
+          <p className="mt-1">Phone: {repairOrder.phone || "N/A"}</p>
         </div>
       </div>
       <label className="mt-5 flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-800">
@@ -115,6 +118,18 @@ export function AdvisorContactCard({
         >
           {pending ? "Saving..." : "Save Contact Update"}
         </button>
+        {callHref ? (
+          <a
+            className="rounded-full border border-cyan-300 bg-cyan-50 px-5 py-3 text-sm font-semibold text-cyan-900 transition hover:border-cyan-400 hover:bg-cyan-100"
+            href={callHref}
+          >
+            Call Customer
+          </a>
+        ) : (
+          <span className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-400">
+            No Phone
+          </span>
+        )}
         {state.success ? <p className="text-sm text-emerald-700">{state.success}</p> : null}
         {state.error ? <p className="text-sm text-rose-600">{state.error}</p> : null}
       </div>

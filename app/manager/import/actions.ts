@@ -224,6 +224,7 @@ export async function importXtimeCsvAction(
   }
 
   revalidatePath("/manager");
+  revalidatePath("/manager/reports");
   revalidatePath("/manager/import");
   revalidatePath("/dispatcher");
   revalidatePath("/advisor");

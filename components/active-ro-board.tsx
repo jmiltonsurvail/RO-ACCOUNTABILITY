@@ -3,6 +3,8 @@
 import { type BlockerReason } from "@prisma/client";
 import { useDeferredValue, useMemo, useState } from "react";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
+import { InlineContactEditor } from "@/components/inline-contact-editor";
+import { InlineBlockerEditor } from "@/components/inline-blocker-editor";
 import { blockerReasonLabels } from "@/lib/constants";
 import { cn, formatDateOnly, formatDateTime, hoursSince } from "@/lib/utils";
 
@@ -26,6 +28,8 @@ type ActiveRepairOrder = {
   promisedAtNormalized: string | null;
   promisedRaw: string;
   roNumber: number;
+  techName: string | null;
+  techNumber: number | null;
   year: number;
 };
 
@@ -78,11 +82,13 @@ function hasActiveFilters(input: {
   dueFilter: DueFilter;
   modeFilter: string;
   search: string;
+  techFilter: string;
 }) {
   return Boolean(
     input.search.trim() ||
       input.asmFilter !== "all" ||
       input.modeFilter !== "all" ||
+      input.techFilter !== "all" ||
       input.blockerFilter !== "all" ||
       input.contactFilter !== "all" ||
       input.dueFilter !== "all",
@@ -90,14 +96,16 @@ function hasActiveFilters(input: {
 }
 
 export function ActiveRoBoard({
+  actionMode = "none",
+  contactMode = "none",
   emptyMessage = "No repair orders match the current filters.",
-  onSelectRo,
   repairOrders,
   subtitle,
   title,
 }: {
+  actionMode?: "none" | "edit";
+  contactMode?: "none" | "edit";
   emptyMessage?: string;
-  onSelectRo?: (roNumber: number) => void;
   repairOrders: ActiveRepairOrder[];
   subtitle: string;
   title: string;
@@ -105,6 +113,7 @@ export function ActiveRoBoard({
   const [search, setSearch] = useState("");
   const [asmFilter, setAsmFilter] = useState("all");
   const [modeFilter, setModeFilter] = useState("all");
+  const [techFilter, setTechFilter] = useState("all");
   const [blockerFilter, setBlockerFilter] = useState<BlockerFilter>("all");
   const [contactFilter, setContactFilter] = useState<ContactFilter>("all");
   const [dueFilter, setDueFilter] = useState<DueFilter>("all");
@@ -126,6 +135,18 @@ export function ActiveRoBoard({
     [repairOrders],
   );
 
+  const techOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          repairOrders
+            .map((repairOrder) => repairOrder.techNumber)
+            .filter((techNumber): techNumber is number => techNumber !== null),
+        ),
+      ).sort((left, right) => left - right),
+    [repairOrders],
+  );
+
   const filteredRepairOrders = useMemo(() => {
     const now = new Date();
     const searchQuery = deferredSearch.trim().toLowerCase();
@@ -141,6 +162,10 @@ export function ActiveRoBoard({
           repairOrder.model,
           repairOrder.mode,
           repairOrder.phone ?? "",
+          repairOrder.techName ?? "",
+          repairOrder.techNumber !== null
+            ? `tech ${repairOrder.techNumber}`
+            : "unassigned tech",
           `asm ${repairOrder.asmNumber}`,
           blocked && repairOrder.blockerState
             ? blockerReasonLabels[repairOrder.blockerState.blockerReason]
@@ -159,6 +184,16 @@ export function ActiveRoBoard({
 
         if (modeFilter !== "all" && repairOrder.mode !== modeFilter) {
           return false;
+        }
+
+        if (techFilter === "unassigned" && repairOrder.techNumber !== null) {
+          return false;
+        }
+
+        if (techFilter !== "all" && techFilter !== "unassigned") {
+          if (String(repairOrder.techNumber ?? "") !== techFilter) {
+            return false;
+          }
         }
 
         if (blockerFilter === "blocked" && !blocked) {
@@ -232,7 +267,7 @@ export function ActiveRoBoard({
 
         return left.roNumber - right.roNumber;
       });
-  }, [asmFilter, blockerFilter, contactFilter, deferredSearch, dueFilter, modeFilter, repairOrders]);
+  }, [asmFilter, blockerFilter, contactFilter, deferredSearch, dueFilter, modeFilter, repairOrders, techFilter]);
 
   const filteredStats = useMemo(() => {
     const now = new Date();
@@ -272,6 +307,7 @@ export function ActiveRoBoard({
     setSearch("");
     setAsmFilter("all");
     setModeFilter("all");
+    setTechFilter("all");
     setBlockerFilter("all");
     setContactFilter("all");
     setDueFilter("all");
@@ -284,6 +320,7 @@ export function ActiveRoBoard({
     dueFilter,
     modeFilter,
     search,
+    techFilter,
   });
 
   return (
@@ -298,7 +335,7 @@ export function ActiveRoBoard({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
         <label className="md:col-span-2 xl:col-span-2">
           <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
             Search
@@ -306,7 +343,7 @@ export function ActiveRoBoard({
           <input
             className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-500"
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="RO, customer, model, phone, blocker"
+            placeholder="RO, customer, model, phone, tech, blocker"
             value={search}
           />
         </label>
@@ -342,6 +379,25 @@ export function ActiveRoBoard({
             {modeOptions.map((mode) => (
               <option key={mode} value={mode}>
                 {mode}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Tech
+          </span>
+          <select
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+            onChange={(event) => setTechFilter(event.target.value)}
+            value={techFilter}
+          >
+            <option value="all">All techs</option>
+            <option value="unassigned">Unassigned</option>
+            {techOptions.map((techNumber) => (
+              <option key={techNumber} value={String(techNumber)}>
+                Tech {techNumber}
               </option>
             ))}
           </select>
@@ -459,6 +515,13 @@ export function ActiveRoBoard({
                         <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
                           {repairOrder.mode}
                         </span>
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                          {repairOrder.techNumber !== null
+                            ? `Tech ${repairOrder.techNumber}${
+                                repairOrder.techName ? ` · ${repairOrder.techName}` : ""
+                              }`
+                            : "Tech Unassigned"}
+                        </span>
                         <span
                           className={cn(
                             "rounded-full px-3 py-1 text-xs font-medium",
@@ -495,6 +558,11 @@ export function ActiveRoBoard({
                             ? blockerReasonLabels[blocker.blockerReason]
                             : "No active blocker"}
                         </span>
+                        <span>
+                          {repairOrder.techNumber !== null
+                            ? `Assigned to ${repairOrder.techName ?? `tech ${repairOrder.techNumber}`}`
+                            : "No tech assigned"}
+                        </span>
                         <span>Due {formatDateTime(dueDate)}</span>
                         <span>
                           {blocked && blocker
@@ -515,15 +583,21 @@ export function ActiveRoBoard({
                   </div>
                 </summary>
 
-                <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_0.75fr]">
+                  <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_0.95fr]">
                   <div className="rounded-2xl border border-white/70 bg-white p-4">
                     <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                       Work Snapshot
                     </p>
                     <div className="mt-3 space-y-2 text-sm text-slate-700">
+                      <p>
+                        Tech:{" "}
+                        {repairOrder.techNumber !== null
+                          ? `${repairOrder.techName ?? "Unknown"} · ${repairOrder.techNumber}`
+                          : "Unassigned"}
+                      </p>
                       <p>Phone: {repairOrder.phone || "N/A"}</p>
-                      <p>Promised raw: {repairOrder.promisedRaw}</p>
-                      <p>Normalized due: {formatDateTime(dueDate)}</p>
+                      <p>Promised: {repairOrder.promisedRaw}</p>
+                      <p>Due: {formatDateTime(dueDate)}</p>
                       <p>
                         Blocker started:{" "}
                         {blocked && blocker ? formatDateOnly(blocker.blockerStartedAt) : "N/A"}
@@ -534,10 +608,10 @@ export function ActiveRoBoard({
                   <div className="grid gap-4">
                     <div className="rounded-2xl border border-white/70 bg-white p-4">
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                        Foreman Notes
+                        Notes
                       </p>
                       <p className="mt-2 text-sm leading-6 text-slate-700">
-                        {blocker?.foremanNotes || "No foreman notes entered."}
+                        {blocker?.foremanNotes || "No notes entered."}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-white/70 bg-white p-4">
@@ -555,16 +629,37 @@ export function ActiveRoBoard({
                       Actions
                     </p>
                     <div className="mt-3 grid gap-3">
-                      {onSelectRo ? (
-                        <button
-                          className="rounded-full border border-cyan-200 px-4 py-2 text-sm font-semibold text-cyan-800 transition hover:border-cyan-400 hover:bg-cyan-50"
-                          onClick={() => onSelectRo(repairOrder.roNumber)}
-                          type="button"
-                        >
-                          Load Into Blocker Form
-                        </button>
+                      {actionMode === "edit" ? (
+                        <InlineBlockerEditor
+                          blockerReason={blocker?.blockerReason ?? null}
+                          foremanNotes={blocker?.foremanNotes ?? null}
+                          isBlocked={blocked}
+                          roNumber={repairOrder.roNumber}
+                          techPromisedDate={blocker?.techPromisedDate ?? null}
+                        />
+                      ) : blocked ? (
+                        <ClearBlockerButton roNumber={repairOrder.roNumber} />
+                      ) : (
+                        <p className="text-sm text-slate-500">
+                          Open the dispatcher board to set or edit blockers.
+                        </p>
+                      )}
+
+                      {contactMode === "edit" ? (
+                        <>
+                          <div className="border-t border-slate-200 pt-3">
+                            <p className="mb-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+                              Customer Contact
+                            </p>
+                            <InlineContactEditor
+                              contacted={contacted}
+                              customerNotes={repairOrder.contactState?.customerNotes ?? null}
+                              phone={repairOrder.phone}
+                              roNumber={repairOrder.roNumber}
+                            />
+                          </div>
+                        </>
                       ) : null}
-                      {blocked ? <ClearBlockerButton roNumber={repairOrder.roNumber} /> : null}
                     </div>
                   </div>
                 </div>

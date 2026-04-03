@@ -206,6 +206,7 @@ export default async function ManagerPage() {
 
       <div className="mt-6">
         <ActiveRoBoard
+          contactMode="edit"
           repairOrders={activeRepairOrders.map((repairOrder) => ({
             asmNumber: repairOrder.asmNumber,
             blockerState: repairOrder.blockerState
@@ -231,6 +232,8 @@ export default async function ManagerPage() {
             promisedAtNormalized: repairOrder.promisedAtNormalized?.toISOString() ?? null,
             promisedRaw: repairOrder.promisedRaw,
             roNumber: repairOrder.roNumber,
+            techName: repairOrder.techName,
+            techNumber: repairOrder.techNumber,
             year: repairOrder.year,
           }))}
           subtitle="Use the broader active-RO board to find work by ASM, blocker status, customer-contact readiness, and due timing before drilling into the blocked-only stack above."

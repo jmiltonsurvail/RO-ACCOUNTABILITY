@@ -33,6 +33,10 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        if (user.role === Role.TECH) {
+          return null;
+        }
+
         const passwordMatches = await compare(
           parsed.data.password,
           user.passwordHash,
@@ -88,6 +92,10 @@ export function resolveDashboardPath(role: Role | null | undefined) {
 
   if (role === Role.DISPATCHER) {
     return "/dispatcher";
+  }
+
+  if (role === Role.TECH) {
+    return "/login";
   }
 
   return "/advisor";

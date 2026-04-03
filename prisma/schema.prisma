@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   DISPATCHER
   ADVISOR
+  TECH
   MANAGER
 }
 
@@ -54,6 +55,7 @@ model User {
   passwordHash   String
   role           Role
   asmNumber      Int?
+  techNumber     Int?
   active         Boolean       @default(true)
   imports        ImportBatch[]
   blockerEntries BlockerState[]
@@ -61,6 +63,9 @@ model User {
   activities     ActivityLog[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+
+  @@unique([role, asmNumber])
+  @@unique([role, techNumber])
 }
 
 model ImportBatch {

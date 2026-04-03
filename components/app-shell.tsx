@@ -8,6 +8,7 @@ import { LogoutButton } from "@/components/logout-button";
 type AppShellProps = {
   children: React.ReactNode;
   currentPath: string;
+  fullHeight?: boolean;
   session: Session;
   title: string;
   subtitle: string;
@@ -18,21 +19,35 @@ const navByRole: Record<Role, Array<{ href: string; label: string }>> = {
   DISPATCHER: [{ href: "/dispatcher", label: "Dispatcher" }],
   MANAGER: [
     { href: "/manager", label: "Dashboard" },
+    { href: "/manager/reports", label: "Reports" },
+    { href: "/dispatcher", label: "Dispatcher" },
     { href: "/manager/import", label: "Daily Import" },
     { href: "/manager/users", label: "Users" },
   ],
+  TECH: [],
 };
 
 export function AppShell({
   children,
   currentPath,
+  fullHeight = false,
   session,
   subtitle,
   title,
 }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#071018_0%,#0c1d2f_50%,#f4f7fb_50%,#eef4f8_100%)]">
-      <header className="border-b border-white/10 bg-slate-950/80 px-6 py-5 text-white backdrop-blur">
+    <div
+      className={cn(
+        "bg-[radial-gradient(circle_at_top,#15324b_0%,rgba(21,50,75,0.55)_22%,transparent_45%),linear-gradient(180deg,#071018_0%,#0a1724_38%,#0d1f31_100%)]",
+        fullHeight ? "flex h-dvh min-h-0 flex-col overflow-hidden" : "min-h-screen",
+      )}
+    >
+      <header
+        className={cn(
+          "border-b border-white/10 bg-slate-950/80 px-6 py-5 text-white backdrop-blur",
+          fullHeight && "shrink-0",
+        )}
+      >
         <div className="mx-auto flex max-w-7xl flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">
@@ -75,7 +90,16 @@ export function AppShell({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+      <main
+        className={cn(
+          "mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6",
+          fullHeight
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+            : "py-8",
+        )}
+      >
+        {children}
+      </main>
     </div>
   );
 }

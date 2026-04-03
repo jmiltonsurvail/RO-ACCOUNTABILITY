@@ -78,6 +78,9 @@ From `/opt/ro-accountability/current`:
 ```bash
 npm ci
 npx prisma migrate deploy
+set -a
+source /etc/ro-accountability.env
+set +a
 npm run db:seed
 npm run build:ec2
 ```
@@ -85,6 +88,8 @@ npm run build:ec2
 `npm run build:ec2` produces a runtime bundle in `.deploy/standalone`.
 
 If you only want to seed the manager account once, skip `npm run db:seed` on later deployments.
+
+The important detail is that the seed command must run with the same `SEED_MANAGER_*` values in the shell environment. The app service reads `/etc/ro-accountability.env` through `systemd`, but a manual `npm run db:seed` does not unless you source that file first.
 
 ## 6. Install the systemd service
 
@@ -235,6 +240,10 @@ Then rerun:
 ```bash
 npm ci
 npx prisma migrate deploy
+set -a
+source /etc/ro-accountability.env
+set +a
+npm run db:seed
 npm run build:ec2
 ```
 
@@ -244,6 +253,23 @@ That error is expected on Node 18. `npm@11` requires a newer Node version. Do no
 
 ## Update flow
 
+For a repeatable one-command update on EC2:
+
+```bash
+cd /opt/ro-accountability/current
+npm run deploy:ec2:update
+```
+
+That script will:
+
+- pull the latest `main`
+- run `npm ci`
+- run `npx prisma migrate deploy`
+- build the standalone bundle
+- restart `ro-accountability`
+
+It also loads `/etc/ro-accountability.env` automatically if that file exists.
+
 For a simple manual deployment:
 
 ```bash
@@ -251,6 +277,10 @@ cd /opt/ro-accountability/current
 git pull
 npm ci
 npx prisma migrate deploy
+set -a
+source /etc/ro-accountability.env
+set +a
+npm run db:seed
 npm run build:ec2
 sudo systemctl restart ro-accountability
 ```

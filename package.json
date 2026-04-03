@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:ec2": "npm run build && ./scripts/prepare-standalone.sh",
+    "deploy:ec2:update": "bash ./scripts/deploy-ec2-update.sh",
     "preinstall": "node ./scripts/check-node-version.js",
     "start": "next start",
     "lint": "eslint",

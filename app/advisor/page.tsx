@@ -46,6 +46,7 @@ export default async function AdvisorPage() {
                   : null,
                 customerName: repairOrder.customerName,
                 model: repairOrder.model,
+                phone: repairOrder.phone,
                 promisedAtNormalized:
                   repairOrder.promisedAtNormalized?.toISOString() ?? null,
                 roNumber: repairOrder.roNumber,

@@ -36,6 +36,7 @@ const userRoleShape = z
     email: z.email().trim(),
     name: z.string().trim().min(1).max(120),
     role: z.nativeEnum(Role),
+    techNumber: optionalPositiveInt,
   })
   .superRefine((value, context) => {
     if (value.role === Role.ADVISOR && !value.asmNumber) {
@@ -51,6 +52,22 @@ const userRoleShape = z
         code: "custom",
         message: "Only advisor users should have an ASM number.",
         path: ["asmNumber"],
+      });
+    }
+
+    if (value.role === Role.TECH && !value.techNumber) {
+      context.addIssue({
+        code: "custom",
+        message: "Tech users require a tech number.",
+        path: ["techNumber"],
+      });
+    }
+
+    if (value.role !== Role.TECH && value.techNumber) {
+      context.addIssue({
+        code: "custom",
+        message: "Only tech users should have a tech number.",
+        path: ["techNumber"],
       });
     }
   });
@@ -110,4 +127,5 @@ export const manualUserSchema = z.object({
   email: z.email().trim(),
   role: z.nativeEnum(Role),
   asmNumber: optionalPositiveInt,
+  techNumber: optionalPositiveInt,
 });

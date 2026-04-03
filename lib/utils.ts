@@ -49,3 +49,32 @@ export function parseOptionalInt(value: string | null | undefined) {
   const parsed = Number.parseInt(value.trim(), 10);
   return Number.isNaN(parsed) ? null : parsed;
 }
+
+export function formatPhoneHref(phone: string | null | undefined) {
+  if (!phone) {
+    return null;
+  }
+
+  const normalized = phone.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const hasLeadingPlus = normalized.startsWith("+");
+  const digitsOnly = normalized.replace(/\D/g, "");
+
+  if (!digitsOnly) {
+    return null;
+  }
+
+  if (hasLeadingPlus) {
+    return `tel:+${digitsOnly}`;
+  }
+
+  if (digitsOnly.length === 10) {
+    return `tel:+1${digitsOnly}`;
+  }
+
+  return `tel:${digitsOnly}`;
+}

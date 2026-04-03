@@ -16,7 +16,7 @@ export async function updateContactAction(
   formData: FormData,
 ): Promise<ActionState> {
   void previousState;
-  const session = await requireRole([Role.ADVISOR]);
+  const session = await requireRole([Role.ADVISOR, Role.DISPATCHER, Role.MANAGER]);
   const parsed = contactFormSchema.safeParse({
     contacted: formData.get("contacted") ?? "false",
     customerNotes: formData.get("customerNotes"),
@@ -24,7 +24,7 @@ export async function updateContactAction(
   });
 
   if (!parsed.success) {
-    return { error: "Unable to save the advisor update." };
+    return { error: "Unable to save the contact update." };
   }
 
   const repairOrder = await prisma.repairOrder.findUnique({
@@ -35,9 +35,23 @@ export async function updateContactAction(
     },
   });
 
-  if (!repairOrder || repairOrder.asmNumber !== session.user.asmNumber) {
+  if (!repairOrder) {
+    return { error: "That RO could not be found." };
+  }
+
+  if (
+    session.user.role === Role.ADVISOR &&
+    repairOrder.asmNumber !== session.user.asmNumber
+  ) {
     return { error: "That RO is not assigned to your ASM number." };
   }
+
+  const actorLabel =
+    session.user.role === Role.MANAGER
+      ? "Manager"
+      : session.user.role === Role.DISPATCHER
+        ? "Dispatcher"
+        : "Advisor";
 
   await prisma.$transaction(async (transaction) => {
     await transaction.contactState.upsert({
@@ -60,9 +74,10 @@ export async function updateContactAction(
     await transaction.activityLog.create({
       data: {
         message: parsed.data.contacted
-          ? "Advisor marked customer as contacted."
-          : "Advisor cleared customer contacted status.",
+          ? `${actorLabel} marked customer as contacted.`
+          : `${actorLabel} cleared customer contacted status.`,
         metadata: {
+          actorRole: session.user.role,
           contacted: parsed.data.contacted,
           customerNotes: parsed.data.customerNotes || null,
         } satisfies Prisma.InputJsonValue,
@@ -74,7 +89,9 @@ export async function updateContactAction(
   });
 
   revalidatePath("/advisor");
+  revalidatePath("/dispatcher");
   revalidatePath("/manager");
+  revalidatePath("/manager/reports");
 
   return {
     success: parsed.data.contacted

@@ -5,7 +5,7 @@ import { getServerAuthSession, requireRole } from "@/lib/auth";
 import { getActiveRepairOrders } from "@/lib/data";
 
 export default async function DispatcherPage() {
-  await requireRole([Role.DISPATCHER]);
+  await requireRole([Role.DISPATCHER, Role.MANAGER]);
   const session = await getServerAuthSession();
   const repairOrders = await getActiveRepairOrders();
 
@@ -42,6 +42,8 @@ export default async function DispatcherPage() {
           promisedAtNormalized: repairOrder.promisedAtNormalized?.toISOString() ?? null,
           promisedRaw: repairOrder.promisedRaw,
           roNumber: repairOrder.roNumber,
+          techName: repairOrder.techName,
+          techNumber: repairOrder.techNumber,
           year: repairOrder.year,
         }))}
       />
