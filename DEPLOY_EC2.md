@@ -76,7 +76,7 @@ EOF
 From `/opt/ro-accountability/current`:
 
 ```bash
-npm ci
+npm ci --include=dev
 npx prisma migrate deploy
 set -a
 source /etc/ro-accountability.env
@@ -238,7 +238,7 @@ node -v
 Then rerun:
 
 ```bash
-npm ci
+npm ci --include=dev
 npx prisma migrate deploy
 set -a
 source /etc/ro-accountability.env
@@ -263,7 +263,7 @@ npm run deploy:ec2:update
 That script will:
 
 - pull the latest `main`
-- run `npm ci`
+- run `npm ci --include=dev`
 - run `npx prisma migrate deploy`
 - build the standalone bundle
 - restart `ro-accountability`
@@ -275,7 +275,7 @@ For a simple manual deployment:
 ```bash
 cd /opt/ro-accountability/current
 git pull
-npm ci
+npm ci --include=dev
 npx prisma migrate deploy
 set -a
 source /etc/ro-accountability.env

@@ -20,7 +20,7 @@ echo "Deploying branch: $BRANCH"
 echo "Project root: $ROOT_DIR"
 
 git pull --ff-only origin "$BRANCH"
-npm ci
+npm ci --include=dev
 npx prisma migrate deploy
 npm run build:ec2
 sudo systemctl restart "$SERVICE_NAME"
