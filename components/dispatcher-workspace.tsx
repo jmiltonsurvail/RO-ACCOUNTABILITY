@@ -1,6 +1,6 @@
 "use client";
 
-import { type BlockerReason } from "@prisma/client";
+import { type BlockerReason, type RepairValue } from "@prisma/client";
 import { ActiveRoBoard } from "@/components/active-ro-board";
 
 type DispatcherOrder = {
@@ -23,6 +23,7 @@ type DispatcherOrder = {
   phone: string | null;
   promisedAtNormalized: string | null;
   promisedRaw: string;
+  repairValue: RepairValue | null;
   roNumber: number;
   tag: string | null;
   techName: string | null;
@@ -40,7 +41,7 @@ export function DispatcherWorkspace({
       actionMode="edit"
       contactMode="edit"
       repairOrders={repairOrders}
-      subtitle="Filter the live RO set by ASM, tech, blocker status, contact readiness, and due timing. Expand any RO to set, update, or clear the blocker directly on that job."
+      subtitle=""
       title="All Active ROs"
     />
   );

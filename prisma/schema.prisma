@@ -37,6 +37,12 @@ enum ImportStatus {
   FAILED
 }
 
+enum RepairValue {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 enum ActivityType {
   IMPORT_BATCH_CREATED
   IMPORT_ROW_SYNCED
@@ -100,6 +106,7 @@ model ImportRowError {
 model RepairOrder {
   id                   String        @id @default(cuid())
   roNumber             Int           @unique
+  repairValue          RepairValue?
   tag                  String?
   model                String
   year                 Int

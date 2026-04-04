@@ -1,11 +1,20 @@
 "use client";
 
-import { type BlockerReason } from "@prisma/client";
+import { type BlockerReason, type RepairValue } from "@prisma/client";
 import { useDeferredValue, useMemo, useState } from "react";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
 import { InlineContactEditor } from "@/components/inline-contact-editor";
 import { InlineBlockerEditor } from "@/components/inline-blocker-editor";
-import { blockerReasonLabels } from "@/lib/constants";
+import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
+import {
+  compareRepairOrderUrgency,
+  getRepairOrderDueDate,
+  getRepairOrderUrgencyScore,
+  isRepairOrderAtRisk,
+  isRepairOrderDueToday,
+  isRepairOrderOverdue,
+  needsRepairOrderContact,
+} from "@/lib/repair-order-urgency";
 import { cn, formatDateOnly, formatDateTime, hoursSince } from "@/lib/utils";
 
 type ActiveRepairOrder = {
@@ -28,6 +37,7 @@ type ActiveRepairOrder = {
   phone: string | null;
   promisedAtNormalized: string | null;
   promisedRaw: string;
+  repairValue: RepairValue | null;
   roNumber: number;
   tag: string | null;
   techName: string | null;
@@ -38,33 +48,13 @@ type ActiveRepairOrder = {
 type BlockerFilter = "all" | "blocked" | "unblocked";
 type ContactFilter = "all" | "needs-contact" | "contacted" | "no-record";
 type DueFilter = "all" | "overdue" | "today" | "upcoming" | "missing";
-
-function parseDate(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function getDueDate(repairOrder: ActiveRepairOrder) {
-  return parseDate(
-    repairOrder.blockerState?.techPromisedDate ?? repairOrder.promisedAtNormalized,
-  );
-}
-
-function isDueToday(date: Date | null, now: Date) {
-  if (!date) {
-    return false;
-  }
-
-  return date.toDateString() === now.toDateString() && date >= now;
-}
-
-function isOverdue(date: Date | null, now: Date) {
-  return Boolean(date && date < now);
-}
+type QuickView =
+  | "all"
+  | "urgent"
+  | "overdue"
+  | "needs-contact"
+  | "rental-car"
+  | "high-value";
 
 function isUpcoming(date: Date | null, now: Date) {
   if (!date) {
@@ -77,12 +67,25 @@ function isUpcoming(date: Date | null, now: Date) {
   return date > tomorrow;
 }
 
+function getRepairValueBadgeClasses(value: RepairValue) {
+  if (value === "HIGH") {
+    return "border-rose-700 bg-rose-600 text-white";
+  }
+
+  if (value === "MEDIUM") {
+    return "border-amber-600 bg-amber-500 text-slate-950";
+  }
+
+  return "border-emerald-700 bg-emerald-600 text-white";
+}
+
 function hasActiveFilters(input: {
   asmFilter: string;
   blockerFilter: BlockerFilter;
   contactFilter: ContactFilter;
   dueFilter: DueFilter;
   modeFilter: string;
+  quickView: QuickView;
   search: string;
   tagFilter: string;
   techFilter: string;
@@ -93,6 +96,7 @@ function hasActiveFilters(input: {
       input.tagFilter !== "all" ||
       input.modeFilter !== "all" ||
       input.techFilter !== "all" ||
+      input.quickView !== "all" ||
       input.blockerFilter !== "all" ||
       input.contactFilter !== "all" ||
       input.dueFilter !== "all",
@@ -122,6 +126,7 @@ export function ActiveRoBoard({
   const [blockerFilter, setBlockerFilter] = useState<BlockerFilter>("all");
   const [contactFilter, setContactFilter] = useState<ContactFilter>("all");
   const [dueFilter, setDueFilter] = useState<DueFilter>("all");
+  const [quickView, setQuickView] = useState<QuickView>("all");
   const deferredSearch = useDeferredValue(search);
 
   const asmOptions = useMemo(
@@ -170,7 +175,7 @@ export function ActiveRoBoard({
 
     return repairOrders
       .filter((repairOrder) => {
-        const dueDate = getDueDate(repairOrder);
+        const dueDate = getRepairOrderDueDate(repairOrder);
         const blocked = Boolean(repairOrder.blockerState?.isBlocked);
         const contacted = repairOrder.contactState?.contacted ?? false;
         const searchIndex = [
@@ -180,6 +185,7 @@ export function ActiveRoBoard({
           repairOrder.model,
           repairOrder.mode,
           repairOrder.phone ?? "",
+          repairOrder.repairValue ? repairValueLabels[repairOrder.repairValue] : "",
           repairOrder.techName ?? "",
           repairOrder.techNumber !== null
             ? `tech ${repairOrder.techNumber}`
@@ -242,11 +248,11 @@ export function ActiveRoBoard({
           return false;
         }
 
-        if (dueFilter === "overdue" && !isOverdue(dueDate, now)) {
+        if (dueFilter === "overdue" && !isRepairOrderOverdue(repairOrder, now)) {
           return false;
         }
 
-        if (dueFilter === "today" && !isDueToday(dueDate, now)) {
+        if (dueFilter === "today" && !isRepairOrderDueToday(repairOrder, now)) {
           return false;
         }
 
@@ -258,51 +264,49 @@ export function ActiveRoBoard({
           return false;
         }
 
+        if (quickView === "urgent" && !isRepairOrderAtRisk(repairOrder, now)) {
+          return false;
+        }
+
+        if (quickView === "overdue" && !isRepairOrderOverdue(repairOrder, now)) {
+          return false;
+        }
+
+        if (quickView === "needs-contact" && !needsRepairOrderContact(repairOrder)) {
+          return false;
+        }
+
+        if (quickView === "rental-car" && !repairOrder.contactState?.hasRentalCar) {
+          return false;
+        }
+
+        if (quickView === "high-value" && repairOrder.repairValue !== "HIGH") {
+          return false;
+        }
+
         return true;
       })
-      .sort((left, right) => {
-        const now = new Date();
-        const leftDueDate = getDueDate(left);
-        const rightDueDate = getDueDate(right);
-        const leftBlocked = Boolean(left.blockerState?.isBlocked);
-        const rightBlocked = Boolean(right.blockerState?.isBlocked);
-        const leftNeedsContact = leftBlocked && !left.contactState?.contacted;
-        const rightNeedsContact = rightBlocked && !right.contactState?.contacted;
-        const leftOverdue = isOverdue(leftDueDate, now);
-        const rightOverdue = isOverdue(rightDueDate, now);
-
-        if (leftNeedsContact !== rightNeedsContact) {
-          return leftNeedsContact ? -1 : 1;
-        }
-
-        if (leftOverdue !== rightOverdue) {
-          return leftOverdue ? -1 : 1;
-        }
-
-        if (leftBlocked !== rightBlocked) {
-          return leftBlocked ? -1 : 1;
-        }
-
-        if (leftDueDate && rightDueDate) {
-          return leftDueDate.getTime() - rightDueDate.getTime();
-        }
-
-        if (leftDueDate || rightDueDate) {
-          return leftDueDate ? -1 : 1;
-        }
-
-        return left.roNumber - right.roNumber;
-      });
-  }, [asmFilter, blockerFilter, contactFilter, deferredSearch, dueFilter, modeFilter, repairOrders, tagFilter, techFilter]);
+      .sort((left, right) => compareRepairOrderUrgency(left, right, now));
+  }, [
+    asmFilter,
+    blockerFilter,
+    contactFilter,
+    deferredSearch,
+    dueFilter,
+    modeFilter,
+    quickView,
+    repairOrders,
+    tagFilter,
+    techFilter,
+  ]);
 
   const filteredStats = useMemo(() => {
     const now = new Date();
 
     return filteredRepairOrders.reduce(
       (summary, repairOrder) => {
-        const dueDate = getDueDate(repairOrder);
         const blocked = Boolean(repairOrder.blockerState?.isBlocked);
-        const needsContact = blocked && !repairOrder.contactState?.contacted;
+        const needsContact = needsRepairOrderContact(repairOrder);
 
         summary.visible += 1;
 
@@ -310,7 +314,7 @@ export function ActiveRoBoard({
           summary.blocked += 1;
         }
 
-        if (isOverdue(dueDate, now)) {
+        if (isRepairOrderOverdue(repairOrder, now)) {
           summary.overdue += 1;
         }
 
@@ -318,12 +322,27 @@ export function ActiveRoBoard({
           summary.needsContact += 1;
         }
 
+        if (repairOrder.contactState?.hasRentalCar) {
+          summary.rentalCar += 1;
+        }
+
+        if (repairOrder.repairValue === "HIGH") {
+          summary.highValue += 1;
+        }
+
+        if (isRepairOrderAtRisk(repairOrder, now)) {
+          summary.urgent += 1;
+        }
+
         return summary;
       },
       {
         blocked: 0,
+        highValue: 0,
         needsContact: 0,
         overdue: 0,
+        rentalCar: 0,
+        urgent: 0,
         visible: 0,
       },
     );
@@ -338,6 +357,7 @@ export function ActiveRoBoard({
     setBlockerFilter("all");
     setContactFilter("all");
     setDueFilter("all");
+    setQuickView("all");
   };
 
   const filtersAreActive = hasActiveFilters({
@@ -346,178 +366,236 @@ export function ActiveRoBoard({
     contactFilter,
     dueFilter,
     modeFilter,
+    quickView,
     search,
     tagFilter,
     techFilter,
   });
 
+  const quickViewCards = [
+    {
+      description: "Overdue, no-contact, rental-car, and high-value work",
+      label: "Needs Action",
+      tone: "bg-slate-950 text-white",
+      value: filteredStats.urgent,
+      view: "urgent" as const,
+    },
+    {
+      description: "Blocked and still waiting on advisor outreach",
+      label: "Needs Contact",
+      tone: "bg-amber-100 text-amber-900",
+      value: filteredStats.needsContact,
+      view: "needs-contact" as const,
+    },
+    {
+      description: "Past the current due promise",
+      label: "Overdue",
+      tone: "bg-rose-100 text-rose-800",
+      value: filteredStats.overdue,
+      view: "overdue" as const,
+    },
+    {
+      description: "Open work with rental-car exposure",
+      label: "Rental Car",
+      tone: "bg-rose-600 text-white",
+      value: filteredStats.rentalCar,
+      view: "rental-car" as const,
+    },
+    {
+      description: "High-value repair decisions",
+      label: "High Value",
+      tone: "bg-cyan-100 text-cyan-900",
+      value: filteredStats.highValue,
+      view: "high-value" as const,
+    },
+  ];
+
   return (
     <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
-          <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
+      <div className="sticky top-4 z-20 rounded-[1.5rem] border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur">
+        <div className="grid gap-4 xl:grid-cols-[minmax(20rem,28rem)_minmax(0,1fr)_auto] xl:items-start">
+          <label className="block">
+            <input
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-500"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="RO, tag, customer, model, phone, tech, blocker"
+              value={search}
+            />
+          </label>
+          <div>
+            <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
+            <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
+          </div>
+          <div className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">
+            Showing {filteredRepairOrders.length} of {repairOrders.length}
+          </div>
         </div>
-        <div className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">
-          Showing {filteredRepairOrders.length} of {repairOrders.length}
-        </div>
-      </div>
 
-      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-8">
-        <label className="md:col-span-2 xl:col-span-2">
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Search
-          </span>
-          <input
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-500"
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="RO, tag, customer, model, phone, tech, blocker"
-            value={search}
-          />
-        </label>
-
-        <label>
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            ASM
-          </span>
-          <select
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-            onChange={(event) => setAsmFilter(event.target.value)}
-            value={asmFilter}
-          >
-            <option value="all">All ASMs</option>
-            {asmOptions.map((asmNumber) => (
-              <option key={asmNumber} value={String(asmNumber)}>
-                ASM {asmNumber}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Tag
-          </span>
-          <select
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-            onChange={(event) => setTagFilter(event.target.value)}
-            value={tagFilter}
-          >
-            <option value="all">All tags</option>
-            <option value="untagged">No tag</option>
-            {tagOptions.map((tag) => (
-              <option key={tag} value={tag}>
-                {tag}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Mode
-          </span>
-          <select
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-            onChange={(event) => setModeFilter(event.target.value)}
-            value={modeFilter}
-          >
-            <option value="all">All modes</option>
-            {modeOptions.map((mode) => (
-              <option key={mode} value={mode}>
-                {mode}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Tech
-          </span>
-          <select
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-            onChange={(event) => setTechFilter(event.target.value)}
-            value={techFilter}
-          >
-            <option value="all">All techs</option>
-            <option value="unassigned">Unassigned</option>
-            {techOptions.map((techNumber) => (
-              <option key={techNumber} value={String(techNumber)}>
-                Tech {techNumber}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Blocker
-          </span>
-          <select
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-            onChange={(event) => setBlockerFilter(event.target.value as BlockerFilter)}
-            value={blockerFilter}
-          >
-            <option value="all">All statuses</option>
-            <option value="blocked">Blocked</option>
-            <option value="unblocked">Unblocked</option>
-          </select>
-        </label>
-
-        <label>
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Action lane
-          </span>
-          <select
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-            onChange={(event) => {
-              const value = event.target.value;
-
-              if (value === "needs-contact" || value === "contacted" || value === "no-record") {
-                setDueFilter("all");
-                setContactFilter(value);
-                return;
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+          {quickViewCards.map((card) => (
+            <button
+              key={card.label}
+              className={cn(
+                "group relative rounded-[1rem] border px-3 py-2 text-left transition",
+                card.tone,
+                quickView === card.view
+                  ? "ring-2 ring-cyan-500 ring-offset-2"
+                  : "border-transparent hover:border-slate-300",
+              )}
+              onClick={() =>
+                setQuickView((current) => (current === card.view ? "all" : card.view))
               }
+              title={card.description}
+              type="button"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75">
+                  {card.label}
+                </p>
+                <p className="text-2xl font-semibold leading-none">{card.value}</p>
+              </div>
+              <span className="pointer-events-none absolute left-0 top-full z-30 hidden w-56 rounded-2xl bg-slate-950 px-3 py-2 text-xs font-medium normal-case tracking-normal text-white shadow-xl group-hover:block group-focus-visible:block">
+                {card.description}
+              </span>
+            </button>
+          ))}
+        </div>
 
-              setContactFilter("all");
-              setDueFilter(value as DueFilter);
-            }}
-            value={contactFilter !== "all" ? contactFilter : dueFilter}
-          >
-            <option value="all">All action lanes</option>
-            <option value="needs-contact">Needs customer contact</option>
-            <option value="contacted">Customer contacted</option>
-            <option value="no-record">No contact record</option>
-            <option value="overdue">Overdue due date</option>
-            <option value="today">Due later today</option>
-            <option value="upcoming">Due after today</option>
-            <option value="missing">Missing due date</option>
-          </select>
-        </label>
-      </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+          <label>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              ASM
+            </span>
+            <select
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+              onChange={(event) => setAsmFilter(event.target.value)}
+              value={asmFilter}
+            >
+              <option value="all">All ASMs</option>
+              {asmOptions.map((asmNumber) => (
+                <option key={asmNumber} value={String(asmNumber)}>
+                  ASM {asmNumber}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <div className="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700">
-          Visible: <span className="font-semibold text-slate-950">{filteredStats.visible}</span>
+          <label>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Tag
+            </span>
+            <select
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+              onChange={(event) => setTagFilter(event.target.value)}
+              value={tagFilter}
+            >
+              <option value="all">All tags</option>
+              <option value="untagged">No tag</option>
+              {tagOptions.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Mode
+            </span>
+            <select
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+              onChange={(event) => setModeFilter(event.target.value)}
+              value={modeFilter}
+            >
+              <option value="all">All modes</option>
+              {modeOptions.map((mode) => (
+                <option key={mode} value={mode}>
+                  {mode}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Tech
+            </span>
+            <select
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+              onChange={(event) => setTechFilter(event.target.value)}
+              value={techFilter}
+            >
+              <option value="all">All techs</option>
+              <option value="unassigned">Unassigned</option>
+              {techOptions.map((techNumber) => (
+                <option key={techNumber} value={String(techNumber)}>
+                  Tech {techNumber}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Blocker
+            </span>
+            <select
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+              onChange={(event) => setBlockerFilter(event.target.value as BlockerFilter)}
+              value={blockerFilter}
+            >
+              <option value="all">All statuses</option>
+              <option value="blocked">Blocked</option>
+              <option value="unblocked">Unblocked</option>
+            </select>
+          </label>
+
+          <label>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Action lane
+            </span>
+            <select
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+              onChange={(event) => {
+                const value = event.target.value;
+
+                if (value === "needs-contact" || value === "contacted" || value === "no-record") {
+                  setDueFilter("all");
+                  setContactFilter(value);
+                  return;
+                }
+
+                setContactFilter("all");
+                setDueFilter(value as DueFilter);
+              }}
+              value={contactFilter !== "all" ? contactFilter : dueFilter}
+            >
+              <option value="all">All action lanes</option>
+              <option value="needs-contact">Needs customer contact</option>
+              <option value="contacted">Customer contacted</option>
+              <option value="no-record">No contact record</option>
+              <option value="overdue">Overdue due date</option>
+              <option value="today">Due later today</option>
+              <option value="upcoming">Due after today</option>
+              <option value="missing">Missing due date</option>
+            </select>
+          </label>
+
+          <div className="flex flex-col justify-end">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-transparent">
+              Reset
+            </span>
+            <button
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-cyan-400 hover:text-slate-950 disabled:opacity-50"
+              disabled={!filtersAreActive}
+              onClick={resetFilters}
+              type="button"
+            >
+              Reset Filters
+            </button>
+          </div>
         </div>
-        <div className="rounded-full bg-amber-100 px-4 py-2 text-sm text-amber-900">
-          Blocked: <span className="font-semibold">{filteredStats.blocked}</span>
-        </div>
-        <div className="rounded-full bg-rose-100 px-4 py-2 text-sm text-rose-800">
-          Overdue: <span className="font-semibold">{filteredStats.overdue}</span>
-        </div>
-        <div className="rounded-full bg-cyan-100 px-4 py-2 text-sm text-cyan-900">
-          Needs contact: <span className="font-semibold">{filteredStats.needsContact}</span>
-        </div>
-        <button
-          className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-cyan-400 hover:text-slate-950 disabled:opacity-50"
-          disabled={!filtersAreActive}
-          onClick={resetFilters}
-          type="button"
-        >
-          Reset filters
-        </button>
       </div>
 
       <div className="mt-6 max-h-[56rem] space-y-4 overflow-y-auto pr-1">
@@ -528,13 +606,18 @@ export function ActiveRoBoard({
         ) : (
           filteredRepairOrders.map((repairOrder) => {
             const blocker = repairOrder.blockerState;
-            const dueDate = getDueDate(repairOrder);
+            const dueDate = getRepairOrderDueDate(repairOrder);
             const blocked = Boolean(blocker?.isBlocked);
             const contacted = repairOrder.contactState?.contacted ?? false;
             const hasRentalCar = repairOrder.contactState?.hasRentalCar ?? false;
-            const needsContact = blocked && !contacted;
-            const overdue = isOverdue(dueDate, new Date());
-            const dueToday = isDueToday(dueDate, new Date());
+            const repairValueLabel = repairOrder.repairValue
+              ? repairValueLabels[repairOrder.repairValue]
+              : null;
+            const now = new Date();
+            const needsContact = needsRepairOrderContact(repairOrder);
+            const overdue = isRepairOrderOverdue(repairOrder, now);
+            const dueToday = isRepairOrderDueToday(repairOrder, now);
+            const urgencyScore = getRepairOrderUrgencyScore(repairOrder, now);
 
             return (
               <details
@@ -554,22 +637,8 @@ export function ActiveRoBoard({
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-600">
+                        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white">
                           RO {repairOrder.roNumber}
-                        </p>
-                        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
-                          ASM {repairOrder.asmNumber}
-                        </span>
-                        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
-                          Tag {repairOrder.tag || "N/A"}
-                        </span>
-                        {hasRentalCar ? (
-                          <span className="inline-flex size-8 animate-pulse items-center justify-center rounded-lg border border-rose-700 bg-rose-600 text-xs font-bold uppercase tracking-[0.18em] text-white">
-                            RC
-                          </span>
-                        ) : null}
-                        <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
-                          {repairOrder.mode}
                         </span>
                         <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
                           {repairOrder.techNumber !== null
@@ -578,15 +647,16 @@ export function ActiveRoBoard({
                               }`
                             : "Tech Unassigned"}
                         </span>
-                        <span
-                          className={cn(
-                            "rounded-full px-3 py-1 text-xs font-medium",
-                            blocked
-                              ? "bg-amber-100 text-amber-900"
-                              : "bg-emerald-100 text-emerald-800",
-                          )}
-                        >
-                          {blocked ? "Blocked" : "Unblocked"}
+                        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                          Tag {repairOrder.tag || "N/A"}
+                        </span>
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                          {repairOrder.mode}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
+                          ASM {repairOrder.asmNumber}
                         </span>
                         <span
                           className={cn(
@@ -604,11 +674,27 @@ export function ActiveRoBoard({
                               ? "Contacted"
                               : "No Contact Record"}
                         </span>
+                        {repairValueLabel ? (
+                          <span
+                            className={cn(
+                              "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]",
+                              getRepairValueBadgeClasses(repairOrder.repairValue!),
+                            )}
+                          >
+                            Repair Value {repairValueLabel}
+                          </span>
+                        ) : null}
+                        {hasRentalCar ? (
+                          <span className="inline-flex animate-pulse items-center justify-center rounded-full border border-rose-700 bg-rose-600 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-white">
+                            Rental Car
+                          </span>
+                        ) : null}
                       </div>
                       <p className="mt-3 text-lg font-semibold text-slate-950">
                         {repairOrder.customerName} · {repairOrder.year} {repairOrder.model}
                       </p>
                       <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
+                        <span className="font-medium text-slate-950">Priority {urgencyScore}</span>
                         <span>
                           {blocked && blocker
                             ? blockerReasonLabels[blocker.blockerReason]
@@ -645,6 +731,9 @@ export function ActiveRoBoard({
                       Work Snapshot
                     </p>
                     <div className="mt-3 space-y-2 text-sm text-slate-700">
+                      <p>
+                        Repair value: {repairValueLabel || "Not set"}
+                      </p>
                       <p>
                         Tag: {repairOrder.tag || "N/A"}
                       </p>
@@ -715,6 +804,7 @@ export function ActiveRoBoard({
                               customerNotes={repairOrder.contactState?.customerNotes ?? null}
                               hasRentalCar={hasRentalCar}
                               phone={repairOrder.phone}
+                              repairValue={repairOrder.repairValue}
                               roNumber={repairOrder.roNumber}
                             />
                           </div>

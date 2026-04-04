@@ -1,6 +1,11 @@
 import { ActivityType, Prisma, Role } from "@prisma/client";
 import { differenceInHours } from "date-fns";
 import { prisma } from "@/lib/prisma";
+import {
+  compareRepairOrderUrgency,
+  getRepairOrderBlockedHours,
+  isRepairOrderOverdue,
+} from "@/lib/repair-order-urgency";
 
 const roCardInclude = {
   blockerState: true,
@@ -51,21 +56,6 @@ function formatReportUserLabel(input: {
   return input.name?.trim() || input.email || input.fallback;
 }
 
-function getRepairOrderDueDate(repairOrder: {
-  blockerState: { isBlocked: boolean; techPromisedDate: Date | null } | null;
-  promisedAtNormalized: Date | null;
-}) {
-  return repairOrder.blockerState?.techPromisedDate ?? repairOrder.promisedAtNormalized;
-}
-
-function isRepairOrderOverdue(repairOrder: {
-  blockerState: { isBlocked: boolean; techPromisedDate: Date | null } | null;
-  promisedAtNormalized: Date | null;
-}) {
-  const dueDate = getRepairOrderDueDate(repairOrder);
-  return Boolean(dueDate && dueDate < new Date());
-}
-
 export function normalizeManagerReportRange(
   range: string | null | undefined,
 ): ManagerReportRange {
@@ -87,11 +77,11 @@ export async function getActiveRepairOrders() {
     include: activeRepairOrderBoardInclude,
   });
 
-  return repairOrders;
+  return repairOrders.sort((left, right) => compareRepairOrderUrgency(left, right));
 }
 
 export async function getAdvisorBoard(asmNumber: number) {
-  return prisma.repairOrder.findMany({
+  const repairOrders = await prisma.repairOrder.findMany({
     where: {
       asmNumber,
       isActive: true,
@@ -99,16 +89,11 @@ export async function getAdvisorBoard(asmNumber: number) {
         isBlocked: true,
       },
     },
-    orderBy: [
-      {
-        blockerState: {
-          blockerStartedAt: "desc",
-        },
-      },
-      { roNumber: "asc" },
-    ],
+    orderBy: [{ roNumber: "asc" }],
     include: roCardInclude,
   });
+
+  return repairOrders.sort((left, right) => compareRepairOrderUrgency(left, right));
 }
 
 export async function getManagerDashboardData() {
@@ -195,12 +180,8 @@ export async function getManagerDashboardData() {
 
   const board = blockedRepairOrders
     .map((repairOrder) => {
-      const blocker = repairOrder.blockerState;
-      const hoursBlocked = blocker
-        ? differenceInHours(new Date(), blocker.blockerStartedAt)
-        : 0;
-      const promisedDate = blocker?.techPromisedDate ?? repairOrder.promisedAtNormalized;
-      const isOverdue = Boolean(promisedDate && promisedDate < new Date());
+      const hoursBlocked = getRepairOrderBlockedHours(repairOrder);
+      const isOverdue = isRepairOrderOverdue(repairOrder);
       const contacted = repairOrder.contactState?.contacted ?? false;
 
       return {
@@ -211,15 +192,7 @@ export async function getManagerDashboardData() {
       };
     })
     .sort((left, right) => {
-      if (left.contacted !== right.contacted) {
-        return left.contacted ? 1 : -1;
-      }
-
-      if (left.isOverdue !== right.isOverdue) {
-        return left.isOverdue ? -1 : 1;
-      }
-
-      return right.hoursBlocked - left.hoursBlocked;
+      return compareRepairOrderUrgency(left, right);
     });
 
   return {

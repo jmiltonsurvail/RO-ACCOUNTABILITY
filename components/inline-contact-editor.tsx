@@ -1,8 +1,10 @@
 "use client";
 
+import { type RepairValue } from "@prisma/client";
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
+import { repairValueOptions } from "@/lib/constants";
 import { formatPhoneHref } from "@/lib/utils";
 
 const initialState: ActionState = {};
@@ -12,12 +14,14 @@ export function InlineContactEditor({
   customerNotes,
   hasRentalCar,
   phone,
+  repairValue,
   roNumber,
 }: {
   contacted: boolean;
   customerNotes: string | null;
   hasRentalCar: boolean;
   phone: string | null;
+  repairValue: RepairValue | null;
   roNumber: number;
 }) {
   const router = useRouter();
@@ -52,6 +56,24 @@ export function InlineContactEditor({
           type="checkbox"
         />
         Rental car on RO
+      </label>
+
+      <label className="block">
+        <span className="mb-2 block text-xs uppercase tracking-[0.18em] text-slate-400">
+          Repair Value
+        </span>
+        <select
+          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+          defaultValue={repairValue ?? ""}
+          name="repairValue"
+        >
+          <option value="">Not set</option>
+          {repairValueOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </label>
 
       <label className="block">

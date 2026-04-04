@@ -4,9 +4,21 @@ import { ActivityTimeline } from "@/components/activity-timeline";
 import { AppShell } from "@/components/app-shell";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
 import { getServerAuthSession, requireRole } from "@/lib/auth";
-import { blockerReasonLabels } from "@/lib/constants";
+import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
 import { getActiveRepairOrders, getManagerDashboardData } from "@/lib/data";
 import { formatDateTime } from "@/lib/utils";
+
+function getRepairValueBadgeClasses(value: "HIGH" | "MEDIUM" | "LOW") {
+  if (value === "HIGH") {
+    return "border-rose-700 bg-rose-600 text-white";
+  }
+
+  if (value === "MEDIUM") {
+    return "border-amber-600 bg-amber-500 text-slate-950";
+  }
+
+  return "border-emerald-700 bg-emerald-600 text-white";
+}
 
 export default async function ManagerPage() {
   await requireRole([Role.MANAGER]);
@@ -86,19 +98,49 @@ export default async function ManagerPage() {
                   <summary className="cursor-pointer list-none">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <p className="text-sm uppercase tracking-[0.2em] text-slate-500">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white">
                             RO {repairOrder.roNumber}
-                          </p>
-                          <span className="rounded-full bg-slate-950 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
-                            ASM {repairOrder.asmNumber}
+                          </span>
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                            {repairOrder.techNumber !== null
+                              ? `Tech ${repairOrder.techNumber}${
+                                  repairOrder.techName ? ` · ${repairOrder.techName}` : ""
+                                }`
+                              : "Tech Unassigned"}
                           </span>
                           <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
                             Tag {repairOrder.tag || "N/A"}
                           </span>
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                            {repairOrder.mode}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-slate-950 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
+                            ASM {repairOrder.asmNumber}
+                          </span>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-medium ${
+                              repairOrder.contacted
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {repairOrder.contacted
+                              ? "Contact Record Contacted"
+                              : "Contact Record No Contact"}
+                          </span>
+                          {repairOrder.repairValue ? (
+                            <span
+                              className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${getRepairValueBadgeClasses(repairOrder.repairValue)}`}
+                            >
+                              Repair Value {repairValueLabels[repairOrder.repairValue]}
+                            </span>
+                          ) : null}
                           {repairOrder.contactState?.hasRentalCar ? (
-                            <span className="inline-flex size-8 animate-pulse items-center justify-center rounded-lg border border-rose-700 bg-rose-600 text-xs font-bold uppercase tracking-[0.18em] text-white">
-                              RC
+                            <span className="inline-flex animate-pulse items-center justify-center rounded-full border border-rose-700 bg-rose-600 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-white">
+                              Rental Car
                             </span>
                           ) : null}
                         </div>
@@ -141,6 +183,12 @@ export default async function ManagerPage() {
                         </p>
                         <p className="mt-3 text-sm text-slate-600">
                           Tag: {repairOrder.tag || "N/A"}
+                        </p>
+                        <p className="mt-2 text-sm text-slate-600">
+                          Repair value:{" "}
+                          {repairOrder.repairValue
+                            ? repairValueLabels[repairOrder.repairValue]
+                            : "Not set"}
                         </p>
                       </div>
                     </div>
@@ -243,13 +291,14 @@ export default async function ManagerPage() {
             phone: repairOrder.phone,
             promisedAtNormalized: repairOrder.promisedAtNormalized?.toISOString() ?? null,
             promisedRaw: repairOrder.promisedRaw,
+            repairValue: repairOrder.repairValue,
             roNumber: repairOrder.roNumber,
             tag: repairOrder.tag,
             techName: repairOrder.techName,
             techNumber: repairOrder.techNumber,
             year: repairOrder.year,
           }))}
-          subtitle="Use the broader active-RO board to find work by ASM, blocker status, customer-contact readiness, and due timing before drilling into the blocked-only stack above."
+          subtitle=""
           title="All Active ROs"
         />
       </div>

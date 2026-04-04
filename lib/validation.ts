@@ -1,4 +1,4 @@
-import { BlockerReason, Role } from "@prisma/client";
+import { BlockerReason, RepairValue, Role } from "@prisma/client";
 import { z } from "zod";
 
 const optionalString = z.preprocess(
@@ -110,6 +110,9 @@ export const contactFormSchema = z.object({
   hasRentalCar: z.union([z.literal("on"), z.literal("true"), z.literal("false")]).transform((value) =>
     value === "on" || value === "true",
   ),
+  repairValue: z
+    .union([z.nativeEnum(RepairValue), z.literal("")])
+    .transform((value) => (value === "" ? null : value)),
   customerNotes: optionalString.pipe(z.string().trim().max(2000).optional()),
 });
 

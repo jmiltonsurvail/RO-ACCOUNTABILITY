@@ -20,6 +20,7 @@ export async function updateContactAction(
   const parsed = contactFormSchema.safeParse({
     contacted: formData.get("contacted") ?? "false",
     hasRentalCar: formData.get("hasRentalCar") ?? "false",
+    repairValue: formData.get("repairValue") ?? "",
     customerNotes: formData.get("customerNotes"),
     roNumber: formData.get("roNumber"),
   });
@@ -55,6 +56,13 @@ export async function updateContactAction(
         : "Advisor";
 
   await prisma.$transaction(async (transaction) => {
+    await transaction.repairOrder.update({
+      where: { id: repairOrder.id },
+      data: {
+        repairValue: parsed.data.repairValue,
+      },
+    });
+
     await transaction.contactState.upsert({
       where: { repairOrderId: repairOrder.id },
       update: {
@@ -84,6 +92,7 @@ export async function updateContactAction(
           contacted: parsed.data.contacted,
           customerNotes: parsed.data.customerNotes || null,
           hasRentalCar: parsed.data.hasRentalCar,
+          repairValue: parsed.data.repairValue,
         } satisfies Prisma.InputJsonValue,
         repairOrderId: repairOrder.id,
         type: ActivityType.CONTACT_UPDATED,

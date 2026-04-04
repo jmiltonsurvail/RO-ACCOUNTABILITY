@@ -1,4 +1,4 @@
-import { BlockerReason, Role } from "@prisma/client";
+import { BlockerReason, RepairValue, Role } from "@prisma/client";
 
 export const APP_NAME = "RO Accountability";
 
@@ -62,3 +62,16 @@ export const roleLabels: Record<Role, string> = {
   MANAGER: "Manager",
   TECH: "Tech",
 };
+
+export const repairValueLabels: Record<RepairValue, string> = {
+  HIGH: "High",
+  MEDIUM: "Medium",
+  LOW: "Low",
+};
+
+export const repairValueOptions = Object.entries(repairValueLabels).map(
+  ([value, label]) => ({
+    label,
+    value: value as RepairValue,
+  }),
+);
