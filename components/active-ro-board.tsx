@@ -51,6 +51,7 @@ type DueFilter = "all" | "overdue" | "today" | "upcoming" | "missing";
 type QuickView =
   | "all"
   | "urgent"
+  | "blocked"
   | "overdue"
   | "needs-contact"
   | "rental-car"
@@ -268,6 +269,10 @@ export function ActiveRoBoard({
           return false;
         }
 
+        if (quickView === "blocked" && !blocked) {
+          return false;
+        }
+
         if (quickView === "overdue" && !isRepairOrderOverdue(repairOrder, now)) {
           return false;
         }
@@ -381,9 +386,16 @@ export function ActiveRoBoard({
       view: "urgent" as const,
     },
     {
+      description: "All active repair orders currently blocked",
+      label: "Blocked Open ROs",
+      tone: "bg-amber-100 text-amber-900",
+      value: filteredStats.blocked,
+      view: "blocked" as const,
+    },
+    {
       description: "Blocked and still waiting on advisor outreach",
       label: "Needs Contact",
-      tone: "bg-amber-100 text-amber-900",
+      tone: "bg-orange-100 text-orange-900",
       value: filteredStats.needsContact,
       view: "needs-contact" as const,
     },
@@ -431,12 +443,12 @@ export function ActiveRoBoard({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-4 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
           {quickViewCards.map((card) => (
             <button
               key={card.label}
               className={cn(
-                "group relative rounded-[1rem] border px-3 py-2 text-left transition",
+                "group relative rounded-[0.9rem] border px-2.5 py-2 text-center transition",
                 card.tone,
                 quickView === card.view
                   ? "ring-2 ring-cyan-500 ring-offset-2"
@@ -448,11 +460,11 @@ export function ActiveRoBoard({
               title={card.description}
               type="button"
             >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75">
+              <div className="flex flex-col items-center justify-center gap-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-75">
                   {card.label}
                 </p>
-                <p className="text-2xl font-semibold leading-none">{card.value}</p>
+                <p className="text-xl font-semibold leading-none">{card.value}</p>
               </div>
               <span className="pointer-events-none absolute left-0 top-full z-30 hidden w-56 rounded-2xl bg-slate-950 px-3 py-2 text-xs font-medium normal-case tracking-normal text-white shadow-xl group-hover:block group-focus-visible:block">
                 {card.description}

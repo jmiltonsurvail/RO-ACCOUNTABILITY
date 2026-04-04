@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Role } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
+import { ReportSection } from "@/components/report-section";
 import { getServerAuthSession, requireRole } from "@/lib/auth";
 import {
   getManagerReportsData,
@@ -8,6 +9,15 @@ import {
 } from "@/lib/data";
 import { roleLabels } from "@/lib/constants";
 import { cn, formatDateTime } from "@/lib/utils";
+
+type ReportFocus =
+  | "all"
+  | "active"
+  | "blocked"
+  | "overdue"
+  | "needs-contact"
+  | "blocker-updates"
+  | "contact-updates";
 
 const reportRangeOptions: Array<{ label: string; value: ManagerReportRange }> = [
   { label: "7 Days", value: "7d" },
@@ -33,48 +43,161 @@ function formatHours(value: number | null) {
 }
 
 function SummaryCard({
+  active,
+  href,
   label,
   tone,
   value,
 }: {
+  active: boolean;
+  href: string;
   label: string;
   tone: string;
   value: number;
 }) {
+  const labelClass = tone.includes("text-white")
+    ? "text-white/80"
+    : "text-slate-700";
+  const valueClass = tone.includes("text-white") ? "text-white" : "text-slate-950";
+
   return (
-    <div className={cn("rounded-[1.5rem] p-5 shadow-sm", tone)}>
-      <p className="text-xs uppercase tracking-[0.2em] opacity-80">{label}</p>
-      <p className="mt-4 text-3xl font-semibold">{value}</p>
-    </div>
+    <Link
+      className={cn(
+        "block rounded-[0.9rem] border px-2.5 py-2 text-center shadow-sm transition",
+        tone,
+        active ? "ring-2 ring-cyan-500 ring-offset-2" : "border-transparent hover:border-slate-300",
+      )}
+      href={href}
+    >
+      <div className="flex flex-col items-center justify-center gap-1.5">
+        <p className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]", labelClass)}>
+          {label}
+        </p>
+        <p className={cn("text-xl font-semibold leading-none", valueClass)}>{value}</p>
+      </div>
+    </Link>
   );
 }
 
-function SectionHeader({
-  description,
-  title,
-}: {
-  description: string;
-  title: string;
-}) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
-        <p className="mt-2 text-sm text-slate-500">{description}</p>
-      </div>
-    </div>
-  );
+function normalizeReportFocus(value: string | undefined): ReportFocus {
+  if (
+    value === "active" ||
+    value === "blocked" ||
+    value === "overdue" ||
+    value === "needs-contact" ||
+    value === "blocker-updates" ||
+    value === "contact-updates"
+  ) {
+    return value;
+  }
+
+  return "all";
+}
+
+function buildReportHref(range: ManagerReportRange, focus: ReportFocus) {
+  const params = new URLSearchParams({ range });
+
+  if (focus !== "all") {
+    params.set("focus", focus);
+  }
+
+  return `/manager/reports?${params.toString()}`;
 }
 
 export default async function ManagerReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ focus?: string; range?: string }>;
 }) {
   await requireRole([Role.MANAGER]);
   const session = await getServerAuthSession();
   const params = await searchParams;
   const reports = await getManagerReportsData(params.range);
+  const focus = normalizeReportFocus(params.focus);
+
+  const filteredTechRows = reports.techRows.filter((row) => {
+    if (focus === "all" || focus === "active") {
+      return true;
+    }
+
+    if (focus === "blocked") {
+      return row.blockedCount > 0;
+    }
+
+    if (focus === "overdue") {
+      return row.overdueCount > 0;
+    }
+
+    if (focus === "needs-contact") {
+      return row.needsContactCount > 0;
+    }
+
+    return false;
+  });
+
+  const filteredAdvisorRows = reports.advisorRows.filter((row) => {
+    if (focus === "all" || focus === "active") {
+      return true;
+    }
+
+    if (focus === "blocked") {
+      return row.blockedCount > 0;
+    }
+
+    if (focus === "overdue") {
+      return row.overdueCount > 0;
+    }
+
+    if (focus === "needs-contact") {
+      return row.notContactedBlockedCount > 0;
+    }
+
+    if (focus === "contact-updates") {
+      return row.recentContactUpdates > 0;
+    }
+
+    return false;
+  });
+
+  const filteredDispatcherRows = reports.dispatcherRows.filter((row) => {
+    if (focus === "all" || focus === "active") {
+      return true;
+    }
+
+    if (focus === "blocked") {
+      return row.currentBlockedOwned > 0 || row.blockerUpdates > 0 || row.blockerClears > 0;
+    }
+
+    if (focus === "blocker-updates") {
+      return row.blockerUpdates > 0 || row.blockerClears > 0;
+    }
+
+    if (focus === "contact-updates") {
+      return row.contactUpdates > 0 || row.contactResets > 0;
+    }
+
+    return false;
+  });
+
+  const showTechSection =
+    focus === "all" ||
+    focus === "active" ||
+    focus === "blocked" ||
+    focus === "overdue" ||
+    focus === "needs-contact";
+  const showAdvisorSection =
+    focus === "all" ||
+    focus === "active" ||
+    focus === "blocked" ||
+    focus === "overdue" ||
+    focus === "needs-contact" ||
+    focus === "contact-updates";
+  const showDispatcherSection =
+    focus === "all" ||
+    focus === "active" ||
+    focus === "blocked" ||
+    focus === "blocker-updates" ||
+    focus === "contact-updates";
 
   return (
     <AppShell
@@ -114,48 +237,72 @@ export default async function ManagerReportsPage({
           ))}
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-6 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
           <SummaryCard
-            label="Active ROs"
+            active={focus === "all" || focus === "active"}
+            href={buildReportHref(reports.range, "active")}
+            label="Active"
             tone="bg-slate-950 text-white"
             value={reports.summary.activeRepairOrders}
           />
           <SummaryCard
+            active={focus === "blocked"}
+            href={buildReportHref(reports.range, "blocked")}
             label="Blocked"
             tone="bg-amber-100 text-amber-900"
             value={reports.summary.activeBlocked}
           />
           <SummaryCard
+            active={focus === "overdue"}
+            href={buildReportHref(reports.range, "overdue")}
             label="Overdue"
             tone="bg-rose-100 text-rose-800"
             value={reports.summary.activeOverdue}
           />
           <SummaryCard
+            active={focus === "needs-contact"}
+            href={buildReportHref(reports.range, "needs-contact")}
             label="Needs Contact"
             tone="bg-cyan-100 text-cyan-950"
             value={reports.summary.needsContact}
           />
           <SummaryCard
+            active={focus === "blocker-updates"}
+            href={buildReportHref(reports.range, "blocker-updates")}
             label={`${reports.rangeLabel} Blocker Updates`}
             tone="bg-slate-100 text-slate-900"
             value={reports.summary.periodBlockerUpdates}
           />
           <SummaryCard
+            active={focus === "contact-updates"}
+            href={buildReportHref(reports.range, "contact-updates")}
             label={`${reports.rangeLabel} Contact Updates`}
             tone="bg-emerald-100 text-emerald-900"
             value={reports.summary.periodContactUpdates}
           />
         </div>
+        {focus !== "all" ? (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <p>
+              Showing report rows for <span className="font-semibold">{focus.replace(/-/g, " ")}</span>.
+            </p>
+            <Link
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-cyan-300 hover:text-slate-950"
+              href={buildReportHref(reports.range, "all")}
+            >
+              Clear Filter
+            </Link>
+          </div>
+        ) : null}
       </section>
 
       <div className="mt-6 grid gap-6">
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <SectionHeader
+        {showTechSection ? (
+        <ReportSection
             description="Live workload by technician based on the currently active repair-order set."
             title="Tech Report"
-          />
-
-          <div className="mt-5 overflow-x-auto">
+          >
+          <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm text-slate-700">
               <thead className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 <tr className="border-b border-slate-200">
@@ -168,7 +315,7 @@ export default async function ManagerReportsPage({
                 </tr>
               </thead>
               <tbody>
-                {reports.techRows.map((row) => (
+                {filteredTechRows.map((row) => (
                   <tr className="border-b border-slate-100 last:border-b-0" key={row.key}>
                     <td className="py-3 pr-4">
                       <div>
@@ -187,16 +334,19 @@ export default async function ManagerReportsPage({
                 ))}
               </tbody>
             </table>
+            {filteredTechRows.length === 0 ? (
+              <p className="py-4 text-sm text-slate-500">No tech rows match this filter.</p>
+            ) : null}
           </div>
-        </section>
+        </ReportSection>
+        ) : null}
 
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <SectionHeader
+        {showAdvisorSection ? (
+        <ReportSection
             description="Advisor accountability based on active repair orders and recent contact updates."
             title="Advisor Report"
-          />
-
-          <div className="mt-5 overflow-x-auto">
+          >
+          <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm text-slate-700">
               <thead className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 <tr className="border-b border-slate-200">
@@ -211,7 +361,7 @@ export default async function ManagerReportsPage({
                 </tr>
               </thead>
               <tbody>
-                {reports.advisorRows.map((row) => (
+                {filteredAdvisorRows.map((row) => (
                   <tr className="border-b border-slate-100 last:border-b-0" key={row.asmNumber}>
                     <td className="py-3 pr-4">
                       <div>
@@ -230,16 +380,19 @@ export default async function ManagerReportsPage({
                 ))}
               </tbody>
             </table>
+            {filteredAdvisorRows.length === 0 ? (
+              <p className="py-4 text-sm text-slate-500">No advisor rows match this filter.</p>
+            ) : null}
           </div>
-        </section>
+        </ReportSection>
+        ) : null}
 
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <SectionHeader
+        {showDispatcherSection ? (
+        <ReportSection
             description={`Blocker and contact actions recorded during ${reports.rangeLabel.toLowerCase()}.`}
             title="Dispatcher Report"
-          />
-
-          <div className="mt-5 overflow-x-auto">
+          >
+          <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm text-slate-700">
               <thead className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 <tr className="border-b border-slate-200">
@@ -253,7 +406,7 @@ export default async function ManagerReportsPage({
                 </tr>
               </thead>
               <tbody>
-                {reports.dispatcherRows.map((row) => (
+                {filteredDispatcherRows.map((row) => (
                   <tr className="border-b border-slate-100 last:border-b-0" key={row.userId}>
                     <td className="py-3 pr-4 font-medium text-slate-950">{row.displayName}</td>
                     <td className="py-3 pr-4">{roleLabels[row.role]}</td>
@@ -266,8 +419,12 @@ export default async function ManagerReportsPage({
                 ))}
               </tbody>
             </table>
+            {filteredDispatcherRows.length === 0 ? (
+              <p className="py-4 text-sm text-slate-500">No dispatcher rows match this filter.</p>
+            ) : null}
           </div>
-        </section>
+        </ReportSection>
+        ) : null}
       </div>
     </AppShell>
   );
