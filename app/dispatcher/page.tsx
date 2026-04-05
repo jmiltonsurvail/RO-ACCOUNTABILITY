@@ -18,6 +18,7 @@ export default async function DispatcherPage() {
     >
       <DispatcherWorkspace
         repairOrders={repairOrders.map((repairOrder) => ({
+          advisorName: repairOrder.advisorName,
           asmNumber: repairOrder.asmNumber,
           blockerState: repairOrder.blockerState
             ? {

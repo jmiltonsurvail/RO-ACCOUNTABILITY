@@ -56,6 +56,60 @@ function formatReportUserLabel(input: {
   return input.name?.trim() || input.email || input.fallback;
 }
 
+async function getAdvisorNamesByAsm() {
+  const advisorUsers = await prisma.user.findMany({
+    select: {
+      asmNumber: true,
+      email: true,
+      name: true,
+    },
+    where: {
+      asmNumber: {
+        not: null,
+      },
+      role: Role.ADVISOR,
+    },
+  });
+
+  return new Map(
+    advisorUsers.map((user) => [
+      user.asmNumber as number,
+      formatReportUserLabel({
+        email: user.email,
+        fallback: `ASM ${user.asmNumber}`,
+        name: user.name,
+      }),
+    ]),
+  );
+}
+
+async function getTechNamesByNumber() {
+  const techUsers = await prisma.user.findMany({
+    select: {
+      email: true,
+      name: true,
+      techNumber: true,
+    },
+    where: {
+      role: Role.TECH,
+      techNumber: {
+        not: null,
+      },
+    },
+  });
+
+  return new Map(
+    techUsers.map((user) => [
+      user.techNumber as number,
+      formatReportUserLabel({
+        email: user.email,
+        fallback: `Tech ${user.techNumber}`,
+        name: user.name,
+      }),
+    ]),
+  );
+}
+
 export function normalizeManagerReportRange(
   range: string | null | undefined,
 ): ManagerReportRange {
@@ -71,29 +125,57 @@ export function getManagerReportRangeLabel(range: ManagerReportRange) {
 }
 
 export async function getActiveRepairOrders() {
-  const repairOrders = await prisma.repairOrder.findMany({
-    where: { isActive: true },
-    orderBy: [{ asmNumber: "asc" }, { roNumber: "asc" }],
-    include: activeRepairOrderBoardInclude,
-  });
+  const [repairOrders, advisorNamesByAsm, techNamesByNumber] = await Promise.all([
+    prisma.repairOrder.findMany({
+      where: { isActive: true },
+      orderBy: [{ asmNumber: "asc" }, { roNumber: "asc" }],
+      include: activeRepairOrderBoardInclude,
+    }),
+    getAdvisorNamesByAsm(),
+    getTechNamesByNumber(),
+  ]);
 
-  return repairOrders.sort((left, right) => compareRepairOrderUrgency(left, right));
+  return repairOrders
+    .map((repairOrder) => ({
+      ...repairOrder,
+      advisorName:
+        advisorNamesByAsm.get(repairOrder.asmNumber) ?? repairOrder.advisorName ?? null,
+      techName:
+        repairOrder.techNumber !== null
+          ? techNamesByNumber.get(repairOrder.techNumber) ?? repairOrder.techName ?? null
+          : null,
+    }))
+    .sort((left, right) => compareRepairOrderUrgency(left, right));
 }
 
 export async function getAdvisorBoard(asmNumber: number) {
-  const repairOrders = await prisma.repairOrder.findMany({
-    where: {
-      asmNumber,
-      isActive: true,
-      blockerState: {
-        isBlocked: true,
+  const [repairOrders, advisorNamesByAsm, techNamesByNumber] = await Promise.all([
+    prisma.repairOrder.findMany({
+      where: {
+        asmNumber,
+        isActive: true,
+        blockerState: {
+          isBlocked: true,
+        },
       },
-    },
-    orderBy: [{ roNumber: "asc" }],
-    include: roCardInclude,
-  });
+      orderBy: [{ roNumber: "asc" }],
+      include: roCardInclude,
+    }),
+    getAdvisorNamesByAsm(),
+    getTechNamesByNumber(),
+  ]);
 
-  return repairOrders.sort((left, right) => compareRepairOrderUrgency(left, right));
+  return repairOrders
+    .map((repairOrder) => ({
+      ...repairOrder,
+      advisorName:
+        advisorNamesByAsm.get(repairOrder.asmNumber) ?? repairOrder.advisorName ?? null,
+      techName:
+        repairOrder.techNumber !== null
+          ? techNamesByNumber.get(repairOrder.techNumber) ?? repairOrder.techName ?? null
+          : null,
+    }))
+    .sort((left, right) => compareRepairOrderUrgency(left, right));
 }
 
 export async function getManagerDashboardData() {

@@ -18,6 +18,7 @@ import {
 import { cn, formatDateOnly, formatDateTime, hoursSince } from "@/lib/utils";
 
 type ActiveRepairOrder = {
+  advisorName: string | null;
   asmNumber: number;
   blockerState: {
     blockerReason: BlockerReason;
@@ -104,6 +105,10 @@ function hasActiveFilters(input: {
   );
 }
 
+function getAsmDisplayLabel(input: { advisorName: string | null; asmNumber: number }) {
+  return input.advisorName ? `ASM ${input.asmNumber} · ${input.advisorName}` : `ASM ${input.asmNumber}`;
+}
+
 export function ActiveRoBoard({
   actionMode = "none",
   contactMode = "none",
@@ -132,9 +137,17 @@ export function ActiveRoBoard({
 
   const asmOptions = useMemo(
     () =>
-      Array.from(new Set(repairOrders.map((repairOrder) => repairOrder.asmNumber))).sort(
-        (left, right) => left - right,
-      ),
+      Array.from(
+        new Map(
+          repairOrders.map((repairOrder) => [
+            repairOrder.asmNumber,
+            {
+              advisorName: repairOrder.advisorName,
+              asmNumber: repairOrder.asmNumber,
+            },
+          ]),
+        ).values(),
+      ).sort((left, right) => left.asmNumber - right.asmNumber),
     [repairOrders],
   );
 
@@ -185,6 +198,7 @@ export function ActiveRoBoard({
           repairOrder.customerName,
           repairOrder.model,
           repairOrder.mode,
+          repairOrder.advisorName ?? "",
           repairOrder.phone ?? "",
           repairOrder.repairValue ? repairValueLabels[repairOrder.repairValue] : "",
           repairOrder.techName ?? "",
@@ -485,8 +499,8 @@ export function ActiveRoBoard({
             >
               <option value="all">All ASMs</option>
               {asmOptions.map((asmNumber) => (
-                <option key={asmNumber} value={String(asmNumber)}>
-                  ASM {asmNumber}
+                <option key={asmNumber.asmNumber} value={String(asmNumber.asmNumber)}>
+                  {getAsmDisplayLabel(asmNumber)}
                 </option>
               ))}
             </select>
@@ -668,7 +682,7 @@ export function ActiveRoBoard({
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-slate-950 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
-                          ASM {repairOrder.asmNumber}
+                          {getAsmDisplayLabel(repairOrder)}
                         </span>
                         <span
                           className={cn(

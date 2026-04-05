@@ -26,6 +26,7 @@ export default async function AdvisorPage() {
             : "Aging blocked work";
 
     return {
+      advisorName: repairOrder.advisorName,
       asmNumber: repairOrder.asmNumber,
       blockerState: repairOrder.blockerState
         ? {

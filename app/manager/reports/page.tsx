@@ -366,7 +366,10 @@ export default async function ManagerReportsPage({
                     <td className="py-3 pr-4">
                       <div>
                         <p className="font-medium text-slate-950">{row.advisorName}</p>
-                        <p className="text-xs text-slate-500">ASM {row.asmNumber}</p>
+                        <p className="text-xs text-slate-500">
+                          ASM {row.asmNumber}
+                          {row.advisorName ? ` · ${row.advisorName}` : ""}
+                        </p>
                       </div>
                     </td>
                     <td className="py-3 pr-4">{row.activeAssigned}</td>

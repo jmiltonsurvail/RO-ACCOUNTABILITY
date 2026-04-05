@@ -22,6 +22,7 @@ function getRepairValueBadgeClasses(value: RepairValue) {
 }
 
 type AdvisorRepairOrder = {
+  advisorName: string | null;
   asmNumber: number;
   blockerState: {
     blockerReason: keyof typeof blockerReasonLabels;
@@ -78,6 +79,9 @@ export function AdvisorContactCard({
     repairOrder.techNumber !== null
       ? `Tech ${repairOrder.techNumber}${repairOrder.techName ? ` · ${repairOrder.techName}` : ""}`
       : "Tech Unassigned";
+  const asmLabel = repairOrder.advisorName
+    ? `ASM ${repairOrder.asmNumber} · ${repairOrder.advisorName}`
+    : `ASM ${repairOrder.asmNumber}`;
 
   return (
     <form
@@ -103,7 +107,7 @@ export function AdvisorContactCard({
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-slate-950 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
-              ASM {repairOrder.asmNumber}
+              {asmLabel}
             </span>
             <span
               className={`rounded-full px-3 py-1 text-xs font-medium ${contactRecordTone}`}

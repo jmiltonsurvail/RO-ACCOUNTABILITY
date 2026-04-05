@@ -19,6 +19,7 @@ export default async function ManagerPage() {
         <ActiveRoBoard
           contactMode="edit"
           repairOrders={activeRepairOrders.map((repairOrder) => ({
+            advisorName: repairOrder.advisorName,
             asmNumber: repairOrder.asmNumber,
             blockerState: repairOrder.blockerState
               ? {

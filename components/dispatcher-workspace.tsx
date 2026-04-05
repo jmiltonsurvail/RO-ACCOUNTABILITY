@@ -4,6 +4,7 @@ import { type BlockerReason, type RepairValue } from "@prisma/client";
 import { ActiveRoBoard } from "@/components/active-ro-board";
 
 type DispatcherOrder = {
+  advisorName: string | null;
   asmNumber: number;
   blockerState: {
     blockerReason: BlockerReason;
