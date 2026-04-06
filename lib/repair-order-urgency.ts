@@ -1,4 +1,8 @@
 import { type RepairValue } from "@prisma/client";
+import {
+  defaultSlaSettings,
+  type SlaSettingsValues,
+} from "@/lib/sla-settings";
 
 type MaybeDate = Date | string | null;
 
@@ -24,6 +28,23 @@ function parseDate(value: MaybeDate) {
 
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function resolveUrgencyInputs(
+  settingsOrNow?: Date | SlaSettingsValues,
+  nowInput?: Date,
+) {
+  if (settingsOrNow instanceof Date) {
+    return {
+      now: settingsOrNow,
+      settings: defaultSlaSettings,
+    };
+  }
+
+  return {
+    now: nowInput ?? new Date(),
+    settings: settingsOrNow ?? defaultSlaSettings,
+  };
 }
 
 export function getRepairOrderDueDate(repairOrder: RepairOrderUrgencyInput) {
@@ -74,27 +95,46 @@ export function needsRepairOrderContact(repairOrder: RepairOrderUrgencyInput) {
   return isRepairOrderBlocked(repairOrder) && !repairOrder.contactState?.contacted;
 }
 
+export function isRepairOrderContactPastSla(
+  repairOrder: RepairOrderUrgencyInput,
+  settingsOrNow?: Date | SlaSettingsValues,
+  nowInput?: Date,
+) {
+  const { now, settings } = resolveUrgencyInputs(settingsOrNow, nowInput);
+
+  return (
+    needsRepairOrderContact(repairOrder) &&
+    getRepairOrderBlockedHours(repairOrder, now) >= settings.contactSlaHours
+  );
+}
+
 export function isRepairOrderAtRisk(
   repairOrder: RepairOrderUrgencyInput,
-  now: Date = new Date(),
+  settingsOrNow?: Date | SlaSettingsValues,
+  nowInput?: Date,
 ) {
+  const { now, settings } = resolveUrgencyInputs(settingsOrNow, nowInput);
+
   return Boolean(
     isRepairOrderOverdue(repairOrder, now) ||
-      needsRepairOrderContact(repairOrder) ||
+      isRepairOrderContactPastSla(repairOrder, settings, now) ||
       repairOrder.contactState?.hasRentalCar ||
       repairOrder.repairValue === "HIGH" ||
-      getRepairOrderBlockedHours(repairOrder, now) >= 8,
+      getRepairOrderBlockedHours(repairOrder, now) >= settings.blockedAgingHours
   );
 }
 
 export function getRepairOrderUrgencyScore(
   repairOrder: RepairOrderUrgencyInput,
-  now: Date = new Date(),
+  settingsOrNow?: Date | SlaSettingsValues,
+  nowInput?: Date,
 ) {
+  const { now, settings } = resolveUrgencyInputs(settingsOrNow, nowInput);
   const blocked = isRepairOrderBlocked(repairOrder);
   const overdue = isRepairOrderOverdue(repairOrder, now);
   const dueToday = isRepairOrderDueToday(repairOrder, now);
   const needsContact = needsRepairOrderContact(repairOrder);
+  const contactPastSla = isRepairOrderContactPastSla(repairOrder, settings, now);
   const blockedHours = getRepairOrderBlockedHours(repairOrder, now);
 
   let score = 0;
@@ -104,7 +144,11 @@ export function getRepairOrderUrgencyScore(
   }
 
   if (needsContact) {
-    score += 90;
+    score += 70;
+  }
+
+  if (contactPastSla) {
+    score += 28;
   }
 
   if (repairOrder.contactState?.hasRentalCar) {
@@ -135,7 +179,7 @@ export function getRepairOrderUrgencyScore(
       0,
       Math.round((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60)),
     );
-    score += Math.max(0, 12 - Math.min(hoursUntilDue, 12));
+    score += Math.max(0, settings.dueSoonHours - Math.min(hoursUntilDue, settings.dueSoonHours));
   }
 
   return score;
@@ -144,10 +188,13 @@ export function getRepairOrderUrgencyScore(
 export function compareRepairOrderUrgency(
   left: RepairOrderUrgencyInput,
   right: RepairOrderUrgencyInput,
-  now: Date = new Date(),
+  settingsOrNow?: Date | SlaSettingsValues,
+  nowInput?: Date,
 ) {
+  const { now, settings } = resolveUrgencyInputs(settingsOrNow, nowInput);
   const scoreDifference =
-    getRepairOrderUrgencyScore(right, now) - getRepairOrderUrgencyScore(left, now);
+    getRepairOrderUrgencyScore(right, settings, now) -
+    getRepairOrderUrgencyScore(left, settings, now);
 
   if (scoreDifference !== 0) {
     return scoreDifference;

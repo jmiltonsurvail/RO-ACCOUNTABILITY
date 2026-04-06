@@ -2,6 +2,7 @@
 
 import { type BlockerReason, type RepairValue } from "@prisma/client";
 import { ActiveRoBoard } from "@/components/active-ro-board";
+import { type SlaSettingsValues } from "@/lib/sla-settings";
 
 type DispatcherOrder = {
   advisorName: string | null;
@@ -34,14 +35,17 @@ type DispatcherOrder = {
 
 export function DispatcherWorkspace({
   repairOrders,
+  slaSettings,
 }: {
   repairOrders: DispatcherOrder[];
+  slaSettings: SlaSettingsValues;
 }) {
   return (
     <ActiveRoBoard
       actionMode="edit"
       contactMode="edit"
       repairOrders={repairOrders}
+      slaSettings={slaSettings}
       subtitle=""
       title="All Active ROs"
     />

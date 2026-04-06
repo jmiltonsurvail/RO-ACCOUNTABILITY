@@ -1,4 +1,4 @@
-import { BlockerReason, RepairValue, Role } from "@prisma/client";
+import { AlertTrigger, BlockerReason, RepairValue, Role } from "@prisma/client";
 
 export const APP_NAME = "RO Accountability";
 
@@ -75,3 +75,20 @@ export const repairValueOptions = Object.entries(repairValueLabels).map(
     value: value as RepairValue,
   }),
 );
+
+export const alertTriggerLabels: Record<AlertTrigger, string> = {
+  BLOCKED_AGING: "Blocked Aging Threshold",
+  CONTACT_SLA_BREACHED: "Contact SLA Breached",
+  HIGH_REPAIR_VALUE: "High Repair Value",
+  OVERDUE: "Overdue RO",
+  RENTAL_CAR: "Rental Car Exposure",
+};
+
+export const alertTriggerDescriptions: Record<AlertTrigger, string> = {
+  BLOCKED_AGING: "Alert when a blocked RO ages past the current blocked-aging SLA.",
+  CONTACT_SLA_BREACHED:
+    "Alert when a blocked RO is still uncontacted after the configured contact SLA.",
+  HIGH_REPAIR_VALUE: "Alert when an open RO is marked with a high repair value.",
+  OVERDUE: "Alert when the current due promise has passed.",
+  RENTAL_CAR: "Alert when an open RO has a rental car attached.",
+};

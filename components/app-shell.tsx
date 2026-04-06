@@ -12,6 +12,7 @@ type AppShellProps = {
   children: React.ReactNode;
   currentPath: string;
   fullHeight?: boolean;
+  managerAlertCount?: number;
   session: Session;
   subtitle: string;
   subtitleMode?: "inline" | "tooltip";
@@ -22,8 +23,9 @@ const navByRole: Record<
   Role,
   Array<{
     href: string;
-    icon: "board" | "dispatch" | "reports" | "import" | "users";
+    icon: "alerts" | "board" | "dispatch" | "reports" | "import" | "settings" | "users";
     label: string;
+    matchPaths?: string[];
     shortLabel: string;
   }>
 > = {
@@ -31,10 +33,23 @@ const navByRole: Record<
   DISPATCHER: [{ href: "/dispatcher", icon: "dispatch", label: "Dispatcher", shortLabel: "DP" }],
   MANAGER: [
     { href: "/manager", icon: "board", label: "Dashboard", shortLabel: "DB" },
+    { href: "/manager/alerts", icon: "alerts", label: "Alerts", shortLabel: "AL" },
     { href: "/manager/reports", icon: "reports", label: "Reports", shortLabel: "RP" },
     { href: "/dispatcher", icon: "dispatch", label: "Dispatcher", shortLabel: "DP" },
     { href: "/manager/import", icon: "import", label: "Daily Import", shortLabel: "DI" },
-    { href: "/manager/users", icon: "users", label: "Users", shortLabel: "US" },
+    {
+      href: "/manager/settings",
+      icon: "settings",
+      label: "Settings",
+      matchPaths: [
+        "/manager/settings",
+        "/manager/settings/alerts",
+        "/manager/settings/integrations",
+        "/manager/settings/sla",
+        "/manager/users",
+      ],
+      shortLabel: "ST",
+    },
   ],
   TECH: [],
 };
@@ -42,8 +57,22 @@ const navByRole: Record<
 function NavIcon({
   name,
 }: {
-  name: "board" | "dispatch" | "reports" | "import" | "users";
+  name: "alerts" | "board" | "dispatch" | "reports" | "import" | "settings" | "users";
 }) {
+  if (name === "alerts") {
+    return (
+      <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 20 20">
+        <path
+          d="M10 3.75a4 4 0 0 0-4 4v2.11c0 .5-.16.98-.45 1.39l-.93 1.3c-.28.4.01.95.51.95h9.74c.5 0 .79-.55.5-.95l-.92-1.3a2.4 2.4 0 0 1-.45-1.39V7.75a4 4 0 0 0-4-4Zm-1.75 11.5a1.75 1.75 0 0 0 3.5 0"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.6"
+        />
+      </svg>
+    );
+  }
+
   if (name === "dispatch") {
     return (
       <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 20 20">
@@ -100,6 +129,20 @@ function NavIcon({
     );
   }
 
+  if (name === "settings") {
+    return (
+      <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 20 20">
+        <path
+          d="M10 7.1a2.9 2.9 0 1 0 0 5.8 2.9 2.9 0 0 0 0-5.8Zm7 2.9-.98-.56.07-1.13-1.44-.58-.39-1.06-1.51-.04-.67-.94-1.44.43-1.08-.35-.98.86-1.16.04-.57 1.13-1.08.43-.04 1.17-.9.58.35 1.12-.43 1.05.78.86.04 1.17 1.08.43.57 1.13 1.16.04.98.86 1.08-.35 1.44.43.67-.94 1.51-.04.39-1.06 1.44-.58-.07-1.13.98-.56-.35-1.12.43-1.05-.78-.86-.04-1.17-1.08-.43-.57-1.13-1.16-.04-.98-.86-1.08.35-1.44-.43-.67.94-1.51.04-.39 1.06-1.44.58.07 1.13-.98.56.35 1.12-.43 1.05.78.86.04 1.17 1.08.43.57 1.13 1.16.04.98.86 1.08-.35 1.44.43.67-.94 1.51-.04.39-1.06 1.44-.58-.07-1.13.98-.56-.35-1.12.43-1.05-.78-.86-.04-1.17-1.08-.43-.57-1.13-1.16-.04-.98-.86-1.08.35-1.44-.43-.67.94-1.51.04-.39 1.06-1.44.58.07 1.13-.98.56"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.25"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 20 20">
       <path
@@ -116,6 +159,7 @@ export function AppShell({
   children,
   currentPath,
   fullHeight = false,
+  managerAlertCount = 0,
   session,
   subtitle,
   subtitleMode = "tooltip",
@@ -184,29 +228,47 @@ export function AppShell({
             </div>
 
             <nav className="mt-6 flex flex-1 flex-col gap-2 overflow-y-auto">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  className={cn(
-                    "flex items-center rounded-2xl transition",
-                    trayCollapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-3",
-                    currentPath === item.href
-                      ? "bg-cyan-400 text-slate-950"
-                      : "border border-white/10 text-slate-300 hover:border-cyan-400/40 hover:text-white",
-                  )}
-                  href={item.href}
-                  title={trayCollapsed ? item.label : undefined}
-                >
-                  {trayCollapsed ? (
-                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl font-semibold uppercase tracking-[0.18em]">
-                      <NavIcon name={item.icon} />
-                    </span>
-                  ) : null}
-                  {!trayCollapsed ? (
-                    <span className="text-sm font-medium">{item.label}</span>
-                  ) : null}
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const isActive = item.matchPaths
+                  ? item.matchPaths.includes(currentPath)
+                  : currentPath === item.href;
+
+                return (
+                  <Link
+                    key={item.href}
+                    className={cn(
+                      "flex items-center rounded-2xl transition",
+                      trayCollapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-3",
+                      isActive
+                        ? "bg-cyan-400 text-slate-950"
+                        : "border border-white/10 text-slate-300 hover:border-cyan-400/40 hover:text-white",
+                    )}
+                    href={item.href}
+                    title={trayCollapsed ? item.label : undefined}
+                  >
+                    {trayCollapsed ? (
+                      <span className="relative inline-flex size-10 shrink-0 items-center justify-center rounded-xl font-semibold uppercase tracking-[0.18em]">
+                        <NavIcon name={item.icon} />
+                        {item.icon === "alerts" && managerAlertCount > 0 ? (
+                          <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                            {managerAlertCount}
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                    {!trayCollapsed ? (
+                      <>
+                        <span className="text-sm font-medium">{item.label}</span>
+                        {item.icon === "alerts" && managerAlertCount > 0 ? (
+                          <span className="ml-auto rounded-full bg-rose-500 px-2 py-1 text-[11px] font-bold leading-none text-white">
+                            {managerAlertCount}
+                          </span>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </Link>
+                );
+              })}
             </nav>
 
             <div className="relative mt-4 border-t border-white/10 pt-4">

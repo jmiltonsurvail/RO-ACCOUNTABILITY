@@ -3,6 +3,7 @@
 import { type BlockerReason, type RepairValue } from "@prisma/client";
 import { useDeferredValue, useMemo, useState } from "react";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
+import { CompactStatCard } from "@/components/compact-stat-card";
 import { InlineContactEditor } from "@/components/inline-contact-editor";
 import { InlineBlockerEditor } from "@/components/inline-blocker-editor";
 import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
@@ -15,6 +16,7 @@ import {
   isRepairOrderOverdue,
   needsRepairOrderContact,
 } from "@/lib/repair-order-urgency";
+import { type SlaSettingsValues } from "@/lib/sla-settings";
 import { cn, formatDateOnly, formatDateTime, hoursSince } from "@/lib/utils";
 
 type ActiveRepairOrder = {
@@ -114,6 +116,7 @@ export function ActiveRoBoard({
   contactMode = "none",
   emptyMessage = "No repair orders match the current filters.",
   repairOrders,
+  slaSettings,
   subtitle,
   title,
 }: {
@@ -121,6 +124,7 @@ export function ActiveRoBoard({
   contactMode?: "none" | "edit";
   emptyMessage?: string;
   repairOrders: ActiveRepairOrder[];
+  slaSettings: SlaSettingsValues;
   subtitle: string;
   title: string;
 }) {
@@ -279,7 +283,7 @@ export function ActiveRoBoard({
           return false;
         }
 
-        if (quickView === "urgent" && !isRepairOrderAtRisk(repairOrder, now)) {
+        if (quickView === "urgent" && !isRepairOrderAtRisk(repairOrder, slaSettings, now)) {
           return false;
         }
 
@@ -305,7 +309,7 @@ export function ActiveRoBoard({
 
         return true;
       })
-      .sort((left, right) => compareRepairOrderUrgency(left, right, now));
+      .sort((left, right) => compareRepairOrderUrgency(left, right, slaSettings, now));
   }, [
     asmFilter,
     blockerFilter,
@@ -315,6 +319,7 @@ export function ActiveRoBoard({
     modeFilter,
     quickView,
     repairOrders,
+    slaSettings,
     tagFilter,
     techFilter,
   ]);
@@ -349,7 +354,7 @@ export function ActiveRoBoard({
           summary.highValue += 1;
         }
 
-        if (isRepairOrderAtRisk(repairOrder, now)) {
+        if (isRepairOrderAtRisk(repairOrder, slaSettings, now)) {
           summary.urgent += 1;
         }
 
@@ -365,7 +370,7 @@ export function ActiveRoBoard({
         visible: 0,
       },
     );
-  }, [filteredRepairOrders]);
+  }, [filteredRepairOrders, slaSettings]);
 
   const resetFilters = () => {
     setSearch("");
@@ -459,31 +464,20 @@ export function ActiveRoBoard({
 
         <div className="mt-4 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
           {quickViewCards.map((card) => (
-            <button
-              key={card.label}
-              className={cn(
-                "group relative rounded-[0.9rem] border px-2.5 py-2 text-center transition",
-                card.tone,
-                quickView === card.view
-                  ? "ring-2 ring-cyan-500 ring-offset-2"
-                  : "border-transparent hover:border-slate-300",
-              )}
-              onClick={() =>
-                setQuickView((current) => (current === card.view ? "all" : card.view))
-              }
-              title={card.description}
-              type="button"
-            >
-              <div className="flex flex-col items-center justify-center gap-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-75">
-                  {card.label}
-                </p>
-                <p className="text-xl font-semibold leading-none">{card.value}</p>
-              </div>
+            <div className="group relative" key={card.label}>
+              <CompactStatCard
+                active={quickView === card.view}
+                label={card.label}
+                onClick={() =>
+                  setQuickView((current) => (current === card.view ? "all" : card.view))
+                }
+                tone={card.tone}
+                value={card.value}
+              />
               <span className="pointer-events-none absolute left-0 top-full z-30 hidden w-56 rounded-2xl bg-slate-950 px-3 py-2 text-xs font-medium normal-case tracking-normal text-white shadow-xl group-hover:block group-focus-visible:block">
                 {card.description}
               </span>
-            </button>
+            </div>
           ))}
         </div>
 
@@ -643,7 +637,7 @@ export function ActiveRoBoard({
             const needsContact = needsRepairOrderContact(repairOrder);
             const overdue = isRepairOrderOverdue(repairOrder, now);
             const dueToday = isRepairOrderDueToday(repairOrder, now);
-            const urgencyScore = getRepairOrderUrgencyScore(repairOrder, now);
+            const urgencyScore = getRepairOrderUrgencyScore(repairOrder, slaSettings, now);
 
             return (
               <details

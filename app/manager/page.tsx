@@ -1,16 +1,23 @@
 import { Role } from "@prisma/client";
 import { ActiveRoBoard } from "@/components/active-ro-board";
 import { AppShell } from "@/components/app-shell";
+import { getManagerAlertCount } from "@/lib/alerts";
 import { getServerAuthSession, requireRole } from "@/lib/auth";
 import { getActiveRepairOrders } from "@/lib/data";
+import { getSlaSettings } from "@/lib/sla-settings";
 export default async function ManagerPage() {
   await requireRole([Role.MANAGER]);
-  const session = await getServerAuthSession();
-  const activeRepairOrders = await getActiveRepairOrders();
+  const [session, activeRepairOrders, managerAlertCount, slaSettings] = await Promise.all([
+    getServerAuthSession(),
+    getActiveRepairOrders(),
+    getManagerAlertCount(),
+    getSlaSettings(),
+  ]);
 
   return (
     <AppShell
       currentPath="/manager"
+      managerAlertCount={managerAlertCount}
       session={session!}
       subtitle="Filter all active repair orders by urgency, ASM, tech, contact status, and due timing."
       title="Manager Dashboard"
@@ -51,6 +58,7 @@ export default async function ManagerPage() {
             techNumber: repairOrder.techNumber,
             year: repairOrder.year,
           }))}
+          slaSettings={slaSettings}
           subtitle=""
           title="All Active ROs"
         />

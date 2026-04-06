@@ -1,4 +1,4 @@
-import { BlockerReason, RepairValue, Role } from "@prisma/client";
+import { AlertTrigger, BlockerReason, RepairValue, Role } from "@prisma/client";
 import { z } from "zod";
 
 const optionalString = z.preprocess(
@@ -127,6 +127,21 @@ export const updateUserSchema = userRoleShape.extend({
 export const resetUserPasswordSchema = z.object({
   password: z.string().min(8).max(200),
   userId: requiredIdentifier,
+});
+
+export const slaSettingsSchema = z.object({
+  blockedAgingHours: z.coerce.number().int().min(1).max(240),
+  contactSlaHours: z.coerce.number().int().min(1).max(72),
+  dueSoonHours: z.coerce.number().int().min(1).max(72),
+});
+
+export const alertRuleSchema = z.object({
+  enabled: z.union([z.literal("on"), z.literal("true"), z.literal("false")]).transform(
+    (value) => value === "on" || value === "true",
+  ),
+  name: z.string().trim().min(1).max(120),
+  ruleId: requiredIdentifier,
+  trigger: z.nativeEnum(AlertTrigger),
 });
 
 export const manualUserSchema = z.object({

@@ -54,6 +54,14 @@ enum ActivityType {
   CONTACT_RESET
 }
 
+enum AlertTrigger {
+  OVERDUE
+  CONTACT_SLA_BREACHED
+  BLOCKED_AGING
+  RENTAL_CAR
+  HIGH_REPAIR_VALUE
+}
+
 model User {
   id             String        @id @default(cuid())
   name           String?
@@ -182,4 +190,22 @@ model ActivityLog {
 
   @@index([repairOrderId, createdAt])
   @@index([importBatchId, createdAt])
+}
+
+model SlaSettings {
+  id                String   @id @default("default")
+  blockedAgingHours Int      @default(8)
+  contactSlaHours   Int      @default(2)
+  dueSoonHours      Int      @default(12)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model AlertRule {
+  id        String       @id @default(cuid())
+  trigger   AlertTrigger @unique
+  name      String
+  enabled   Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 }

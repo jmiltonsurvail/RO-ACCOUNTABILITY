@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Role } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
+import { CompactStatCard } from "@/components/compact-stat-card";
 import { ReportSection } from "@/components/report-section";
+import { getManagerAlertCount } from "@/lib/alerts";
 import { getServerAuthSession, requireRole } from "@/lib/auth";
 import {
   getManagerReportsData,
@@ -42,43 +44,6 @@ function formatHours(value: number | null) {
   return `${value.toFixed(1)}h`;
 }
 
-function SummaryCard({
-  active,
-  href,
-  label,
-  tone,
-  value,
-}: {
-  active: boolean;
-  href: string;
-  label: string;
-  tone: string;
-  value: number;
-}) {
-  const labelClass = tone.includes("text-white")
-    ? "text-white/80"
-    : "text-slate-700";
-  const valueClass = tone.includes("text-white") ? "text-white" : "text-slate-950";
-
-  return (
-    <Link
-      className={cn(
-        "block rounded-[0.9rem] border px-2.5 py-2 text-center shadow-sm transition",
-        tone,
-        active ? "ring-2 ring-cyan-500 ring-offset-2" : "border-transparent hover:border-slate-300",
-      )}
-      href={href}
-    >
-      <div className="flex flex-col items-center justify-center gap-1.5">
-        <p className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]", labelClass)}>
-          {label}
-        </p>
-        <p className={cn("text-xl font-semibold leading-none", valueClass)}>{value}</p>
-      </div>
-    </Link>
-  );
-}
-
 function normalizeReportFocus(value: string | undefined): ReportFocus {
   if (
     value === "active" ||
@@ -110,9 +75,12 @@ export default async function ManagerReportsPage({
   searchParams: Promise<{ focus?: string; range?: string }>;
 }) {
   await requireRole([Role.MANAGER]);
-  const session = await getServerAuthSession();
   const params = await searchParams;
-  const reports = await getManagerReportsData(params.range);
+  const [session, reports, managerAlertCount] = await Promise.all([
+    getServerAuthSession(),
+    getManagerReportsData(params.range),
+    getManagerAlertCount(),
+  ]);
   const focus = normalizeReportFocus(params.focus);
 
   const filteredTechRows = reports.techRows.filter((row) => {
@@ -202,6 +170,7 @@ export default async function ManagerReportsPage({
   return (
     <AppShell
       currentPath="/manager/reports"
+      managerAlertCount={managerAlertCount}
       session={session!}
       subtitle="Review live workload and accountability trends across techs, advisors, and dispatch coverage."
       title="Reports"
@@ -238,42 +207,42 @@ export default async function ManagerReportsPage({
         </div>
 
         <div className="mt-6 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
-          <SummaryCard
+          <CompactStatCard
             active={focus === "all" || focus === "active"}
             href={buildReportHref(reports.range, "active")}
             label="Active"
             tone="bg-slate-950 text-white"
             value={reports.summary.activeRepairOrders}
           />
-          <SummaryCard
+          <CompactStatCard
             active={focus === "blocked"}
             href={buildReportHref(reports.range, "blocked")}
             label="Blocked"
             tone="bg-amber-100 text-amber-900"
             value={reports.summary.activeBlocked}
           />
-          <SummaryCard
+          <CompactStatCard
             active={focus === "overdue"}
             href={buildReportHref(reports.range, "overdue")}
             label="Overdue"
             tone="bg-rose-100 text-rose-800"
             value={reports.summary.activeOverdue}
           />
-          <SummaryCard
+          <CompactStatCard
             active={focus === "needs-contact"}
             href={buildReportHref(reports.range, "needs-contact")}
             label="Needs Contact"
             tone="bg-cyan-100 text-cyan-950"
             value={reports.summary.needsContact}
           />
-          <SummaryCard
+          <CompactStatCard
             active={focus === "blocker-updates"}
             href={buildReportHref(reports.range, "blocker-updates")}
             label={`${reports.rangeLabel} Blocker Updates`}
             tone="bg-slate-100 text-slate-900"
             value={reports.summary.periodBlockerUpdates}
           />
-          <SummaryCard
+          <CompactStatCard
             active={focus === "contact-updates"}
             href={buildReportHref(reports.range, "contact-updates")}
             label={`${reports.rangeLabel} Contact Updates`}

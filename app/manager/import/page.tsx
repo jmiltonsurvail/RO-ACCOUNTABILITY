@@ -1,6 +1,7 @@
 import { Role } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { ImportForm } from "@/components/import-form";
+import { getManagerAlertCount } from "@/lib/alerts";
 import { getServerAuthSession, requireRole } from "@/lib/auth";
 import { getRecentImportBatch } from "@/lib/data";
 import { formatDateTime } from "@/lib/utils";
@@ -11,13 +12,17 @@ export default async function ManagerImportPage({
   searchParams: Promise<{ batchId?: string }>;
 }) {
   await requireRole([Role.MANAGER]);
-  const session = await getServerAuthSession();
   const params = await searchParams;
-  const latestBatch = await getRecentImportBatch(params.batchId);
+  const [session, latestBatch, managerAlertCount] = await Promise.all([
+    getServerAuthSession(),
+    getRecentImportBatch(params.batchId),
+    getManagerAlertCount(),
+  ]);
 
   return (
     <AppShell
       currentPath="/manager/import"
+      managerAlertCount={managerAlertCount}
       session={session!}
       subtitle="Import the exact daily Xtime CSV. The importer validates the fixed header, normalizes promised values, skips invalid rows, and inactivates missing ROs."
       title="Daily Import"

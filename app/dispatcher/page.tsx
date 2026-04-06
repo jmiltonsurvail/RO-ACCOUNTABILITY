@@ -3,11 +3,15 @@ import { AppShell } from "@/components/app-shell";
 import { DispatcherWorkspace } from "@/components/dispatcher-workspace";
 import { getServerAuthSession, requireRole } from "@/lib/auth";
 import { getActiveRepairOrders } from "@/lib/data";
+import { getSlaSettings } from "@/lib/sla-settings";
 
 export default async function DispatcherPage() {
   await requireRole([Role.DISPATCHER, Role.MANAGER]);
   const session = await getServerAuthSession();
-  const repairOrders = await getActiveRepairOrders();
+  const [repairOrders, slaSettings] = await Promise.all([
+    getActiveRepairOrders(),
+    getSlaSettings(),
+  ]);
 
   return (
     <AppShell
@@ -50,6 +54,7 @@ export default async function DispatcherPage() {
           techNumber: repairOrder.techNumber,
           year: repairOrder.year,
         }))}
+        slaSettings={slaSettings}
       />
     </AppShell>
   );

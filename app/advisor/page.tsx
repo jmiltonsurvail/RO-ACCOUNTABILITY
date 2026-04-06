@@ -3,22 +3,29 @@ import { AppShell } from "@/components/app-shell";
 import { AdvisorContactCard } from "@/components/advisor-contact-card";
 import { requireRole } from "@/lib/auth";
 import { getAdvisorBoard } from "@/lib/data";
+import { getSlaSettings } from "@/lib/sla-settings";
 import {
   getRepairOrderUrgencyScore,
   isRepairOrderAtRisk,
+  isRepairOrderContactPastSla,
   isRepairOrderOverdue,
   needsRepairOrderContact,
 } from "@/lib/repair-order-urgency";
 
 export default async function AdvisorPage() {
   const session = await requireRole([Role.ADVISOR]);
-  const repairOrders = await getAdvisorBoard(session.user.asmNumber ?? -1);
+  const [repairOrders, slaSettings] = await Promise.all([
+    getAdvisorBoard(session.user.asmNumber ?? -1),
+    getSlaSettings(),
+  ]);
   const serializedRepairOrders = repairOrders.map((repairOrder) => {
-    const priorityScore = getRepairOrderUrgencyScore(repairOrder);
+    const priorityScore = getRepairOrderUrgencyScore(repairOrder, slaSettings);
     const riskReason = isRepairOrderOverdue(repairOrder)
       ? "Overdue promise"
-      : needsRepairOrderContact(repairOrder)
-        ? "Customer outreach needed"
+      : isRepairOrderContactPastSla(repairOrder, slaSettings)
+        ? "Contact SLA breached"
+        : needsRepairOrderContact(repairOrder)
+          ? "Customer outreach needed"
         : repairOrder.contactState?.hasRentalCar
           ? "Rental car exposure"
           : repairOrder.repairValue === "HIGH"
@@ -59,10 +66,10 @@ export default async function AdvisorPage() {
     };
   });
   const atRiskRepairOrders = serializedRepairOrders.filter((repairOrder) =>
-    isRepairOrderAtRisk(repairOrder),
+    isRepairOrderAtRisk(repairOrder, slaSettings),
   );
   const remainingRepairOrders = serializedRepairOrders.filter(
-    (repairOrder) => !isRepairOrderAtRisk(repairOrder),
+    (repairOrder) => !isRepairOrderAtRisk(repairOrder, slaSettings),
   );
 
   return (

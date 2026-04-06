@@ -3,6 +3,7 @@ import { Role } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { UserAdminForm } from "@/components/user-admin-form";
 import { UserAdminTable } from "@/components/user-admin-table";
+import { getManagerAlertCount } from "@/lib/alerts";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -119,49 +120,45 @@ async function syncImportedStaffPlaceholders() {
 export default async function ManagerUsersPage() {
   const session = await requireRole([Role.MANAGER]);
   await syncImportedStaffPlaceholders();
-  const users = await prisma.user.findMany({
-    orderBy: [{ role: "asc" }, { name: "asc" }, { email: "asc" }],
-    select: {
-      active: true,
-      asmNumber: true,
-      createdAt: true,
-      email: true,
-      id: true,
-      name: true,
-      role: true,
-      techNumber: true,
-    },
-  });
+  const [users, managerAlertCount] = await Promise.all([
+    prisma.user.findMany({
+      orderBy: [{ role: "asc" }, { name: "asc" }, { email: "asc" }],
+      select: {
+        active: true,
+        asmNumber: true,
+        createdAt: true,
+        email: true,
+        id: true,
+        name: true,
+        role: true,
+        techNumber: true,
+      },
+    }),
+    getManagerAlertCount(),
+  ]);
 
   return (
     <AppShell
       currentPath="/manager/users"
       fullHeight
+      managerAlertCount={managerAlertCount}
       session={session}
       subtitle="Create user logins and manage imported staff placeholders. Advisors need an ASM number, and tech roster entries use a tech number."
       title="User Admin"
     >
       <section className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-950">Users</h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Imported advisor and tech numbers appear here as inactive placeholders when no matching user exists yet. Expand a row to add names, update profile details, activate/deactivate, or reset that user&apos;s password.
-            </p>
-          </div>
-
-          <details className="w-full max-w-xl rounded-3xl border border-slate-200 bg-slate-50 md:w-auto">
-            <summary className="cursor-pointer list-none px-5 py-3 text-sm font-semibold text-slate-900">
-              Add User
-            </summary>
-            <div className="border-t border-slate-200 p-5">
-              <UserAdminForm />
-            </div>
-          </details>
-        </div>
-
-        <div className="mt-6 min-h-0 flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <UserAdminTable
+            addUserSlot={
+              <details className="w-full rounded-3xl border border-slate-200 bg-white md:w-auto">
+                <summary className="cursor-pointer list-none px-5 py-2.5 text-sm font-semibold text-slate-900">
+                  Add User
+                </summary>
+                <div className="border-t border-slate-200 p-5">
+                  <UserAdminForm />
+                </div>
+              </details>
+            }
             currentManagerId={session.user.id}
             users={users.map((user) => ({
               active: user.active,

@@ -8,6 +8,7 @@ import {
   type UserAdminActionState,
   updateUserAction,
 } from "@/app/manager/users/actions";
+import { CompactStatCard } from "@/components/compact-stat-card";
 import { roleLabels } from "@/lib/constants";
 
 type UserRow = {
@@ -25,6 +26,7 @@ const initialState: UserAdminActionState = {};
 
 type ActivityFilter = "ALL" | "ACTIVE" | "INACTIVE";
 type ProfileFilter = "ALL" | "NAMED" | "MISSING_NAME";
+type UserQuickFilter = "ALL" | "ACTIVE" | "INACTIVE" | "MISSING_NAME";
 
 type UserGroup = {
   description: string;
@@ -32,6 +34,10 @@ type UserGroup = {
   title: string;
   users: UserRow[];
 };
+
+function getUserDisplayName(user: UserRow) {
+  return user.name?.trim() || "Needs Name";
+}
 
 function getStaffBadge(user: UserRow) {
   if (user.role === Role.ADVISOR) {
@@ -48,25 +54,25 @@ function getStaffBadge(user: UserRow) {
 function buildUserGroups(users: UserRow[]) {
   const groups: UserGroup[] = [
     {
-      description: "Active logins across all app roles.",
+      description: "Current login-enabled accounts.",
       key: "active-users",
       title: "Active Users",
       users: users.filter((user) => user.active),
     },
     {
-      description: "Imported ASM entries waiting for a named user profile.",
+      description: "ASM placeholders that still need a profile.",
       key: "inactive-advisors",
       title: "Inactive Advisors",
       users: users.filter((user) => !user.active && user.role === Role.ADVISOR),
     },
     {
-      description: "Imported tech roster entries waiting for a named user profile.",
+      description: "Tech placeholders that still need a profile.",
       key: "inactive-techs",
       title: "Inactive Techs",
       users: users.filter((user) => !user.active && user.role === Role.TECH),
     },
     {
-      description: "Inactive dispatchers, managers, or other non-placeholder accounts.",
+      description: "Other inactive non-placeholder accounts.",
       key: "inactive-other",
       title: "Other Inactive Users",
       users: users.filter(
@@ -110,25 +116,41 @@ function UserEditorRow({
   const showTechField = selectedRole === Role.TECH;
   const staffBadge = getStaffBadge(user);
   const isPlaceholder = !user.active && (user.role === Role.ADVISOR || user.role === Role.TECH);
+  const displayName = getUserDisplayName(user);
+  const createdDate = new Date(user.createdAt).toLocaleDateString();
 
   return (
-    <details className="rounded-3xl border border-slate-200 bg-slate-50">
+    <details className="rounded-3xl border border-slate-200 bg-slate-50 shadow-sm">
       <summary className="cursor-pointer list-none px-4 py-3 sm:px-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="grid gap-0.5">
-            <p className="text-sm font-semibold text-slate-950">
-              {user.name || "Unnamed User"}
-            </p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-              <span>{user.email}</span>
-              <span>{staffBadge}</span>
-              <span>Added {new Date(user.createdAt).toLocaleDateString()}</span>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-slate-950">{displayName}</p>
+              {!user.name?.trim() ? (
+                <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+                  Needs Name
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-1 truncate text-sm text-slate-600">{user.email}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em]">
+              <span className="rounded-full bg-slate-900 px-2.5 py-1 text-white">
+                {roleLabels[user.role]}
+              </span>
+              <span className="rounded-full border border-slate-300 px-2.5 py-1 text-slate-600">
+                {staffBadge}
+              </span>
+              <span className="rounded-full border border-slate-300 px-2.5 py-1 text-slate-600">
+                Added {createdDate}
+              </span>
+              {isPlaceholder ? (
+                <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-amber-700">
+                  Placeholder
+                </span>
+              ) : null}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.15em]">
-            <span className="rounded-full bg-slate-900 px-2.5 py-1 text-white">
-              {roleLabels[user.role]}
-            </span>
+          <div className="flex shrink-0 items-center gap-2 text-[11px] uppercase tracking-[0.15em]">
             <span
               className={`rounded-full px-2.5 py-1 ${
                 user.active
@@ -138,17 +160,23 @@ function UserEditorRow({
             >
               {user.active ? "Active" : "Inactive"}
             </span>
-            {isPlaceholder ? (
-              <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-amber-700">
-                Placeholder
-              </span>
-            ) : null}
+            <span className="rounded-full border border-slate-300 px-2.5 py-1 text-slate-600">
+              Edit
+            </span>
           </div>
         </div>
       </summary>
 
       <div className="grid gap-5 border-t border-slate-200 bg-white p-5 lg:grid-cols-[1.2fr_0.8fr]">
         <form action={updateAction} className="grid gap-4">
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Profile
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Update the user&apos;s identity, role, and staff-number mapping.
+            </p>
+          </div>
           <input name="userId" type="hidden" value={user.id} />
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
@@ -293,9 +321,11 @@ function UserEditorRow({
 }
 
 export function UserAdminTable({
+  addUserSlot,
   currentManagerId,
   users,
 }: {
+  addUserSlot?: React.ReactNode;
   currentManagerId: string;
   users: UserRow[];
 }) {
@@ -313,7 +343,7 @@ export function UserAdminTable({
   }
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredUsers = users.filter((user) => {
+  const baseFilteredUsers = users.filter((user) => {
     const matchesSearch =
       normalizedQuery.length === 0 ||
       [
@@ -329,6 +359,10 @@ export function UserAdminTable({
         .includes(normalizedQuery);
 
     const matchesRole = roleFilter === "ALL" || user.role === roleFilter;
+
+    return matchesSearch && matchesRole;
+  });
+  const filteredUsers = baseFilteredUsers.filter((user) => {
     const matchesActivity =
       activityFilter === "ALL" ||
       (activityFilter === "ACTIVE" ? user.active : !user.active);
@@ -336,9 +370,47 @@ export function UserAdminTable({
       profileFilter === "ALL" ||
       (profileFilter === "NAMED" ? Boolean(user.name?.trim()) : !user.name?.trim());
 
-    return matchesSearch && matchesRole && matchesActivity && matchesProfile;
+    return matchesActivity && matchesProfile;
   });
   const groupedUsers = buildUserGroups(filteredUsers);
+  const allCount = baseFilteredUsers.length;
+  const needsNameCount = baseFilteredUsers.filter((user) => !user.name?.trim()).length;
+  const activeCount = baseFilteredUsers.filter((user) => user.active).length;
+  const inactiveCount = allCount - activeCount;
+  const quickFilter: UserQuickFilter =
+    activityFilter === "ACTIVE"
+      ? "ACTIVE"
+      : activityFilter === "INACTIVE"
+        ? "INACTIVE"
+        : profileFilter === "MISSING_NAME"
+          ? "MISSING_NAME"
+          : "ALL";
+  const quickFilterCards = [
+    {
+      count: allCount,
+      key: "ALL" as const,
+      label: "All Users",
+      tone: "bg-slate-950 text-white",
+    },
+    {
+      count: activeCount,
+      key: "ACTIVE" as const,
+      label: "Active",
+      tone: "bg-emerald-100 text-emerald-800",
+    },
+    {
+      count: inactiveCount,
+      key: "INACTIVE" as const,
+      label: "Inactive",
+      tone: "bg-slate-200 text-slate-700",
+    },
+    {
+      count: needsNameCount,
+      key: "MISSING_NAME" as const,
+      label: "Need Name",
+      tone: "bg-amber-100 text-amber-800",
+    },
+  ];
 
   return (
     <div className="grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
@@ -409,25 +481,57 @@ export function UserAdminTable({
           </label>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-600">
-            Showing <span className="font-semibold text-slate-900">{filteredUsers.length}</span>{" "}
-            of <span className="font-semibold text-slate-900">{users.length}</span> users
-          </p>
-          {searchQuery || roleFilter !== "ALL" || activityFilter !== "ALL" || profileFilter !== "ALL" ? (
-            <button
-              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
-              onClick={() => {
-                setSearchQuery("");
-                setRoleFilter("ALL");
-                setActivityFilter("ALL");
-                setProfileFilter("ALL");
-              }}
-              type="button"
-            >
-              Clear Filters
-            </button>
-          ) : null}
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="grid min-w-0 flex-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {quickFilterCards.map((card) => (
+              <CompactStatCard
+                active={quickFilter === card.key}
+                key={card.key}
+                label={card.label}
+                onClick={() => {
+                  if (card.key === "ALL") {
+                    setActivityFilter("ALL");
+                    setProfileFilter("ALL");
+                    return;
+                  }
+
+                  if (card.key === "ACTIVE") {
+                    setActivityFilter("ACTIVE");
+                    setProfileFilter("ALL");
+                    return;
+                  }
+
+                  if (card.key === "INACTIVE") {
+                    setActivityFilter("INACTIVE");
+                    setProfileFilter("ALL");
+                    return;
+                  }
+
+                  setActivityFilter("ALL");
+                  setProfileFilter("MISSING_NAME");
+                }}
+                tone={card.tone}
+                value={card.count}
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {addUserSlot}
+            {searchQuery || roleFilter !== "ALL" || activityFilter !== "ALL" || profileFilter !== "ALL" ? (
+              <button
+                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                onClick={() => {
+                  setSearchQuery("");
+                  setRoleFilter("ALL");
+                  setActivityFilter("ALL");
+                  setProfileFilter("ALL");
+                }}
+                type="button"
+              >
+                Clear Filters
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 
