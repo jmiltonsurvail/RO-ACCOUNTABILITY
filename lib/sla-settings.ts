@@ -1,12 +1,16 @@
 import { prisma } from "@/lib/prisma";
 
-export const defaultSlaSettings = {
+export type SlaSettingsValues = {
+  blockedAgingHours: number;
+  contactSlaHours: number;
+  dueSoonHours: number;
+};
+
+export const defaultSlaSettings: SlaSettingsValues = {
   blockedAgingHours: 8,
   contactSlaHours: 2,
   dueSoonHours: 12,
-} as const;
-
-export type SlaSettingsValues = typeof defaultSlaSettings;
+};
 
 export async function getSlaSettings(): Promise<SlaSettingsValues> {
   const settings = await prisma.slaSettings.findUnique({
