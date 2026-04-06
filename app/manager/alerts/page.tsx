@@ -109,7 +109,7 @@ export default async function ManagerAlertsPage() {
                       key={`${item.roNumber}-${rule.trigger}`}
                       title={rule.description}
                     >
-                      {rule.name}
+                      {rule.label}
                     </span>
                   ))}
                 </div>
