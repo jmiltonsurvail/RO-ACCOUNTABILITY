@@ -7,12 +7,12 @@ import {
   validateImportHeader,
 } from "./import";
 
-const validCsv = `RO,Tag,Promised,Model,Year,Customer,Flags,Phone,ASM,Tech,Mode,MT,TT,MT Display,TT Display
-6155318,5085,12/20/2025,SIERRA 3500 HD,2025,Carr,,321-698-0921,785,374,Approval,14d,23d,,23d
-6157699,5210,W 6:00 pm,SILVERADO 1500,2022,Swindell,,321-458-8308,785,,Approval,4:43,7:16,,7:16
-6157111,4961,W 01-02-26,TRAVERSE,2025,Healey,OH,603-320-2742,642,435,Repair,6d,10d,,10d
-6157666,5204,6:00 PM,CITY EXPRESS,2015,Clement,,321-225-2309,785,435,Approval,5:18,10:50,,10:50
-    ,,,,,,,,,,,,,,
+const validCsv = `RO,Tag,Promised,Model,Year,Customer,Email,Phone,ASM,Tech,Mode,MT,TT
+6155318,5085,12/20/2025,SIERRA 3500 HD,2025,Carr,carr@example.com,321-698-0921,785,374,Approval,14d,23d
+6157699,5210,W 6:00 pm,SILVERADO 1500,2022,Swindell,,321-458-8308,785,,Approval,4:43,7:16
+6157111,4961,W 01-02-26,TRAVERSE,2025,Healey,healey@example.com,603-320-2742,642,435,Repair,6d,10d
+6157666,5204,6:00 PM,CITY EXPRESS,2015,Clement,,321-225-2309,785,435,Approval,5:18,10:50
+    ,,,,,,,,,,,,
 `;
 
 describe("validateImportHeader", () => {
@@ -25,15 +25,13 @@ describe("validateImportHeader", () => {
         "Model",
         "Year",
         "Customer",
-        "Flags",
+        "Email",
         "Phone",
         "ASM",
         "Tech",
         "Mode",
         "MT",
         "TT",
-        "MT Display",
-        "TT Display",
       ]),
     ).toBeNull();
 
@@ -77,8 +75,8 @@ describe("parseXtimeCsv", () => {
   });
 
   it("flags rows missing required fields", () => {
-    const csv = `RO,Tag,Promised,Model,Year,Customer,Flags,Phone,ASM,Tech,Mode,MT,TT,MT Display,TT Display
-6155318,5085,12/20/2025,SIERRA 3500 HD,2025,Carr,,321-698-0921,,374,Approval,14d,23d,,23d
+    const csv = `RO,Tag,Promised,Model,Year,Customer,Email,Phone,ASM,Tech,Mode,MT,TT
+6155318,5085,12/20/2025,SIERRA 3500 HD,2025,Carr,,321-698-0921,,374,Approval,14d,23d
 `;
 
     const result = parseXtimeCsv(csv, new Date("2026-03-12T09:00:00.000Z"));

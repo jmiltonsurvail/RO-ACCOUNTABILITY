@@ -9,15 +9,13 @@ export const EXPECTED_IMPORT_HEADERS = [
   "Model",
   "Year",
   "Customer",
-  "Flags",
+  "Email",
   "Phone",
   "ASM",
   "Tech",
   "Mode",
   "MT",
   "TT",
-  "MT Display",
-  "TT Display",
 ] as const;
 
 export const REQUIRED_IMPORT_HEADERS = [

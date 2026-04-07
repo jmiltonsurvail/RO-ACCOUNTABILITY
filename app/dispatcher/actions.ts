@@ -82,11 +82,9 @@ export async function saveBlockerAction(
           roNumber: parsed.data.roNumber,
           tag: null,
           techNumber: null,
-          ttDisplayRaw: null,
           ttRaw: null,
-          mtDisplayRaw: null,
           mtRaw: null,
-          flags: null,
+          email: null,
           year: parsed.data.fallbackYear,
         },
         include: {

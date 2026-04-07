@@ -13,15 +13,13 @@ export type ParsedImportRow = {
   model: string;
   year: number;
   customerName: string;
-  flags: string | null;
+  email: string | null;
   phone: string | null;
   asmNumber: number;
   techNumber: number | null;
   mode: string;
   mtRaw: string | null;
   ttRaw: string | null;
-  mtDisplayRaw: string | null;
-  ttDisplayRaw: string | null;
   promisedRaw: string;
   promisedAtNormalized: Date | null;
   rawSourceData: Prisma.InputJsonValue;
@@ -177,10 +175,9 @@ export function parseXtimeCsv(
       rows.push({
         asmNumber,
         customerName: trimmed.Customer,
-        flags: trimmed.Flags || null,
+        email: trimmed.Email || null,
         model: trimmed.Model,
         mode: trimmed.Mode,
-        mtDisplayRaw: trimmed["MT Display"] || null,
         mtRaw: trimmed.MT || null,
         phone: trimmed.Phone || null,
         promisedAtNormalized: normalizePromisedValue(trimmed.Promised, importDate),
@@ -190,7 +187,6 @@ export function parseXtimeCsv(
         rowNumber,
         tag: trimmed.Tag || null,
         techNumber: parseOptionalInt(trimmed.Tech),
-        ttDisplayRaw: trimmed["TT Display"] || null,
         ttRaw: trimmed.TT || null,
         year,
       });

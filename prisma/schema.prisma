@@ -119,7 +119,7 @@ model RepairOrder {
   model                String
   year                 Int
   customerName         String
-  flags                String?
+  email                String?
   phone                String?
   asmNumber            Int
   advisorName          String?
@@ -128,8 +128,6 @@ model RepairOrder {
   mode                 String
   mtRaw                String?
   ttRaw                String?
-  mtDisplayRaw         String?
-  ttDisplayRaw         String?
   promisedRaw          String
   promisedAtNormalized DateTime?
   isActive             Boolean       @default(true)

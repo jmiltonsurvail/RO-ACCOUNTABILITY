@@ -47,7 +47,7 @@ See [`DEPLOY_EC2.md`](./DEPLOY_EC2.md) for the full runbook.
 The manager import expects the exact Xtime CSV header:
 
 ```text
-RO,Tag,Promised,Model,Year,Customer,Flags,Phone,ASM,Tech,Mode,MT,TT,MT Display,TT Display
+RO,Tag,Promised,Model,Year,Customer,Email,Phone,ASM,Tech,Mode,MT,TT
 ```
 
 Required source fields:
