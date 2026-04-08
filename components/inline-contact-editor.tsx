@@ -1,9 +1,10 @@
 "use client";
 
 import { type RepairValue } from "@prisma/client";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useEffectEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
+import { ContactHistoryList } from "@/components/contact-history-list";
 import { repairValueOptions } from "@/lib/constants";
 import { formatPhoneHref } from "@/lib/utils";
 
@@ -11,6 +12,7 @@ const initialState: ActionState = {};
 
 export function InlineContactEditor({
   contacted,
+  contactRecords,
   customerNotes,
   hasRentalCar,
   phone,
@@ -18,6 +20,11 @@ export function InlineContactEditor({
   roNumber,
 }: {
   contacted: boolean;
+  contactRecords: Array<{
+    advisorLabel: string | null;
+    contactedAt: string;
+    customerNotes: string | null;
+  }>;
   customerNotes: string | null;
   hasRentalCar: boolean;
   phone: string | null;
@@ -26,27 +33,24 @@ export function InlineContactEditor({
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(updateContactAction, initialState);
+  const [notesValue, setNotesValue] = useState(customerNotes ?? "");
   const callHref = formatPhoneHref(phone);
+  const contactedValue = notesValue.trim().length > 0 || contacted;
+  const handleSaved = useEffectEvent(() => {
+    setNotesValue("");
+    router.refresh();
+  });
 
   useEffect(() => {
-    if (state.success) {
-      router.refresh();
+    if (state.saved) {
+      handleSaved();
     }
-  }, [router, state.success]);
+  }, [state.saved]);
 
   return (
     <form action={formAction} className="grid gap-3">
       <input name="roNumber" type="hidden" value={roNumber} />
-
-      <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-800">
-        <input
-          className="size-4 rounded border-slate-300"
-          defaultChecked={contacted}
-          name="contacted"
-          type="checkbox"
-        />
-        Customer contacted
-      </label>
+      <input name="contacted" type="hidden" value={contactedValue ? "true" : "false"} />
 
       <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-800">
         <input
@@ -82,10 +86,14 @@ export function InlineContactEditor({
         </span>
         <textarea
           className="min-h-24 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-          defaultValue={customerNotes ?? ""}
           name="customerNotes"
+          onChange={(event) => setNotesValue(event.target.value)}
           placeholder="What was communicated to the customer?"
+          value={notesValue}
         />
+        <span className="mt-2 block text-xs text-slate-500">
+          Saving a note marks the customer as contacted and adds a timestamp.
+        </span>
       </label>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -110,7 +118,7 @@ export function InlineContactEditor({
         )}
       </div>
 
-      {state.success ? <p className="text-xs text-emerald-700">{state.success}</p> : null}
+      <ContactHistoryList entries={contactRecords} />
       {state.error ? <p className="text-xs text-rose-600">{state.error}</p> : null}
     </form>
   );

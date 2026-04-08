@@ -4,6 +4,7 @@ import { type BlockerReason, type RepairValue } from "@prisma/client";
 import { useDeferredValue, useMemo, useState } from "react";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
 import { CompactStatCard } from "@/components/compact-stat-card";
+import { ContactHistoryList } from "@/components/contact-history-list";
 import { InlineContactEditor } from "@/components/inline-contact-editor";
 import { InlineBlockerEditor } from "@/components/inline-blocker-editor";
 import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
@@ -34,6 +35,11 @@ type ActiveRepairOrder = {
     hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
+  contactRecords: Array<{
+    advisorLabel: string | null;
+    contactedAt: string;
+    customerNotes: string | null;
+  }>;
   customerName: string;
   mode: string;
   model: string;
@@ -725,6 +731,12 @@ export function ActiveRoBoard({
                             ? `Assigned to ${repairOrder.techName ?? `tech ${repairOrder.techNumber}`}`
                             : "No tech assigned"}
                         </span>
+                        <span>
+                          Last contact{" "}
+                          {repairOrder.contactRecords[0]
+                            ? formatDateTime(repairOrder.contactRecords[0].contactedAt)
+                            : "N/A"}
+                        </span>
                         <span>Due {formatDateTime(dueDate)}</span>
                         <span>
                           {blocked && blocker
@@ -790,6 +802,7 @@ export function ActiveRoBoard({
                         {repairOrder.contactState?.customerNotes || "No customer notes."}
                       </p>
                     </div>
+                    <ContactHistoryList entries={repairOrder.contactRecords} />
                   </div>
 
                   <div className="rounded-2xl border border-white/70 bg-white p-4">
@@ -821,6 +834,7 @@ export function ActiveRoBoard({
                             </p>
                             <InlineContactEditor
                               contacted={contacted}
+                              contactRecords={repairOrder.contactRecords}
                               customerNotes={repairOrder.contactState?.customerNotes ?? null}
                               hasRentalCar={hasRentalCar}
                               phone={repairOrder.phone}

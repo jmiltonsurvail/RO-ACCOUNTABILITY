@@ -10,6 +10,18 @@ import {
 const roCardInclude = {
   blockerState: true,
   contactState: true,
+  contactRecords: {
+    orderBy: { contactedAt: "desc" },
+    take: 12,
+    include: {
+      advisorUser: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
+    },
+  },
   activities: {
     orderBy: { createdAt: "desc" },
     take: 8,
@@ -27,6 +39,18 @@ const roCardInclude = {
 const activeRepairOrderBoardInclude = {
   blockerState: true,
   contactState: true,
+  contactRecords: {
+    orderBy: { contactedAt: "desc" },
+    take: 12,
+    include: {
+      advisorUser: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
+    },
+  },
 } satisfies Prisma.RepairOrderInclude;
 
 const managerReportRangeConfig = {

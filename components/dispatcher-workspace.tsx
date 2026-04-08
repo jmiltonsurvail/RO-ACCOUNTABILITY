@@ -19,6 +19,11 @@ type DispatcherOrder = {
     hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
+  contactRecords: Array<{
+    advisorLabel: string | null;
+    contactedAt: string;
+    customerNotes: string | null;
+  }>;
   customerName: string;
   mode: string;
   model: string;

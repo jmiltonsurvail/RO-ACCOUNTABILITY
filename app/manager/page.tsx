@@ -45,6 +45,15 @@ export default async function ManagerPage() {
                   customerNotes: repairOrder.contactState.customerNotes,
                 }
               : null,
+            contactRecords: repairOrder.contactRecords.map((record) => ({
+              advisorLabel:
+                record.advisorUser?.name?.trim() ||
+                record.advisorUser?.email ||
+                repairOrder.advisorName ||
+                null,
+              contactedAt: record.contactedAt.toISOString(),
+              customerNotes: record.customerNotes,
+            })),
             customerName: repairOrder.customerName,
             mode: repairOrder.mode,
             model: repairOrder.model,

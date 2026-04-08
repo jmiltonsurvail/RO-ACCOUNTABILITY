@@ -8,6 +8,7 @@ import { contactFormSchema } from "@/lib/validation";
 
 export type ActionState = {
   error?: string;
+  saved?: boolean;
   success?: string;
 };
 
@@ -26,7 +27,7 @@ export async function updateContactAction(
   });
 
   if (!parsed.success) {
-    return { error: "Unable to save the contact update." };
+    return { error: "Unable to save the contact update.", saved: false };
   }
 
   const repairOrder = await prisma.repairOrder.findUnique({
@@ -38,14 +39,14 @@ export async function updateContactAction(
   });
 
   if (!repairOrder) {
-    return { error: "That RO could not be found." };
+    return { error: "That RO could not be found.", saved: false };
   }
 
   if (
     session.user.role === Role.ADVISOR &&
     repairOrder.asmNumber !== session.user.asmNumber
   ) {
-    return { error: "That RO is not assigned to your ASM number." };
+    return { error: "That RO is not assigned to your ASM number.", saved: false };
   }
 
   const actorLabel =
@@ -54,6 +55,13 @@ export async function updateContactAction(
       : session.user.role === Role.DISPATCHER
         ? "Dispatcher"
         : "Advisor";
+  const shouldCreateContactRecord =
+    parsed.data.contacted && Boolean(parsed.data.customerNotes?.trim());
+  const contactTimestamp = shouldCreateContactRecord
+    ? new Date()
+    : parsed.data.contacted
+      ? (repairOrder.contactState?.contactedAt ?? null)
+      : null;
 
   await prisma.$transaction(async (transaction) => {
     await transaction.repairOrder.update({
@@ -68,24 +76,35 @@ export async function updateContactAction(
       update: {
         advisorUserId: session.user.id,
         contacted: parsed.data.contacted,
-        contactedAt: parsed.data.contacted ? new Date() : null,
+        contactedAt: contactTimestamp,
         hasRentalCar: parsed.data.hasRentalCar,
         customerNotes: parsed.data.customerNotes || null,
       },
       create: {
         advisorUserId: session.user.id,
         contacted: parsed.data.contacted,
-        contactedAt: parsed.data.contacted ? new Date() : null,
+        contactedAt: contactTimestamp,
         hasRentalCar: parsed.data.hasRentalCar,
         customerNotes: parsed.data.customerNotes || null,
         repairOrderId: repairOrder.id,
       },
     });
 
+    if (shouldCreateContactRecord) {
+      await transaction.contactRecord.create({
+        data: {
+          advisorUserId: session.user.id,
+          contactedAt: contactTimestamp ?? new Date(),
+          customerNotes: parsed.data.customerNotes || null,
+          repairOrderId: repairOrder.id,
+        },
+      });
+    }
+
     await transaction.activityLog.create({
       data: {
         message: parsed.data.contacted
-          ? `${actorLabel} marked customer as contacted.`
+          ? `${actorLabel} marked customer as contacted and logged a contact record.`
           : `${actorLabel} cleared customer contacted status.`,
         metadata: {
           actorRole: session.user.role,
@@ -104,11 +123,10 @@ export async function updateContactAction(
   revalidatePath("/advisor");
   revalidatePath("/dispatcher");
   revalidatePath("/manager");
+  revalidatePath("/manager/alerts");
   revalidatePath("/manager/reports");
 
   return {
-    success: parsed.data.contacted
-      ? `Marked RO ${parsed.data.roNumber} as contacted.`
-      : `Updated RO ${parsed.data.roNumber} to not contacted.`,
+    saved: true,
   };
 }

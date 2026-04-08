@@ -1,9 +1,10 @@
 "use client";
 
 import { type RepairValue } from "@prisma/client";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useEffectEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
+import { ContactHistoryList } from "@/components/contact-history-list";
 import { blockerReasonLabels, repairValueLabels, repairValueOptions } from "@/lib/constants";
 import { formatDateTime, formatPhoneHref, hoursSince } from "@/lib/utils";
 
@@ -35,6 +36,11 @@ type AdvisorRepairOrder = {
     hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
+  contactRecords: Array<{
+    advisorLabel: string | null;
+    contactedAt: string;
+    customerNotes: string | null;
+  }>;
   customerName: string;
   mode: string;
   model: string;
@@ -57,12 +63,25 @@ export function AdvisorContactCard({
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(updateContactAction, initialState);
+  const [isExpanded, setIsExpanded] = useState(!(repairOrder.contactState?.contacted ?? false));
+  const [notesValue, setNotesValue] = useState(
+    repairOrder.contactState?.customerNotes ?? "",
+  );
+  const contactedValue =
+    notesValue.trim().length > 0 || (repairOrder.contactState?.contacted ?? false);
+  const handleSaved = useEffectEvent(() => {
+    setNotesValue("");
+    if (contactedValue) {
+      setIsExpanded(false);
+    }
+    router.refresh();
+  });
 
   useEffect(() => {
-    if (state.success) {
-      router.refresh();
+    if (state.saved) {
+      handleSaved();
     }
-  }, [router, state.success]);
+  }, [state.saved]);
 
   const blocker = repairOrder.blockerState;
   const blockerLabel = blocker
@@ -70,8 +89,8 @@ export function AdvisorContactCard({
     : "No blocker";
   const callHref = formatPhoneHref(repairOrder.phone);
   const contactRecordLabel = repairOrder.contactState?.contacted
-    ? "Contact Record Contacted"
-    : "Contact Record No Contact";
+    ? "Contacted"
+    : "No Contact";
   const contactRecordTone = repairOrder.contactState?.contacted
     ? "bg-emerald-100 text-emerald-800"
     : "bg-slate-200 text-slate-700";
@@ -89,6 +108,7 @@ export function AdvisorContactCard({
       className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm"
     >
       <input name="roNumber" type="hidden" value={repairOrder.roNumber} />
+      <input name="contacted" type="hidden" value={contactedValue ? "true" : "false"} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -135,6 +155,13 @@ export function AdvisorContactCard({
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
+          <button
+            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 transition hover:border-cyan-400 hover:text-slate-950"
+            onClick={() => setIsExpanded((current) => !current)}
+            type="button"
+          >
+            {isExpanded ? "Close" : "Open"}
+          </button>
           <div className="rounded-3xl bg-slate-950 px-4 py-2 text-sm text-white">
             {blockerLabel}
           </div>
@@ -146,96 +173,116 @@ export function AdvisorContactCard({
           </div>
         </div>
       </div>
-      <div className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Foreman notes</p>
-          <p className="mt-2 leading-6 text-slate-700">
-            {blocker?.foremanNotes || "No notes entered."}
-          </p>
-        </div>
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Timing</p>
-          <p className="mt-2">
-            Blocked for {blocker ? hoursSince(blocker.blockerStartedAt) : 0} hours
-          </p>
-          <p className="mt-1">
-            Due:{" "}
-            {formatDateTime(
-              blocker?.techPromisedDate ?? repairOrder.promisedAtNormalized,
+      {isExpanded ? (
+        <>
+          <div className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Foreman notes</p>
+              <p className="mt-2 leading-6 text-slate-700">
+                {blocker?.foremanNotes || "No notes entered."}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Timing</p>
+              <p className="mt-2">
+                Blocked for {blocker ? hoursSince(blocker.blockerStartedAt) : 0} hours
+              </p>
+              <p className="mt-1">
+                Due:{" "}
+                {formatDateTime(
+                  blocker?.techPromisedDate ?? repairOrder.promisedAtNormalized,
+                )}
+              </p>
+              <p className="mt-1">
+                Last contact:{" "}
+                {repairOrder.contactRecords[0]
+                  ? formatDateTime(repairOrder.contactRecords[0].contactedAt)
+                  : "No contact logged"}
+              </p>
+              <p className="mt-1">Phone: {repairOrder.phone || "N/A"}</p>
+            </div>
+          </div>
+          <label className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-800">
+            <input
+              className="size-4 rounded border-slate-300"
+              defaultChecked={repairOrder.contactState?.hasRentalCar ?? false}
+              name="hasRentalCar"
+              type="checkbox"
+            />
+            Rental car on RO
+          </label>
+          <label className="mt-4 block">
+            <span className="mb-2 block text-sm font-medium text-slate-700">
+              Repair Value
+            </span>
+            <select
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              defaultValue={repairOrder.repairValue ?? ""}
+              name="repairValue"
+            >
+              <option value="">Not set</option>
+              {repairValueOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="mt-4 block">
+            <span className="mb-2 block text-sm font-medium text-slate-700">
+              Customer notes
+            </span>
+            <textarea
+              className="min-h-28 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              name="customerNotes"
+              onChange={(event) => setNotesValue(event.target.value)}
+              placeholder="What was communicated to the customer?"
+              value={notesValue}
+            />
+            <span className="mt-2 block text-xs text-slate-500">
+              Saving a note marks the customer as contacted and adds a timestamp.
+            </span>
+          </label>
+          <div className="mt-4">
+            <ContactHistoryList entries={repairOrder.contactRecords} />
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+            <button
+              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+              disabled={pending}
+              type="submit"
+            >
+              {pending ? "Saving..." : "Save Contact Update"}
+            </button>
+            {callHref ? (
+              <a
+                className="rounded-full border border-cyan-300 bg-cyan-50 px-5 py-3 text-sm font-semibold text-cyan-900 transition hover:border-cyan-400 hover:bg-cyan-100"
+                href={callHref}
+              >
+                Call Customer
+              </a>
+            ) : (
+              <span className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-400">
+                No Phone
+              </span>
             )}
-          </p>
-          <p className="mt-1">Phone: {repairOrder.phone || "N/A"}</p>
-        </div>
-      </div>
-      <label className="mt-5 flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-800">
-        <input
-          className="size-4 rounded border-slate-300"
-          defaultChecked={repairOrder.contactState?.contacted ?? false}
-          name="contacted"
-          type="checkbox"
-        />
-        Customer contacted
-      </label>
-      <label className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-800">
-        <input
-          className="size-4 rounded border-slate-300"
-          defaultChecked={repairOrder.contactState?.hasRentalCar ?? false}
-          name="hasRentalCar"
-          type="checkbox"
-        />
-        Rental car on RO
-      </label>
-      <label className="mt-4 block">
-        <span className="mb-2 block text-sm font-medium text-slate-700">
-          Repair Value
-        </span>
-        <select
-          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
-          defaultValue={repairOrder.repairValue ?? ""}
-          name="repairValue"
-        >
-          <option value="">Not set</option>
-          {repairValueOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="mt-4 block">
-        <span className="mb-2 block text-sm font-medium text-slate-700">
-          Customer notes
-        </span>
-        <textarea
-          className="min-h-28 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
-          defaultValue={repairOrder.contactState?.customerNotes ?? ""}
-          name="customerNotes"
-          placeholder="What was communicated to the customer?"
-        />
-      </label>
-      <div className="mt-5 flex flex-wrap items-center gap-4">
-        <button
-          className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
-          disabled={pending}
-          type="submit"
-        >
-          {pending ? "Saving..." : "Save Contact Update"}
-        </button>
-        {callHref ? (
-          <a
-            className="rounded-full border border-cyan-300 bg-cyan-50 px-5 py-3 text-sm font-semibold text-cyan-900 transition hover:border-cyan-400 hover:bg-cyan-100"
-            href={callHref}
-          >
-            Call Customer
-          </a>
-        ) : (
-          <span className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-400">
-            No Phone
+            {state.error ? <p className="text-sm text-rose-600">{state.error}</p> : null}
+          </div>
+        </>
+      ) : (
+        <div className="mt-5 flex flex-wrap gap-4 text-sm text-slate-600">
+          <span>
+            Last contact{" "}
+            {repairOrder.contactRecords[0]
+              ? formatDateTime(repairOrder.contactRecords[0].contactedAt)
+              : "No contact logged"}
           </span>
-        )}
-        {state.success ? <p className="text-sm text-emerald-700">{state.success}</p> : null}
-        {state.error ? <p className="text-sm text-rose-600">{state.error}</p> : null}
-      </div>
+          <span>
+            Due {formatDateTime(blocker?.techPromisedDate ?? repairOrder.promisedAtNormalized)}
+          </span>
+          <span>Phone {repairOrder.phone || "N/A"}</span>
+        </div>
+      )}
     </form>
   );
 }

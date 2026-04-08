@@ -74,6 +74,7 @@ model User {
   imports        ImportBatch[]
   blockerEntries BlockerState[]
   contactEntries ContactState[]
+  contactRecords ContactRecord[]
   activities     ActivityLog[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -136,6 +137,7 @@ model RepairOrder {
   rawSourceData        Json
   blockerState         BlockerState?
   contactState         ContactState?
+  contactRecords       ContactRecord[]
   activities           ActivityLog[]
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
@@ -171,6 +173,19 @@ model ContactState {
   advisorUser   User?       @relation(fields: [advisorUserId], references: [id], onDelete: SetNull)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+}
+
+model ContactRecord {
+  id            String      @id @default(cuid())
+  repairOrderId String
+  repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  contactedAt   DateTime    @default(now())
+  customerNotes String?
+  advisorUserId String?
+  advisorUser   User?       @relation(fields: [advisorUserId], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+
+  @@index([repairOrderId, contactedAt])
 }
 
 model ActivityLog {

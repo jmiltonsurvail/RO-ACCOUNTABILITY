@@ -50,6 +50,15 @@ export default async function AdvisorPage() {
             customerNotes: repairOrder.contactState.customerNotes,
           }
         : null,
+      contactRecords: repairOrder.contactRecords.map((record) => ({
+        advisorLabel:
+          record.advisorUser?.name?.trim() ||
+          record.advisorUser?.email ||
+          repairOrder.advisorName ||
+          null,
+        contactedAt: record.contactedAt.toISOString(),
+        customerNotes: record.customerNotes,
+      })),
       customerName: repairOrder.customerName,
       mode: repairOrder.mode,
       model: repairOrder.model,
@@ -122,10 +131,6 @@ export default async function AdvisorPage() {
                   <p className="mt-2 text-3xl font-semibold">{serializedRepairOrders.length}</p>
                 </div>
               </div>
-              <p className="mt-4 text-sm text-slate-600">
-                Start with the at-risk cards first. They are ranked by overdue promise,
-                missing contact, rental-car exposure, repair value, and blocker age.
-              </p>
             </section>
 
             <section className="rounded-[1.75rem] border border-rose-200 bg-rose-50 p-6 shadow-sm">
