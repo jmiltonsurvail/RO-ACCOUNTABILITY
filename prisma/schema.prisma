@@ -56,6 +56,9 @@ enum ActivityType {
   GOTO_CONNECT_SETTINGS_UPDATED
   GOTO_CONNECT_LINE_MAPPING_UPDATED
   GOTO_CONNECT_LINE_MAPPINGS_RERESOLVED
+  CALL_RECORDING_RECEIVED
+  CALL_TRANSCRIPT_READY
+  CALL_TRANSCRIPT_FAILED
 }
 
 enum AlertTrigger {
@@ -79,6 +82,7 @@ enum RecordingProcessingStatus {
 
 enum TranscriptProcessingStatus {
   PENDING
+  PROCESSING
   READY
   FAILED
 }
@@ -241,12 +245,15 @@ model ContactRecord {
   id            String      @id @default(cuid())
   repairOrderId String
   repairOrder   RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  callSessionId String?
+  callSession   CallSession? @relation(fields: [callSessionId], references: [id], onDelete: SetNull)
   contactedAt   DateTime    @default(now())
   customerNotes String?
   advisorUserId String?
   advisorUser   User?       @relation(fields: [advisorUserId], references: [id], onDelete: SetNull)
   createdAt     DateTime    @default(now())
 
+  @@index([callSessionId])
   @@index([repairOrderId, contactedAt])
 }
 
@@ -288,10 +295,14 @@ model GoToConnectSettings {
   accessToken       String?
   accessTokenExpiresAt DateTime?
   autoAnswer        Boolean  @default(false)
+  callEventsConfiguredAt DateTime?
+  callEventsReportSubscriptionId String?
   clientId          String?
   clientSecret      String?
   connectedAt       DateTime?
   goToOrganizationId String?
+  notificationChannelId String?
+  notificationWebhookToken String?
   phoneNumberId     String?
   refreshToken      String?
   launchUrlTemplate String?
@@ -318,11 +329,19 @@ model CallSession {
   organization               Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   repairOrderId              String
   repairOrder                RepairOrder                @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  contactRecords             ContactRecord[]
   initiatedByUserId          String?
   initiatedByUser            User?                      @relation("CallSessionInitiatedBy", fields: [initiatedByUserId], references: [id], onDelete: SetNull)
   asmNumber                  Int
   customerName               String
   customerPhone              String?
+  callSummary                String?
+  callCreatedAt              DateTime?
+  callEndedAt                DateTime?
+  conversationSpaceId        String?
+  durationSeconds            Int?
+  rawCallReportJson          Json?
+  wasConnected               Boolean?
   sourceLineId               String?
   sourceExtension            String?
   goToInitiatorId            String?                    @unique

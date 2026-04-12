@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { GoToConnectSettingsForm } from "@/components/goto-connect-settings-form";
 import {
   reResolveGoToConnectAdvisorExtensionsAction,
+  syncGoToCallTrackingAction,
   updateGoToConnectAdvisorExtensionAction,
 } from "@/app/manager/settings/integrations/goto-connect/actions";
 import { getManagerAlertCount } from "@/lib/alerts";
@@ -17,6 +18,8 @@ export default async function ManagerGoToConnectSettingsPage({
   searchParams?: Promise<{
     message?: string;
     oauth?: string;
+    tracking?: string;
+    trackingMessage?: string;
   }>;
 }) {
   const session = await requireRole([Role.MANAGER]);
@@ -105,6 +108,14 @@ export default async function ManagerGoToConnectSettingsPage({
               {configuredAdvisorCount}/{advisors.length}
             </p>
           </div>
+          <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Call Tracking
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-950">
+              {settings.callEventsConfiguredAt ? "Configured" : "Pending"}
+            </p>
+          </div>
         </div>
 
         <GoToConnectSettingsForm
@@ -113,6 +124,62 @@ export default async function ManagerGoToConnectSettingsPage({
           oauthStatus={resolvedSearchParams?.oauth ?? null}
           settings={settings}
         />
+
+        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-2xl font-semibold text-slate-950">Call Tracking</h3>
+              <p className="mt-2 text-sm text-slate-600">
+                Sync GoTo notification subscriptions so ServiceSyncNow can track call start, completion, and duration on each queued customer call.
+              </p>
+            </div>
+            <form action={syncGoToCallTrackingAction}>
+              <button
+                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                type="submit"
+              >
+                {settings.callEventsConfiguredAt ? "Recheck Call Tracking" : "Enable Call Tracking"}
+              </button>
+            </form>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Notification Channel
+              </p>
+              <p className="mt-2 break-all text-sm text-slate-900">
+                {settings.notificationChannelId || "Not configured"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Report Subscription
+              </p>
+              <p className="mt-2 break-all text-sm text-slate-900">
+                {settings.callEventsReportSubscriptionId || "Not configured"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Last Sync
+              </p>
+              <p className="mt-2 text-sm text-slate-900">
+                {settings.callEventsConfiguredAt || "Not configured"}
+              </p>
+            </div>
+          </div>
+          {resolvedSearchParams?.trackingMessage ? (
+            <p
+              className={`mt-4 text-sm ${
+                resolvedSearchParams.tracking === "error"
+                  ? "text-rose-600"
+                  : "text-emerald-700"
+              }`}
+            >
+              {resolvedSearchParams.trackingMessage}
+            </p>
+          ) : null}
+        </section>
 
         <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">

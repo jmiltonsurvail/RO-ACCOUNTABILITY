@@ -1,7 +1,8 @@
-import { RecordingProcessingStatus } from "@prisma/client";
+import { ActivityType, RecordingProcessingStatus } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
 import { getPlatformIntegrationSettings } from "@/lib/platform-integrations";
 import { prisma } from "@/lib/prisma";
+import { processCallSessionRecording } from "@/lib/recording-transcription";
 import { parseS3RecordingEvent } from "@/lib/s3-recordings";
 
 export async function POST(request: NextRequest) {
@@ -25,6 +26,8 @@ export async function POST(request: NextRequest) {
 
   let ignoredBucketCount = 0;
   let matchedCount = 0;
+  let processedCount = 0;
+  let processingFailureCount = 0;
   let unmatchedCount = 0;
 
   for (const record of records) {
@@ -44,6 +47,7 @@ export async function POST(request: NextRequest) {
       },
       select: {
         id: true,
+        repairOrderId: true,
       },
     });
 
@@ -63,12 +67,39 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    await prisma.activityLog.create({
+      data: {
+        message: `Call recording received for GoTo call ${record.goToInitiatorId}.`,
+        metadata: {
+          bucket: record.bucket,
+          callSessionId: callSession.id,
+          eventName: record.eventName,
+          goToInitiatorId: record.goToInitiatorId,
+          rawRecordingObjectKey: record.key,
+        },
+        repairOrderId: callSession.repairOrderId,
+        type: ActivityType.CALL_RECORDING_RECEIVED,
+      },
+    });
+
+    const result = await processCallSessionRecording(callSession.id);
+
+    if (result.status === "processed") {
+      processedCount += 1;
+    }
+
+    if (result.status === "failed") {
+      processingFailureCount += 1;
+    }
+
     matchedCount += 1;
   }
 
   return NextResponse.json({
     ignoredBucketCount,
     matchedCount,
+    processedCount,
+    processingFailureCount,
     receivedCount: records.length,
     unmatchedCount,
   });

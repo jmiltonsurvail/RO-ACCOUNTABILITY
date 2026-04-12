@@ -7,11 +7,15 @@ export type GoToConnectSettingsValues = {
   accessToken: string | null;
   accessTokenExpiresAt: string | null;
   autoAnswer: boolean;
+  callEventsConfiguredAt: string | null;
+  callEventsReportSubscriptionId: string | null;
   clientId: string | null;
   clientSecret: string | null;
   connectedAt: string | null;
   enabled: boolean;
   launchUrlTemplate: string | null;
+  notificationChannelId: string | null;
+  notificationWebhookToken: string | null;
   organizationId: string | null;
   phoneNumberId: string | null;
   refreshToken: string | null;
@@ -23,11 +27,15 @@ export const defaultGoToConnectSettings: GoToConnectSettingsValues = {
   accessToken: null,
   accessTokenExpiresAt: null,
   autoAnswer: false,
+  callEventsConfiguredAt: null,
+  callEventsReportSubscriptionId: null,
   clientId: null,
   clientSecret: null,
   connectedAt: null,
   enabled: false,
   launchUrlTemplate: null,
+  notificationChannelId: null,
+  notificationWebhookToken: null,
   organizationId: null,
   phoneNumberId: null,
   refreshToken: null,
@@ -54,11 +62,15 @@ export async function getGoToConnectSettings(
     accessToken: settings.accessToken,
     accessTokenExpiresAt: settings.accessTokenExpiresAt?.toISOString() ?? null,
     autoAnswer: settings.autoAnswer,
+    callEventsConfiguredAt: settings.callEventsConfiguredAt?.toISOString() ?? null,
+    callEventsReportSubscriptionId: settings.callEventsReportSubscriptionId,
     clientId: settings.clientId,
     clientSecret: settings.clientSecret,
     connectedAt: settings.connectedAt?.toISOString() ?? null,
     enabled: settings.enabled,
     launchUrlTemplate: settings.launchUrlTemplate,
+    notificationChannelId: settings.notificationChannelId,
+    notificationWebhookToken: settings.notificationWebhookToken,
     organizationId: settings.goToOrganizationId,
     phoneNumberId: settings.phoneNumberId,
     refreshToken: settings.refreshToken,
@@ -94,6 +106,18 @@ export type GoToConnectionTestResult = {
   ok: boolean;
   testedExtension: string | null;
   userCount: number;
+};
+
+export type GoToCallEventsReport = {
+  accountKey?: string;
+  callCreated?: string;
+  callEnded?: string;
+  callStates?: Array<{
+    type?: string;
+  }>;
+  conversationSpaceId?: string;
+  direction?: string;
+  participants?: Array<unknown>;
 };
 
 export type ResolvedGoToLine = {
@@ -268,6 +292,17 @@ export function getGoToOauthRedirectUri(origin: string) {
   return `${origin.replace(/\/+$/, "")}/api/goto-connect/oauth/callback`;
 }
 
+export function getGoToNotificationWebhookUrl(input: {
+  origin: string;
+  webhookToken: string;
+}) {
+  const url = new URL(
+    `${input.origin.replace(/\/+$/, "")}/api/goto-connect/notifications`,
+  );
+  url.searchParams.set("token", input.webhookToken);
+  return url.toString();
+}
+
 export function buildGoToOauthAuthorizeUrl(input: {
   clientId: string;
   redirectUri: string;
@@ -404,11 +439,15 @@ export async function getGoToConnectSettingsWithAccessToken(
         accessToken: updated.accessToken,
         accessTokenExpiresAt: updated.accessTokenExpiresAt?.toISOString() ?? null,
         autoAnswer: updated.autoAnswer,
+        callEventsConfiguredAt: updated.callEventsConfiguredAt?.toISOString() ?? null,
+        callEventsReportSubscriptionId: updated.callEventsReportSubscriptionId,
         clientId: updated.clientId,
         clientSecret: updated.clientSecret,
         connectedAt: updated.connectedAt?.toISOString() ?? null,
         enabled: updated.enabled,
         launchUrlTemplate: updated.launchUrlTemplate,
+        notificationChannelId: updated.notificationChannelId,
+        notificationWebhookToken: updated.notificationWebhookToken,
         organizationId: updated.goToOrganizationId,
         phoneNumberId: updated.phoneNumberId,
         refreshToken: updated.refreshToken,
@@ -720,4 +759,131 @@ export async function getGoToCallFailureMessage(response: Response) {
   }
 
   return `GoTo Connect call request failed with status ${response.status}.`;
+}
+
+export async function createGoToNotificationChannel(input: {
+  accessToken: string;
+  webhookUrl: string;
+  channelNickname: string;
+}) {
+  const response = await fetch(
+    `https://api.goto.com/notification-channel/v1/channels/${encodeURIComponent(input.channelNickname)}`,
+    {
+      body: JSON.stringify({
+        channelType: "Webhook",
+        webhookChannelData: {
+          webhook: {
+            url: input.webhookUrl,
+          },
+        },
+      }),
+      headers: {
+        Authorization: `Bearer ${input.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`GoTo notification channel creation failed with status ${response.status}.`);
+  }
+
+  const payload = (await response.json()) as {
+    channelId?: string;
+  };
+
+  if (!payload.channelId) {
+    throw new Error("GoTo notification channel creation did not return a channel id.");
+  }
+
+  return payload.channelId;
+}
+
+export async function subscribeToGoToCallEvents(input: {
+  accessToken: string;
+  accountKey: string;
+  channelId: string;
+}) {
+  const response = await fetch("https://api.goto.com/call-events/v1/subscriptions", {
+    body: JSON.stringify({
+      accountKeys: [
+        {
+          events: ["STARTING", "CONNECTED", "ENDING"],
+          id: input.accountKey,
+        },
+      ],
+      channelId: input.channelId,
+    }),
+    headers: {
+      Authorization: `Bearer ${input.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`GoTo call events subscription failed with status ${response.status}.`);
+  }
+}
+
+export async function subscribeToGoToCallEventReports(input: {
+  accessToken: string;
+  accountKey: string;
+  channelId: string;
+}) {
+  const response = await fetch("https://api.goto.com/call-events-report/v1/subscriptions", {
+    body: JSON.stringify({
+      accountKeys: [input.accountKey],
+      channelId: input.channelId,
+      eventTypes: ["REPORT_SUMMARY"],
+    }),
+    headers: {
+      Authorization: `Bearer ${input.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `GoTo call events report subscription failed with status ${response.status}.`,
+    );
+  }
+
+  const payload = (await response.json()) as {
+    items?: Array<{
+      id?: string;
+    }>;
+  };
+
+  const subscriptionId = payload.items?.[0]?.id;
+
+  if (!subscriptionId) {
+    throw new Error("GoTo call events report subscription did not return an id.");
+  }
+
+  return subscriptionId;
+}
+
+export async function fetchGoToCallEventsReport(input: {
+  accessToken: string;
+  conversationSpaceId: string;
+}) {
+  const response = await fetch(
+    `https://api.goto.com/call-events-report/v1/reports/${encodeURIComponent(input.conversationSpaceId)}`,
+    {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${input.accessToken}`,
+      },
+      method: "GET",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`GoTo call report lookup failed with status ${response.status}.`);
+  }
+
+  return (await response.json()) as GoToCallEventsReport;
 }

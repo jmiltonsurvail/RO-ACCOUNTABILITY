@@ -4,7 +4,7 @@ import { type RepairValue } from "@prisma/client";
 import { useActionState, useEffect, useEffectEvent, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
-import { ContactHistoryList } from "@/components/contact-history-list";
+import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
 import { repairValueOptions } from "@/lib/constants";
 
@@ -20,11 +20,7 @@ export function InlineContactEditor({
   roNumber,
 }: {
   contacted: boolean;
-  contactRecords: Array<{
-    advisorLabel: string | null;
-    contactedAt: string;
-    customerNotes: string | null;
-  }>;
+  contactRecords: ContactHistoryEntry[];
   customerNotes: string | null;
   hasRentalCar: boolean;
   phone: string | null;
@@ -39,6 +35,9 @@ export function InlineContactEditor({
     ? `/api/goto-connect/call?ro=${roNumber}&returnTo=${encodeURIComponent(pathname)}`
     : null;
   const contactedValue = notesValue.trim().length > 0 || contacted;
+  const latestCallSummary =
+    contactRecords.find((record) => record.linkedCallRecord?.callSummary)?.linkedCallRecord
+      ?.callSummary ?? null;
   const handleSaved = useEffectEvent(() => {
     setNotesValue("");
     router.refresh();
@@ -122,6 +121,12 @@ export function InlineContactEditor({
       </div>
 
       <GoToCallFeedback roNumber={roNumber} />
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Call Summary</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">
+          {latestCallSummary || "No call summary yet."}
+        </p>
+      </div>
       <ContactHistoryList entries={contactRecords} />
       {state.error ? <p className="text-xs text-rose-600">{state.error}</p> : null}
     </form>

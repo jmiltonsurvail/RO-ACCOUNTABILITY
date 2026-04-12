@@ -52,6 +52,13 @@ export default async function ManagerPage() {
                 record.advisorUser?.email ||
                 repairOrder.advisorName ||
                 null,
+              linkedCallRecord: record.callSession
+                ? {
+                    callSessionId: record.callSession.id,
+                    callSummary: record.callSession.callSummary,
+                    transcriptStatus: record.callSession.transcriptStatus,
+                  }
+                : null,
               contactedAt: record.contactedAt.toISOString(),
               customerNotes: record.customerNotes,
             })),

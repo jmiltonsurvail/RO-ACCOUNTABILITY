@@ -4,7 +4,7 @@ import { type RepairValue } from "@prisma/client";
 import { useActionState, useEffect, useEffectEvent, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
-import { ContactHistoryList } from "@/components/contact-history-list";
+import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
 import { blockerReasonLabels, repairValueLabels, repairValueOptions } from "@/lib/constants";
 import { formatDateTime, hoursSince } from "@/lib/utils";
@@ -37,11 +37,7 @@ type AdvisorRepairOrder = {
     hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
-  contactRecords: Array<{
-    advisorLabel: string | null;
-    contactedAt: string;
-    customerNotes: string | null;
-  }>;
+  contactRecords: ContactHistoryEntry[];
   customerName: string;
   mode: string;
   model: string;
@@ -105,6 +101,9 @@ export function AdvisorContactCard({
   const asmLabel = repairOrder.advisorName
     ? `ASM ${repairOrder.asmNumber} · ${repairOrder.advisorName}`
     : `ASM ${repairOrder.asmNumber}`;
+  const latestCallSummary =
+    repairOrder.contactRecords.find((record) => record.linkedCallRecord?.callSummary)
+      ?.linkedCallRecord?.callSummary ?? null;
 
   return (
     <form
@@ -249,6 +248,12 @@ export function AdvisorContactCard({
           </label>
           <div className="mt-4">
             <GoToCallFeedback roNumber={repairOrder.roNumber} />
+          </div>
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Call Summary</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700">
+              {latestCallSummary || "No call summary yet."}
+            </p>
           </div>
           <div className="mt-4">
             <ContactHistoryList entries={repairOrder.contactRecords} />

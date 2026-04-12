@@ -20,6 +20,14 @@ const roCardInclude = {
           name: true,
         },
       },
+      callSession: {
+        select: {
+          callSummary: true,
+          id: true,
+          requestedAt: true,
+          transcriptStatus: true,
+        },
+      },
     },
   },
   activities: {
@@ -47,6 +55,14 @@ const activeRepairOrderBoardInclude = {
         select: {
           email: true,
           name: true,
+        },
+      },
+      callSession: {
+        select: {
+          callSummary: true,
+          id: true,
+          requestedAt: true,
+          transcriptStatus: true,
         },
       },
     },

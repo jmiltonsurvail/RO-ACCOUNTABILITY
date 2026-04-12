@@ -34,6 +34,10 @@
 - [x] Add clearer GoTo status and error handling for failed Click-To-Call attempts.
 - [x] Add support for re-resolving ASM extension to `lineId` when advisor mappings change.
 - [x] Add audit logging for GoTo settings changes and advisor line-mapping changes.
+- [x] Add GoTo notification channel and call tracking subscription setup for each tenant.
+- [x] Persist GoTo call lifecycle data on `CallSession` including conversation id, start/end time, and duration.
+- [x] Surface tracked call timing and duration in the RO call record modal.
+- [ ] Evaluate voicemail and disposition flags from real GoTo report payloads before mapping them into the UI.
 
 ## Call Recording Pipeline
 
@@ -41,9 +45,9 @@
 - [ ] Configure GoTo call recordings to land in S3.
 - [x] Design tenant-scoped S3 key structure for recordings and transcripts.
 - [x] Add S3 event processing for new recordings.
-- [ ] Add OpenAI transcription workflow for completed recordings.
-- [ ] Store transcript artifacts and extracted metadata back on the related RO and call session.
-- [ ] Prevent duplicate processing and handle retries safely.
+- [x] Add OpenAI transcription workflow for completed recordings.
+- [x] Store transcript artifacts and extracted metadata back on the related RO and call session.
+- [x] Prevent duplicate processing and handle retries safely.
 
 ## Multi-Tenant Integration Hardening
 

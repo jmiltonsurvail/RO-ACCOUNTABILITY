@@ -4,7 +4,7 @@ import { type BlockerReason, type RepairValue } from "@prisma/client";
 import { useDeferredValue, useMemo, useState } from "react";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
 import { CompactStatCard } from "@/components/compact-stat-card";
-import { ContactHistoryList } from "@/components/contact-history-list";
+import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import { InlineContactEditor } from "@/components/inline-contact-editor";
 import { InlineBlockerEditor } from "@/components/inline-blocker-editor";
 import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
@@ -35,11 +35,7 @@ type ActiveRepairOrder = {
     hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
-  contactRecords: Array<{
-    advisorLabel: string | null;
-    contactedAt: string;
-    customerNotes: string | null;
-  }>;
+  contactRecords: ContactHistoryEntry[];
   customerName: string;
   mode: string;
   model: string;
@@ -800,6 +796,15 @@ export function ActiveRoBoard({
                       </p>
                       <p className="mt-2 text-sm leading-6 text-slate-700">
                         {repairOrder.contactState?.customerNotes || "No customer notes."}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/70 bg-white p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Call Summary
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-slate-700">
+                        {repairOrder.contactRecords.find((record) => record.linkedCallRecord?.callSummary)
+                          ?.linkedCallRecord?.callSummary || "No call summary yet."}
                       </p>
                     </div>
                     <ContactHistoryList entries={repairOrder.contactRecords} />

@@ -70,6 +70,31 @@ export async function updateContactAction(
       : null;
 
   await prisma.$transaction(async (transaction) => {
+    const latestEligibleCallStartedAt = contactTimestamp
+      ? new Date(contactTimestamp.getTime() - 12 * 60 * 60 * 1000)
+      : new Date(Date.now() - 12 * 60 * 60 * 1000);
+    const latestCallSession = shouldCreateContactRecord
+      ? await transaction.callSession.findFirst({
+          where: {
+            organizationId,
+            repairOrderId: repairOrder.id,
+            contactRecords: {
+              none: {},
+            },
+            requestedAt: {
+              gte: latestEligibleCallStartedAt,
+              lte: contactTimestamp ?? new Date(),
+            },
+          },
+          orderBy: {
+            requestedAt: "desc",
+          },
+          select: {
+            id: true,
+          },
+        })
+      : null;
+
     await transaction.repairOrder.update({
       where: { id: repairOrder.id },
       data: {
@@ -100,6 +125,7 @@ export async function updateContactAction(
       await transaction.contactRecord.create({
         data: {
           advisorUserId: session.user.id,
+          callSessionId: latestCallSession?.id ?? null,
           contactedAt: contactTimestamp ?? new Date(),
           customerNotes: parsed.data.customerNotes || null,
           repairOrderId: repairOrder.id,

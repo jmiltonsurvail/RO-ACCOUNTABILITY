@@ -2,6 +2,7 @@
 
 import { type BlockerReason, type RepairValue } from "@prisma/client";
 import { ActiveRoBoard } from "@/components/active-ro-board";
+import { type ContactHistoryEntry } from "@/components/contact-history-list";
 import { type SlaSettingsValues } from "@/lib/sla-settings";
 
 type DispatcherOrder = {
@@ -19,11 +20,7 @@ type DispatcherOrder = {
     hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
-  contactRecords: Array<{
-    advisorLabel: string | null;
-    contactedAt: string;
-    customerNotes: string | null;
-  }>;
+  contactRecords: ContactHistoryEntry[];
   customerName: string;
   mode: string;
   model: string;

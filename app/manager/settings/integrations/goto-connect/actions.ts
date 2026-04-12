@@ -1,15 +1,20 @@
 "use server";
 
 import { ActivityType, Role } from "@prisma/client";
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireOrganizationId, requireRole } from "@/lib/auth";
 import {
+  createGoToNotificationChannel,
+  getGoToNotificationWebhookUrl,
   getGoToConnectSettings,
   getGoToConnectSettingsWithAccessToken,
   resolveGoToAccount,
   resolveGoToLineByExtension,
   resolveGoToLinesByExtensions,
+  subscribeToGoToCallEventReports,
+  subscribeToGoToCallEvents,
   testGoToConnection,
 } from "@/lib/goto-connect";
 import { logActivity } from "@/lib/data";
@@ -28,6 +33,89 @@ export type GoToConnectConnectionTestActionState = {
   error?: string;
   success?: string;
 };
+
+async function syncGoToCallTracking(input: {
+  accessToken: string;
+  accountKey: string;
+  organizationId: string;
+}) {
+  const existing = await prisma.goToConnectSettings.findUnique({
+    where: {
+      organizationId: input.organizationId,
+    },
+    select: {
+      callEventsConfiguredAt: true,
+      callEventsReportSubscriptionId: true,
+      notificationChannelId: true,
+      notificationWebhookToken: true,
+    },
+  });
+
+  if (
+    existing?.notificationChannelId &&
+    existing.callEventsReportSubscriptionId &&
+    existing.callEventsConfiguredAt
+  ) {
+    return {
+      alreadyConfigured: true,
+      callEventsReportSubscriptionId: existing.callEventsReportSubscriptionId,
+      notificationChannelId: existing.notificationChannelId,
+      notificationWebhookToken: existing.notificationWebhookToken,
+    };
+  }
+
+  const origin = process.env.NEXTAUTH_URL?.trim();
+
+  if (!origin) {
+    throw new Error("NEXTAUTH_URL must be set before GoTo call tracking can be configured.");
+  }
+
+  const webhookToken = existing?.notificationWebhookToken ?? randomBytes(24).toString("hex");
+  const webhookUrl = getGoToNotificationWebhookUrl({
+    origin,
+    webhookToken,
+  });
+  const notificationChannelId =
+    existing?.notificationChannelId ??
+    (await createGoToNotificationChannel({
+      accessToken: input.accessToken,
+      channelNickname: `servicesyncnow-${input.organizationId.slice(0, 18)}`,
+      webhookUrl,
+    }));
+
+  await subscribeToGoToCallEvents({
+    accessToken: input.accessToken,
+    accountKey: input.accountKey,
+    channelId: notificationChannelId,
+  });
+
+  const reportSubscriptionId =
+    existing?.callEventsReportSubscriptionId ??
+    (await subscribeToGoToCallEventReports({
+      accessToken: input.accessToken,
+      accountKey: input.accountKey,
+      channelId: notificationChannelId,
+    }));
+
+  await prisma.goToConnectSettings.update({
+    where: {
+      organizationId: input.organizationId,
+    },
+    data: {
+      callEventsConfiguredAt: new Date(),
+      callEventsReportSubscriptionId: reportSubscriptionId,
+      notificationChannelId,
+      notificationWebhookToken: webhookToken,
+    },
+  });
+
+  return {
+    alreadyConfigured: false,
+    callEventsReportSubscriptionId: reportSubscriptionId,
+    notificationChannelId,
+    notificationWebhookToken: webhookToken,
+  };
+}
 
 async function upsertGoToClientSettings(input: {
   autoAnswer: boolean;
@@ -392,6 +480,53 @@ export async function reResolveGoToConnectAdvisorExtensionsAction() {
   });
 
   revalidatePath("/manager/settings/integrations/goto-connect");
+}
+
+export async function syncGoToCallTrackingAction() {
+  const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
+  const settings = await getGoToConnectSettingsWithAccessToken(organizationId);
+
+  if (!settings.accessToken || !settings.accountKey) {
+    redirect(
+      "/manager/settings/integrations/goto-connect?tracking=error&trackingMessage=Connect+GoTo+and+resolve+the+account+before+enabling+call+tracking.",
+    );
+  }
+
+  try {
+    const result = await syncGoToCallTracking({
+      accessToken: settings.accessToken,
+      accountKey: settings.accountKey,
+      organizationId,
+    });
+
+    await logActivity({
+      message: result.alreadyConfigured
+        ? "GoTo call tracking was already configured."
+        : "Configured GoTo call tracking notifications.",
+      metadata: {
+        callEventsReportSubscriptionId: result.callEventsReportSubscriptionId,
+        notificationChannelId: result.notificationChannelId,
+      },
+      type: ActivityType.GOTO_CONNECT_SETTINGS_UPDATED,
+      userId: session.user.id,
+    });
+
+    revalidatePath("/manager/settings/integrations/goto-connect");
+    redirect(
+      `/manager/settings/integrations/goto-connect?tracking=success&trackingMessage=${encodeURIComponent(
+        result.alreadyConfigured
+          ? "GoTo call tracking is already configured."
+          : "GoTo call tracking is configured.",
+      )}`,
+    );
+  } catch (error) {
+    redirect(
+      `/manager/settings/integrations/goto-connect?tracking=error&trackingMessage=${encodeURIComponent(
+        error instanceof Error ? error.message : "Unable to configure GoTo call tracking.",
+      )}`,
+    );
+  }
 }
 
 export async function connectGoToOauthAction(
