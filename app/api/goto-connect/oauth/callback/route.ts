@@ -18,6 +18,20 @@ function buildSettingsRedirect(status: string, message: string) {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+function buildCookieClearHeader() {
+  return "goto_connect_oauth_state=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax";
+}
+
+function redirectToSettings(status: string, message: string) {
+  return new Response(null, {
+    headers: {
+      Location: buildSettingsRedirect(status, message),
+      "Set-Cookie": buildCookieClearHeader(),
+    },
+    status: 303,
+  });
+}
+
 export async function GET(request: NextRequest) {
   const session = await getServerAuthSession();
 
@@ -30,11 +44,7 @@ export async function GET(request: NextRequest) {
   const expectedState = request.cookies.get("goto_connect_oauth_state")?.value ?? null;
 
   if (!code || !state || !expectedState || state !== expectedState) {
-    const response = NextResponse.redirect(
-      buildSettingsRedirect("error", "GoTo OAuth state validation failed."),
-    );
-    response.cookies.delete("goto_connect_oauth_state");
-    return response;
+    return redirectToSettings("error", "GoTo OAuth state validation failed.");
   }
 
   const settings = await prisma.goToConnectSettings.findUnique({
@@ -50,14 +60,10 @@ export async function GET(request: NextRequest) {
   });
 
   if (!settings?.clientId || !settings.clientSecret) {
-    const response = NextResponse.redirect(
-      buildSettingsRedirect(
-        "error",
-        "GoTo Client ID and Client Secret must be saved before connecting.",
-      ),
+    return redirectToSettings(
+      "error",
+      "GoTo Client ID and Client Secret must be saved before connecting.",
     );
-    response.cookies.delete("goto_connect_oauth_state");
-    return response;
   }
 
   try {
@@ -86,13 +92,6 @@ export async function GET(request: NextRequest) {
       resolvedAccountName = accountLookup.accounts[0]?.name ?? null;
     } else if (accountLookup.accounts.length > 1) {
       if (!resolvedAccountKey) {
-        const response = NextResponse.redirect(
-          buildSettingsRedirect(
-            "warning",
-            "GoTo connected. This token can access multiple accounts, so enter the Account Key in Advanced to finish setup.",
-          ),
-        );
-        response.cookies.delete("goto_connect_oauth_state");
         await prisma.goToConnectSettings.update({
           where: {
             organizationId: session.user.organizationId,
@@ -104,7 +103,10 @@ export async function GET(request: NextRequest) {
             refreshToken: tokens.refreshToken,
           },
         });
-        return response;
+        return redirectToSettings(
+          "warning",
+          "GoTo connected. This token can access multiple accounts, so enter the Account Key in Advanced to finish setup.",
+        );
       }
 
       const matchedAccount = accountLookup.accounts.find(
@@ -127,15 +129,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const response = NextResponse.redirect(
-      buildSettingsRedirect("success", "GoTo connected successfully."),
-    );
-    response.cookies.delete("goto_connect_oauth_state");
-    return response;
+    return redirectToSettings("success", "GoTo connected successfully.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "GoTo OAuth failed.";
-    const response = NextResponse.redirect(buildSettingsRedirect("error", message));
-    response.cookies.delete("goto_connect_oauth_state");
-    return response;
+    return redirectToSettings("error", message);
   }
 }
