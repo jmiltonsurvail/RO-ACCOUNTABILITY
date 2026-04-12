@@ -11,9 +11,17 @@ import { requireOrganizationId, requireRole } from "@/lib/auth";
 import { getGoToConnectSettings } from "@/lib/goto-connect";
 import { prisma } from "@/lib/prisma";
 
-export default async function ManagerGoToConnectSettingsPage() {
+export default async function ManagerGoToConnectSettingsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    message?: string;
+    oauth?: string;
+  }>;
+}) {
   const session = await requireRole([Role.MANAGER]);
   const organizationId = requireOrganizationId(session);
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const [managerAlertCount, settings, advisors] = await Promise.all([
     getManagerAlertCount(organizationId),
     getGoToConnectSettings(organizationId),
@@ -64,7 +72,7 @@ export default async function ManagerGoToConnectSettingsPage() {
           </Link>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-4">
           <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Status
@@ -83,6 +91,14 @@ export default async function ManagerGoToConnectSettingsPage() {
           </div>
           <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Account Key
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-950">
+              {settings.accountKey ? "Resolved" : "Pending"}
+            </p>
+          </div>
+          <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Advisor Extensions
             </p>
             <p className="mt-2 text-2xl font-semibold text-slate-950">
@@ -93,6 +109,8 @@ export default async function ManagerGoToConnectSettingsPage() {
 
         <GoToConnectSettingsForm
           defaultTestExtension={defaultTestExtension}
+          oauthMessage={resolvedSearchParams?.message ?? null}
+          oauthStatus={resolvedSearchParams?.oauth ?? null}
           settings={settings}
         />
 

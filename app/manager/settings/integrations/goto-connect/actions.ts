@@ -2,9 +2,12 @@
 
 import { ActivityType, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireOrganizationId, requireRole } from "@/lib/auth";
 import {
   getGoToConnectSettings,
+  getGoToConnectSettingsWithAccessToken,
+  resolveGoToAccount,
   resolveGoToLineByExtension,
   resolveGoToLinesByExtensions,
   testGoToConnection,
@@ -25,6 +28,50 @@ export type GoToConnectConnectionTestActionState = {
   error?: string;
   success?: string;
 };
+
+async function upsertGoToClientSettings(input: {
+  autoAnswer: boolean;
+  clientId: string | null;
+  clientSecret: string | null;
+  enabled: boolean;
+  organizationId: string;
+  phoneNumberId: string | null;
+}) {
+  const existing = await prisma.goToConnectSettings.findUnique({
+    where: { organizationId: input.organizationId },
+  });
+
+  const result = await prisma.goToConnectSettings.upsert({
+    create: {
+      accessToken: existing?.accessToken ?? null,
+      accessTokenExpiresAt: existing?.accessTokenExpiresAt ?? null,
+      accountKey: existing?.accountKey ?? null,
+      accountName: existing?.accountName ?? null,
+      autoAnswer: input.autoAnswer,
+      clientId: input.clientId ?? existing?.clientId ?? null,
+      clientSecret: input.clientSecret ?? existing?.clientSecret ?? null,
+      connectedAt: existing?.connectedAt ?? null,
+      enabled: input.enabled,
+      goToOrganizationId: existing?.goToOrganizationId ?? null,
+      organizationId: input.organizationId,
+      phoneNumberId: input.phoneNumberId,
+      refreshToken: existing?.refreshToken ?? null,
+    },
+    update: {
+      autoAnswer: input.autoAnswer,
+      clientId: input.clientId ?? existing?.clientId ?? null,
+      clientSecret: input.clientSecret ?? existing?.clientSecret ?? null,
+      enabled: input.enabled,
+      phoneNumberId: input.phoneNumberId,
+    },
+    where: { organizationId: input.organizationId },
+  });
+
+  return {
+    existing,
+    settings: result,
+  };
+}
 
 async function reResolveAdvisorLines(input: {
   accountKey: string | null;
@@ -96,7 +143,7 @@ export async function updateGoToConnectSettingsAction(
 
   const parsed = gotoConnectSettingsSchema.safeParse({
     accountKey: formData.get("accountKey"),
-    accessToken: formData.get("accessToken"),
+    accessToken: null,
     autoAnswer: formData.get("autoAnswer") ?? "false",
     clientId: formData.get("clientId"),
     clientSecret: formData.get("clientSecret"),
@@ -110,42 +157,51 @@ export async function updateGoToConnectSettingsAction(
     return { error: "Enter valid GoTo settings before saving." };
   }
 
-  const existing = await prisma.goToConnectSettings.findUnique({
-    where: { organizationId },
+  const { existing } = await upsertGoToClientSettings({
+    autoAnswer: parsed.data.autoAnswer,
+    clientId: parsed.data.clientId ?? null,
+    clientSecret: parsed.data.clientSecret ?? null,
+    enabled: parsed.data.enabled,
+    organizationId,
+    phoneNumberId: parsed.data.phoneNumberId ?? null,
   });
 
-  const nextAccessToken = parsed.data.accessToken ?? existing?.accessToken ?? null;
-  const nextAccountKey = parsed.data.accountKey ?? null;
+  const resolvedAccount = await resolveGoToAccount({
+    accessToken: existing?.accessToken ?? null,
+    accountKey: parsed.data.accountKey ?? existing?.accountKey ?? null,
+  });
+
+  if (!existing?.accessToken) {
+    revalidatePath("/manager/settings/integrations/goto-connect");
+    return {
+      success:
+        "OAuth settings saved. Click Connect GoTo to authorize the app and pull the account details.",
+    };
+  }
+
+  if (resolvedAccount.error || !resolvedAccount.account) {
+    return {
+      error:
+        resolvedAccount.error ??
+        "GoTo authorization is saved, but the account could not be resolved.",
+    };
+  }
+
+  const nextAccessToken = existing.accessToken;
+  const nextAccountKey = resolvedAccount.account.key;
   const lookupInputsChanged =
     nextAccessToken !== (existing?.accessToken ?? null) ||
     nextAccountKey !== (existing?.accountKey ?? null);
 
-  await prisma.goToConnectSettings.upsert({
-    create: {
-      accountKey: parsed.data.accountKey ?? null,
-      accessToken: parsed.data.accessToken ?? null,
-      autoAnswer: parsed.data.autoAnswer,
-      clientId: parsed.data.clientId ?? null,
-      clientSecret: parsed.data.clientSecret ?? null,
-      enabled: parsed.data.enabled,
-      launchUrlTemplate: parsed.data.launchUrlTemplate ?? null,
-      goToOrganizationId: parsed.data.organizationId ?? null,
-      organizationId,
-      phoneNumberId: parsed.data.phoneNumberId ?? null,
-    },
-    update: {
-      accountKey: parsed.data.accountKey ?? null,
-      accessToken: parsed.data.accessToken ?? existing?.accessToken ?? null,
-      autoAnswer: parsed.data.autoAnswer,
-      clientId: parsed.data.clientId ?? null,
-      clientSecret:
-        parsed.data.clientSecret ?? existing?.clientSecret ?? null,
-      enabled: parsed.data.enabled,
-      launchUrlTemplate: parsed.data.launchUrlTemplate ?? null,
-      goToOrganizationId: parsed.data.organizationId ?? null,
-      phoneNumberId: parsed.data.phoneNumberId ?? null,
-    },
+  await prisma.goToConnectSettings.update({
     where: { organizationId },
+    data: {
+      accountKey: nextAccountKey,
+      accountName: resolvedAccount.account.name,
+      autoAnswer: parsed.data.autoAnswer,
+      enabled: parsed.data.enabled,
+      phoneNumberId: parsed.data.phoneNumberId ?? null,
+    },
   });
 
   let reResolvedSummary:
@@ -171,16 +227,11 @@ export async function updateGoToConnectSettingsAction(
       changedFields: {
         accessToken: nextAccessToken !== (existing?.accessToken ?? null),
         accountKey: nextAccountKey !== (existing?.accountKey ?? null),
-        clientId: (parsed.data.clientId ?? null) !== (existing?.clientId ?? null),
-        clientSecret:
-          (parsed.data.clientSecret ?? existing?.clientSecret ?? null) !==
-          (existing?.clientSecret ?? null),
         enabled: parsed.data.enabled !== (existing?.enabled ?? false),
-        organizationId:
-          (parsed.data.organizationId ?? null) !== (existing?.goToOrganizationId ?? null),
         phoneNumberId:
           (parsed.data.phoneNumberId ?? null) !== (existing?.phoneNumberId ?? null),
       },
+      resolvedAccountName: resolvedAccount.account.name,
       reResolvedSummary,
     },
     type: ActivityType.GOTO_CONNECT_SETTINGS_UPDATED,
@@ -193,8 +244,8 @@ export async function updateGoToConnectSettingsAction(
 
   return {
     success: reResolvedSummary
-      ? `GoTo Connect settings saved. Re-resolved ${reResolvedSummary.updatedCount} advisor line mappings.`
-      : "GoTo Connect settings saved.",
+      ? `GoTo Connect settings saved for account ${nextAccountKey}. Re-resolved ${reResolvedSummary.updatedCount} advisor line mappings.`
+      : `GoTo Connect settings saved for account ${nextAccountKey}.`,
   };
 }
 
@@ -202,11 +253,12 @@ export async function testGoToConnectSettingsAction(
   _previousState: GoToConnectConnectionTestActionState,
   formData: FormData,
 ): Promise<GoToConnectConnectionTestActionState> {
-  await requireRole([Role.MANAGER]);
+  const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
 
   const parsed = gotoConnectSettingsSchema.safeParse({
     accountKey: formData.get("accountKey"),
-    accessToken: formData.get("accessToken"),
+    accessToken: null,
     autoAnswer: formData.get("autoAnswer") ?? "false",
     clientId: formData.get("clientId"),
     clientSecret: formData.get("clientSecret"),
@@ -217,7 +269,22 @@ export async function testGoToConnectSettingsAction(
   });
 
   if (!parsed.success) {
-    return { error: "Enter a valid Account Key and Access Token to test GoTo Connect." };
+    return { error: "Enter valid GoTo settings before testing." };
+  }
+
+  const { settings } = await upsertGoToClientSettings({
+    autoAnswer: parsed.data.autoAnswer,
+    clientId: parsed.data.clientId ?? null,
+    clientSecret: parsed.data.clientSecret ?? null,
+    enabled: parsed.data.enabled,
+    organizationId,
+    phoneNumberId: parsed.data.phoneNumberId ?? null,
+  });
+
+  const runtimeSettings = await getGoToConnectSettingsWithAccessToken(organizationId);
+
+  if (!runtimeSettings.accessToken) {
+    return { error: "Click Connect GoTo first so the app can obtain an access token." };
   }
 
   const testExtensionValue = formData.get("testExtension");
@@ -227,8 +294,8 @@ export async function testGoToConnectSettingsAction(
       : null;
 
   const result = await testGoToConnection({
-    accessToken: parsed.data.accessToken ?? null,
-    accountKey: parsed.data.accountKey ?? null,
+    accessToken: runtimeSettings.accessToken,
+    accountKey: parsed.data.accountKey ?? settings.accountKey ?? null,
     extension: testExtension,
   });
 
@@ -253,6 +320,7 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
   }
 
   const settings = await getGoToConnectSettings(organizationId);
+  const runtimeSettings = await getGoToConnectSettingsWithAccessToken(organizationId);
   const existingAdvisor = await prisma.user.findFirst({
     where: {
       id: parsed.data.userId,
@@ -271,7 +339,7 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
   }
 
   const resolvedLine = await resolveGoToLineByExtension({
-    accessToken: settings.accessToken,
+    accessToken: runtimeSettings.accessToken,
     accountKey: settings.accountKey,
     extension: parsed.data.gotoConnectExtension ?? null,
   });
@@ -304,7 +372,7 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
 export async function reResolveGoToConnectAdvisorExtensionsAction() {
   const session = await requireRole([Role.MANAGER]);
   const organizationId = requireOrganizationId(session);
-  const settings = await getGoToConnectSettings(organizationId);
+  const settings = await getGoToConnectSettingsWithAccessToken(organizationId);
 
   if (!settings.accessToken || !settings.accountKey) {
     return;
@@ -324,4 +392,39 @@ export async function reResolveGoToConnectAdvisorExtensionsAction() {
   });
 
   revalidatePath("/manager/settings/integrations/goto-connect");
+}
+
+export async function connectGoToOauthAction(
+  _previousState: GoToConnectSettingsActionState,
+  formData: FormData,
+): Promise<GoToConnectSettingsActionState> {
+  const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
+
+  const parsed = gotoConnectSettingsSchema.safeParse({
+    accountKey: formData.get("accountKey"),
+    accessToken: null,
+    autoAnswer: formData.get("autoAnswer") ?? "false",
+    clientId: formData.get("clientId"),
+    clientSecret: formData.get("clientSecret"),
+    enabled: formData.get("enabled") ?? "false",
+    launchUrlTemplate: null,
+    organizationId: null,
+    phoneNumberId: formData.get("phoneNumberId"),
+  });
+
+  if (!parsed.success || !parsed.data.clientId || !parsed.data.clientSecret) {
+    return { error: "Enter the GoTo OAuth Client ID and Client Secret before connecting." };
+  }
+
+  await upsertGoToClientSettings({
+    autoAnswer: parsed.data.autoAnswer,
+    clientId: parsed.data.clientId,
+    clientSecret: parsed.data.clientSecret,
+    enabled: parsed.data.enabled,
+    organizationId,
+    phoneNumberId: parsed.data.phoneNumberId ?? null,
+  });
+
+  redirect("/api/goto-connect/oauth/start");
 }

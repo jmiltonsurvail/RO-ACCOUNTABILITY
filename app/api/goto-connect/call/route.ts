@@ -10,7 +10,7 @@ import { getServerAuthSession } from "@/lib/auth";
 import { buildCallSessionStorageKeys } from "@/lib/call-storage";
 import {
   getGoToCallFailureMessage,
-  getGoToConnectSettings,
+  getGoToConnectSettingsWithAccessToken,
   getGoToClickToCallPayload,
   normalizePhoneForGoToDialString,
   resolveGoToLineByExtension,
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
   }
 
   const [settings, advisor, platformSettings] = await Promise.all([
-    getGoToConnectSettings(organizationId),
+    getGoToConnectSettingsWithAccessToken(organizationId),
     prisma.user.findFirst({
       where: {
         asmNumber: repairOrder.asmNumber,

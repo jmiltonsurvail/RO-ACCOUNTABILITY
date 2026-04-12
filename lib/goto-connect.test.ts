@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getGoToCallFailureMessage,
+  resolveGoToAccount,
   resolveGoToLineByExtension,
   resolveGoToLinesByExtensions,
   testGoToConnection,
@@ -41,10 +42,79 @@ describe("GoTo Connect helpers", () => {
       matchedLineId: "line_123",
       matchedLineName: "Advisor Desk",
       message:
-        "Connected to GoTo Connect and resolved extension 1545 to line line_123.",
+        "Connected to GoTo Connect using account account and resolved extension 1545 to line line_123.",
       ok: true,
       testedExtension: "1545",
       userCount: 1,
+    });
+  });
+
+  it("discovers the GoTo account from the token when no account key is supplied", async () => {
+    const fetchMock = vi.spyOn(global, "fetch");
+
+    fetchMock
+      .mockResolvedValueOnce({
+        json: async () => ({
+          accounts: [
+            {
+              key: "account_123",
+              name: "My Service Drive",
+            },
+          ],
+        }),
+        ok: true,
+        status: 200,
+      } as Response)
+      .mockResolvedValueOnce({
+        json: async () => ({
+          items: [],
+        }),
+        ok: true,
+        status: 200,
+      } as Response);
+
+    await expect(
+      testGoToConnection({
+        accessToken: "token",
+      }),
+    ).resolves.toEqual({
+      lineCount: 0,
+      matchedLineId: null,
+      matchedLineName: null,
+      message:
+        "Connected to GoTo Connect. Using account account_123. Found 0 users and 0 lines.",
+      ok: true,
+      testedExtension: null,
+      userCount: 0,
+    });
+  });
+
+  it("requires a manual account key when the token can access multiple accounts", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      json: async () => ({
+        accounts: [
+          {
+            key: "account_123",
+            name: "Org One",
+          },
+          {
+            key: "account_456",
+            name: "Org Two",
+          },
+        ],
+      }),
+      ok: true,
+      status: 200,
+    } as Response);
+
+    await expect(
+      resolveGoToAccount({
+        accessToken: "token",
+      }),
+    ).resolves.toEqual({
+      account: null,
+      error:
+        "This token can access multiple GoTo accounts. Open Advanced and enter the Account Key manually.",
     });
   });
 
