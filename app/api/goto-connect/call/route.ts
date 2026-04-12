@@ -19,18 +19,17 @@ import { getPlatformIntegrationSettings } from "@/lib/platform-integrations";
 import { prisma } from "@/lib/prisma";
 import { formatPhoneHref } from "@/lib/utils";
 
-function buildReturnUrl(input: {
+function buildReturnPath(input: {
   message: string;
-  requestUrl: string;
   returnTo: string;
   roNumber: number;
   status: "error" | "success";
 }) {
-  const url = new URL(input.returnTo, input.requestUrl);
+  const url = new URL(input.returnTo, "http://servicesyncnow.local");
   url.searchParams.set("gotoCallMessage", input.message);
   url.searchParams.set("gotoCallRo", String(input.roNumber));
   url.searchParams.set("gotoCallStatus", input.status);
-  return url;
+  return `${url.pathname}${url.search}${url.hash}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -129,16 +128,17 @@ export async function GET(request: NextRequest) {
   const fallbackDialHref = formatPhoneHref(repairOrder.phone);
 
   if (!dialString && !fallbackDialHref) {
-    return Response.redirect(
-      buildReturnUrl({
+    return new Response(null, {
+      headers: {
+        Location: buildReturnPath({
         message: "Customer phone number is missing on this RO.",
-        requestUrl: request.url,
         returnTo,
         roNumber,
         status: "error",
       }),
-      303,
-    );
+      },
+      status: 303,
+    });
   }
 
   if (!settings.enabled) {
@@ -151,42 +151,45 @@ export async function GET(request: NextRequest) {
   }
 
   if (!settings.accessToken) {
-    return Response.redirect(
-      buildReturnUrl({
+    return new Response(null, {
+      headers: {
+        Location: buildReturnPath({
         message: "GoTo Connect is enabled but the access token is missing in settings.",
-        requestUrl: request.url,
         returnTo,
         roNumber,
         status: "error",
       }),
-      303,
-    );
+      },
+      status: 303,
+    });
   }
 
   if (!sourceLineId) {
-    return Response.redirect(
-      buildReturnUrl({
+    return new Response(null, {
+      headers: {
+        Location: buildReturnPath({
         message: `ASM ${repairOrder.asmNumber} does not have a resolved GoTo line. Re-save the advisor extension in GoTo settings.`,
-        requestUrl: request.url,
         returnTo,
         roNumber,
         status: "error",
       }),
-      303,
-    );
+      },
+      status: 303,
+    });
   }
 
   if (!clickToCallPayload) {
-    return Response.redirect(
-      buildReturnUrl({
+    return new Response(null, {
+      headers: {
+        Location: buildReturnPath({
         message: "GoTo Connect could not build a call request for this RO.",
-        requestUrl: request.url,
         returnTo,
         roNumber,
         status: "error",
       }),
-      303,
-    );
+      },
+      status: 303,
+    });
   }
 
   const response = await fetch("https://api.goto.com/calls/v2/calls", {
@@ -231,16 +234,17 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return Response.redirect(
-      buildReturnUrl({
+    return new Response(null, {
+      headers: {
+        Location: buildReturnPath({
         message: failureMessage,
-        requestUrl: request.url,
         returnTo,
         roNumber,
         status: "error",
       }),
-      303,
-    );
+      },
+      status: 303,
+    });
   }
 
   let initiatorId: string | null = null;
@@ -275,14 +279,15 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  return Response.redirect(
-    buildReturnUrl({
+  return new Response(null, {
+    headers: {
+      Location: buildReturnPath({
       message: "Call queued in GoTo Connect.",
-      requestUrl: request.url,
       returnTo,
       roNumber,
       status: "success",
     }),
-    303,
-  );
+    },
+    status: 303,
+  });
 }

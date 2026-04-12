@@ -8,11 +8,14 @@ import {
 } from "@/lib/goto-connect";
 import { prisma } from "@/lib/prisma";
 
-function buildSettingsRedirect(request: NextRequest, status: string, message: string) {
-  const url = new URL("/manager/settings/integrations/goto-connect", request.url);
+function buildSettingsRedirect(status: string, message: string) {
+  const url = new URL(
+    "/manager/settings/integrations/goto-connect",
+    "http://servicesyncnow.local",
+  );
   url.searchParams.set("oauth", status);
   url.searchParams.set("message", message);
-  return url;
+  return `${url.pathname}${url.search}${url.hash}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -28,7 +31,7 @@ export async function GET(request: NextRequest) {
 
   if (!code || !state || !expectedState || state !== expectedState) {
     const response = NextResponse.redirect(
-      buildSettingsRedirect(request, "error", "GoTo OAuth state validation failed."),
+      buildSettingsRedirect("error", "GoTo OAuth state validation failed."),
     );
     response.cookies.delete("goto_connect_oauth_state");
     return response;
@@ -49,7 +52,6 @@ export async function GET(request: NextRequest) {
   if (!settings?.clientId || !settings.clientSecret) {
     const response = NextResponse.redirect(
       buildSettingsRedirect(
-        request,
         "error",
         "GoTo Client ID and Client Secret must be saved before connecting.",
       ),
@@ -86,7 +88,6 @@ export async function GET(request: NextRequest) {
       if (!resolvedAccountKey) {
         const response = NextResponse.redirect(
           buildSettingsRedirect(
-            request,
             "warning",
             "GoTo connected. This token can access multiple accounts, so enter the Account Key in Advanced to finish setup.",
           ),
@@ -127,13 +128,13 @@ export async function GET(request: NextRequest) {
     });
 
     const response = NextResponse.redirect(
-      buildSettingsRedirect(request, "success", "GoTo connected successfully."),
+      buildSettingsRedirect("success", "GoTo connected successfully."),
     );
     response.cookies.delete("goto_connect_oauth_state");
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "GoTo OAuth failed.";
-    const response = NextResponse.redirect(buildSettingsRedirect(request, "error", message));
+    const response = NextResponse.redirect(buildSettingsRedirect("error", message));
     response.cookies.delete("goto_connect_oauth_state");
     return response;
   }
