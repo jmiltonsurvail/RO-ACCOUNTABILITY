@@ -2,24 +2,27 @@ import Link from "next/link";
 import { Role } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { getManagerAlertCount } from "@/lib/alerts";
-import { requireRole } from "@/lib/auth";
+import { requireOrganizationId, requireRole } from "@/lib/auth";
 
 const integrationCards = [
   {
-    description:
-      "Send manager alerts to email once outbound delivery is enabled. This is the natural first integration for alerting.",
+    description: "",
+    href: "/manager/settings/integrations/goto-connect",
+    label: "GoTo Connect",
+    status: "Available",
+  },
+  {
+    description: "",
     label: "Email Alerts",
     status: "Coming Soon",
   },
   {
-    description:
-      "Connect SMS delivery for urgent RO escalation when a manager needs immediate attention.",
+    description: "",
     label: "SMS Alerts",
     status: "Coming Soon",
   },
   {
-    description:
-      "Push RO alert events into another system through a webhook for downstream workflow or reporting.",
+    description: "",
     label: "Webhooks",
     status: "Coming Soon",
   },
@@ -27,14 +30,15 @@ const integrationCards = [
 
 export default async function ManagerIntegrationsPage() {
   const session = await requireRole([Role.MANAGER]);
-  const managerAlertCount = await getManagerAlertCount();
+  const organizationId = requireOrganizationId(session);
+  const managerAlertCount = await getManagerAlertCount(organizationId);
 
   return (
     <AppShell
       currentPath="/manager/settings"
       managerAlertCount={managerAlertCount}
       session={session}
-      subtitle="Plan and manage external delivery channels for alerts and future system connections."
+      subtitle=""
       title="Integrations"
     >
       <section className="grid gap-5 p-4 sm:p-6">
@@ -48,18 +52,30 @@ export default async function ManagerIntegrationsPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
-          {integrationCards.map((card) => (
-            <section
-              className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm"
-              key={card.label}
-            >
-              <h3 className="text-2xl font-semibold text-slate-950">{card.label}</h3>
-              <p className="mt-2 text-sm text-slate-600">{card.description}</p>
-              <span className="mt-5 inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
-                {card.status}
-              </span>
-            </section>
-          ))}
+          {integrationCards.map((card) =>
+            "href" in card ? (
+              <Link
+                className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm transition hover:border-cyan-300 hover:shadow-md"
+                href={card.href}
+                key={card.label}
+              >
+                <h3 className="text-2xl font-semibold text-slate-950">{card.label}</h3>
+                <span className="mt-5 inline-flex rounded-full border border-cyan-300 bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
+                  {card.status}
+                </span>
+              </Link>
+            ) : (
+              <section
+                className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm"
+                key={card.label}
+              >
+                <h3 className="text-2xl font-semibold text-slate-950">{card.label}</h3>
+                <span className="mt-5 inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
+                  {card.status}
+                </span>
+              </section>
+            ),
+          )}
         </div>
       </section>
     </AppShell>

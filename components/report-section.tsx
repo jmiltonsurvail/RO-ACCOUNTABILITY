@@ -25,7 +25,7 @@ export function ReportSection({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
-            <p className="mt-2 text-sm text-slate-500">{description}</p>
+            {description ? <p className="mt-2 text-sm text-slate-500">{description}</p> : null}
           </div>
           <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
             {open ? "Close" : "Open"}

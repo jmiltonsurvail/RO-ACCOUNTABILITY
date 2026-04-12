@@ -26,6 +26,7 @@ const optionalPositiveInt = z.preprocess(
 );
 
 const requiredIdentifier = z.string().trim().min(1);
+const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const userRoleShape = z
   .object({
@@ -39,6 +40,14 @@ const userRoleShape = z
     techNumber: optionalPositiveInt,
   })
   .superRefine((value, context) => {
+    if (value.role === Role.SERVICE_SYNCNOW_ADMIN) {
+      context.addIssue({
+        code: "custom",
+        message: "Platform-admin users can only be created from the ServiceSyncNow admin area.",
+        path: ["role"],
+      });
+    }
+
     if (value.role === Role.ADVISOR && !value.asmNumber) {
       context.addIssue({
         code: "custom",
@@ -149,4 +158,65 @@ export const manualUserSchema = z.object({
   role: z.nativeEnum(Role),
   asmNumber: optionalPositiveInt,
   techNumber: optionalPositiveInt,
+});
+
+export const gotoConnectSettingsSchema = z.object({
+  accountKey: optionalString.pipe(z.string().trim().max(200).optional()),
+  accessToken: optionalString.pipe(z.string().trim().max(4000).optional()),
+  autoAnswer: z.union([z.literal("on"), z.literal("true"), z.literal("false")]).transform(
+    (value) => value === "on" || value === "true",
+  ),
+  clientId: optionalString.pipe(z.string().trim().max(200).optional()),
+  clientSecret: optionalString.pipe(z.string().trim().max(500).optional()),
+  enabled: z.union([z.literal("on"), z.literal("true"), z.literal("false")]).transform(
+    (value) => value === "on" || value === "true",
+  ),
+  launchUrlTemplate: optionalString.pipe(z.string().trim().max(2000).optional()),
+  organizationId: optionalString.pipe(z.string().trim().max(200).optional()),
+  phoneNumberId: optionalString.pipe(z.string().trim().max(200).optional()),
+});
+
+export const gotoConnectAdvisorExtensionSchema = z.object({
+  gotoConnectExtension: optionalString.pipe(z.string().trim().max(40).optional()),
+  userId: requiredIdentifier,
+});
+
+export const createOrganizationSchema = z.object({
+  firstUserEmail: z.email().trim(),
+  firstUserName: z.string().trim().min(1).max(120),
+  firstUserPassword: z.string().min(8).max(200),
+  organizationName: z.string().trim().min(2).max(120),
+  organizationSlug: z
+    .string()
+    .trim()
+    .min(2)
+    .max(80)
+    .regex(slugPattern, "Use lowercase letters, numbers, and single hyphens only."),
+});
+
+export const updateOrganizationSchema = z.object({
+  organizationId: requiredIdentifier,
+  organizationName: z.string().trim().min(2).max(120),
+  organizationSlug: z
+    .string()
+    .trim()
+    .min(2)
+    .max(80)
+    .regex(slugPattern, "Use lowercase letters, numbers, and single hyphens only."),
+});
+
+export const createOrganizationManagerSchema = z.object({
+  managerEmail: z.email().trim(),
+  managerName: z.string().trim().min(1).max(120),
+  managerPassword: z.string().min(8).max(200),
+  organizationId: requiredIdentifier,
+});
+
+export const platformIntegrationSettingsSchema = z.object({
+  awsRegion: optionalString.pipe(z.string().trim().max(100).optional()),
+  openAiApiKey: optionalString.pipe(z.string().trim().max(400).optional()),
+  openAiTranscriptionModel: optionalString.pipe(z.string().trim().max(120).optional()),
+  s3Bucket: optionalString.pipe(z.string().trim().max(120).optional()),
+  s3ProcessedCallsPrefix: optionalString.pipe(z.string().trim().max(255).optional()),
+  s3RawRecordingsPrefix: optionalString.pipe(z.string().trim().max(255).optional()),
 });

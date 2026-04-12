@@ -70,30 +70,37 @@ export type ManagerAlertItem = {
   year: number;
 };
 
-async function syncDefaultAlertRules() {
+async function syncDefaultAlertRules(organizationId: string) {
   await Promise.all(
     defaultAlertRules.map((rule) =>
       prisma.alertRule.upsert({
         create: {
           enabled: rule.enabled,
           name: rule.name,
+          organizationId,
           trigger: rule.trigger,
         },
         update: {},
         where: {
-          trigger: rule.trigger,
+          organizationId_trigger: {
+            organizationId,
+            trigger: rule.trigger,
+          },
         },
       }),
     ),
   );
 }
 
-export async function getAlertRules(): Promise<AlertRuleRecord[]> {
-  await syncDefaultAlertRules();
+export async function getAlertRules(organizationId: string): Promise<AlertRuleRecord[]> {
+  await syncDefaultAlertRules(organizationId);
 
   const rules = await prisma.alertRule.findMany({
     orderBy: {
       createdAt: "asc",
+    },
+    where: {
+      organizationId,
     },
   });
 
@@ -140,11 +147,11 @@ function doesRuleMatch(
   return repairOrder.repairValue === "HIGH";
 }
 
-export async function getManagerAlertsData() {
+export async function getManagerAlertsData(organizationId: string) {
   const [repairOrders, rules, slaSettings] = await Promise.all([
-    getActiveRepairOrders(),
-    getAlertRules(),
-    getSlaSettings(),
+    getActiveRepairOrders(organizationId),
+    getAlertRules(organizationId),
+    getSlaSettings(organizationId),
   ]);
   const enabledRules = rules.filter((rule) => rule.enabled);
   const now = new Date();
@@ -252,7 +259,7 @@ export async function getManagerAlertsData() {
   };
 }
 
-export async function getManagerAlertCount() {
-  const alertData = await getManagerAlertsData();
+export async function getManagerAlertCount(organizationId: string) {
+  const alertData = await getManagerAlertsData(organizationId);
   return alertData.alertCount;
 }

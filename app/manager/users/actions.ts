@@ -3,7 +3,7 @@
 import { hash } from "bcryptjs";
 import { Prisma, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireOrganizationId, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   createUserSchema,
@@ -21,7 +21,8 @@ export async function createUserAction(
   formData: FormData,
 ): Promise<UserAdminActionState> {
   void previousState;
-  await requireRole([Role.MANAGER]);
+  const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
 
   const parsed = createUserSchema.safeParse({
     active: formData.get("active") ?? "false",
@@ -49,6 +50,7 @@ export async function createUserAction(
         asmNumber: parsed.data.asmNumber ?? null,
         email: parsed.data.email,
         name: parsed.data.name,
+        organizationId,
         passwordHash,
         role: parsed.data.role,
         techNumber: parsed.data.techNumber ?? null,
@@ -78,6 +80,7 @@ export async function updateUserAction(
 ): Promise<UserAdminActionState> {
   void previousState;
   const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
 
   const parsed = updateUserSchema.safeParse({
     active: formData.get("active") ?? "false",
@@ -105,8 +108,8 @@ export async function updateUserAction(
   }
 
   try {
-    await prisma.user.update({
-      where: { id: parsed.data.userId },
+    const result = await prisma.user.updateMany({
+      where: { id: parsed.data.userId, organizationId },
       data: {
         active: parsed.data.active,
         asmNumber: parsed.data.asmNumber ?? null,
@@ -116,6 +119,10 @@ export async function updateUserAction(
         techNumber: parsed.data.techNumber ?? null,
       },
     });
+
+    if (result.count === 0) {
+      return { error: "Unable to update that user." };
+    }
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -139,7 +146,8 @@ export async function resetUserPasswordAction(
   formData: FormData,
 ): Promise<UserAdminActionState> {
   void previousState;
-  await requireRole([Role.MANAGER]);
+  const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
 
   const parsed = resetUserPasswordSchema.safeParse({
     password: formData.get("password"),
@@ -155,10 +163,14 @@ export async function resetUserPasswordAction(
   const passwordHash = await hash(parsed.data.password, 12);
 
   try {
-    await prisma.user.update({
-      where: { id: parsed.data.userId },
+    const result = await prisma.user.updateMany({
+      where: { id: parsed.data.userId, organizationId },
       data: { passwordHash },
     });
+
+    if (result.count === 0) {
+      return { error: "Unable to reset the password." };
+    }
   } catch {
     return { error: "Unable to reset the password." };
   }

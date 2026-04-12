@@ -2,11 +2,12 @@
 
 import { type RepairValue } from "@prisma/client";
 import { useActionState, useEffect, useEffectEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
 import { ContactHistoryList } from "@/components/contact-history-list";
+import { GoToCallFeedback } from "@/components/goto-call-feedback";
 import { blockerReasonLabels, repairValueLabels, repairValueOptions } from "@/lib/constants";
-import { formatDateTime, formatPhoneHref, hoursSince } from "@/lib/utils";
+import { formatDateTime, hoursSince } from "@/lib/utils";
 
 const initialState: ActionState = {};
 
@@ -62,6 +63,7 @@ export function AdvisorContactCard({
   repairOrder: AdvisorRepairOrder;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [state, formAction, pending] = useActionState(updateContactAction, initialState);
   const [isExpanded, setIsExpanded] = useState(!(repairOrder.contactState?.contacted ?? false));
   const [notesValue, setNotesValue] = useState(
@@ -87,7 +89,9 @@ export function AdvisorContactCard({
   const blockerLabel = blocker
     ? blockerReasonLabels[blocker.blockerReason]
     : "No blocker";
-  const callHref = formatPhoneHref(repairOrder.phone);
+  const callHref = repairOrder.phone
+    ? `/api/goto-connect/call?ro=${repairOrder.roNumber}&returnTo=${encodeURIComponent(pathname)}`
+    : null;
   const contactRecordLabel = repairOrder.contactState?.contacted
     ? "Contacted"
     : "No Contact";
@@ -243,6 +247,9 @@ export function AdvisorContactCard({
               Saving a note marks the customer as contacted and adds a timestamp.
             </span>
           </label>
+          <div className="mt-4">
+            <GoToCallFeedback roNumber={repairOrder.roNumber} />
+          </div>
           <div className="mt-4">
             <ContactHistoryList entries={repairOrder.contactRecords} />
           </div>

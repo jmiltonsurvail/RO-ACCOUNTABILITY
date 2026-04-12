@@ -12,6 +12,7 @@ enum Role {
   ADVISOR
   TECH
   MANAGER
+  SERVICE_SYNCNOW_ADMIN
 }
 
 enum BlockerReason {
@@ -52,6 +53,9 @@ enum ActivityType {
   BLOCKER_CLEARED
   CONTACT_UPDATED
   CONTACT_RESET
+  GOTO_CONNECT_SETTINGS_UPDATED
+  GOTO_CONNECT_LINE_MAPPING_UPDATED
+  GOTO_CONNECT_LINE_MAPPINGS_RERESOLVED
 }
 
 enum AlertTrigger {
@@ -62,29 +66,82 @@ enum AlertTrigger {
   HIGH_REPAIR_VALUE
 }
 
-model User {
-  id             String        @id @default(cuid())
-  name           String?
-  email          String        @unique
-  passwordHash   String
-  role           Role
-  asmNumber      Int?
-  techNumber     Int?
-  active         Boolean       @default(true)
-  imports        ImportBatch[]
-  blockerEntries BlockerState[]
-  contactEntries ContactState[]
-  contactRecords ContactRecord[]
-  activities     ActivityLog[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+enum CallSessionStatus {
+  QUEUED
+  FAILED
+}
 
-  @@unique([role, asmNumber])
-  @@unique([role, techNumber])
+enum RecordingProcessingStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+enum TranscriptProcessingStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+model Organization {
+  id                 String               @id @default(cuid())
+  name               String
+  slug               String               @unique
+  active             Boolean              @default(true)
+  users              User[]
+  importBatches      ImportBatch[]
+  repairOrders       RepairOrder[]
+  callSessions       CallSession[]
+  slaSettings        SlaSettings?
+  goToConnectSettings GoToConnectSettings?
+  alertRules         AlertRule[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+}
+
+model PlatformIntegrationSettings {
+  id                       String   @id @default("default")
+  awsRegion                String?
+  s3Bucket                 String?
+  s3RawRecordingsPrefix    String?
+  s3ProcessedCallsPrefix   String?
+  openAiApiKey             String?
+  openAiTranscriptionModel String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model User {
+  id                   String        @id @default(cuid())
+  organizationId       String?
+  organization         Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  name                 String?
+  email                String        @unique
+  passwordHash         String
+  role                 Role
+  asmNumber            Int?
+  techNumber           Int?
+  gotoConnectExtension String?
+  gotoConnectLineId    String?
+  active               Boolean       @default(true)
+  imports              ImportBatch[]
+  blockerEntries       BlockerState[]
+  contactEntries       ContactState[]
+  contactRecords       ContactRecord[]
+  initiatedCallSessions CallSession[]    @relation("CallSessionInitiatedBy")
+  activities           ActivityLog[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@unique([organizationId, role, asmNumber])
+  @@unique([organizationId, role, techNumber])
+  @@index([organizationId, role])
 }
 
 model ImportBatch {
   id               String         @id @default(cuid())
+  organizationId   String
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   uploadedById     String
   uploadedBy       User           @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   sourceFileName   String
@@ -114,7 +171,9 @@ model ImportRowError {
 
 model RepairOrder {
   id                   String        @id @default(cuid())
-  roNumber             Int           @unique
+  organizationId       String
+  organization         Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  roNumber             Int
   repairValue          RepairValue?
   tag                  String?
   model                String
@@ -138,12 +197,15 @@ model RepairOrder {
   blockerState         BlockerState?
   contactState         ContactState?
   contactRecords       ContactRecord[]
+  callSessions         CallSession[]
   activities           ActivityLog[]
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
-  @@index([asmNumber, isActive])
-  @@index([mode, isActive])
+  @@unique([organizationId, roNumber])
+  @@index([organizationId, isActive])
+  @@index([organizationId, asmNumber, isActive])
+  @@index([organizationId, mode, isActive])
 }
 
 model BlockerState {
@@ -206,7 +268,9 @@ model ActivityLog {
 }
 
 model SlaSettings {
-  id                String   @id @default("default")
+  id                String       @id @default(cuid())
+  organizationId    String       @unique
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   blockedAgingHours Int      @default(8)
   contactSlaHours   Int      @default(2)
   dueSoonHours      Int      @default(12)
@@ -214,11 +278,62 @@ model SlaSettings {
   updatedAt         DateTime @updatedAt
 }
 
+model GoToConnectSettings {
+  id                String       @id @default(cuid())
+  organizationId    String       @unique
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  accountKey        String?
+  enabled           Boolean  @default(false)
+  accessToken       String?
+  autoAnswer        Boolean  @default(false)
+  clientId          String?
+  clientSecret      String?
+  goToOrganizationId String?
+  phoneNumberId     String?
+  launchUrlTemplate String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
 model AlertRule {
-  id        String       @id @default(cuid())
-  trigger   AlertTrigger @unique
-  name      String
-  enabled   Boolean      @default(true)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  trigger        AlertTrigger
+  name           String
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, trigger])
+}
+
+model CallSession {
+  id                         String                     @id @default(cuid())
+  organizationId             String
+  organization               Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repairOrderId              String
+  repairOrder                RepairOrder                @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  initiatedByUserId          String?
+  initiatedByUser            User?                      @relation("CallSessionInitiatedBy", fields: [initiatedByUserId], references: [id], onDelete: SetNull)
+  asmNumber                  Int
+  customerName               String
+  customerPhone              String?
+  sourceLineId               String?
+  sourceExtension            String?
+  goToInitiatorId            String?                    @unique
+  status                     CallSessionStatus          @default(QUEUED)
+  recordingStatus            RecordingProcessingStatus  @default(PENDING)
+  transcriptStatus           TranscriptProcessingStatus @default(PENDING)
+  storagePrefix              String
+  rawRecordingObjectKey      String?
+  processedRecordingObjectKey String?
+  transcriptJsonObjectKey    String?
+  transcriptTextObjectKey    String?
+  lastError                  String?
+  requestedAt                DateTime                   @default(now())
+  updatedAt                  DateTime                   @updatedAt
+
+  @@index([organizationId, requestedAt])
+  @@index([repairOrderId, requestedAt])
 }

@@ -12,9 +12,13 @@ export const defaultSlaSettings: SlaSettingsValues = {
   dueSoonHours: 12,
 };
 
-export async function getSlaSettings(): Promise<SlaSettingsValues> {
+export async function getSlaSettings(organizationId?: string | null): Promise<SlaSettingsValues> {
+  if (!organizationId) {
+    return defaultSlaSettings;
+  }
+
   const settings = await prisma.slaSettings.findUnique({
-    where: { id: "default" },
+    where: { organizationId },
   });
 
   if (!settings) {

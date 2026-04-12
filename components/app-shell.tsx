@@ -45,10 +45,25 @@ const navByRole: Record<
         "/manager/settings",
         "/manager/settings/alerts",
         "/manager/settings/integrations",
+        "/manager/settings/integrations/goto-connect",
         "/manager/settings/sla",
         "/manager/users",
       ],
       shortLabel: "ST",
+    },
+  ],
+  SERVICE_SYNCNOW_ADMIN: [
+    {
+      href: "/servicesyncnow-admin",
+      icon: "users",
+      label: "Organizations",
+      shortLabel: "OR",
+    },
+    {
+      href: "/servicesyncnow-admin/integrations",
+      icon: "settings",
+      label: "Integrations",
+      shortLabel: "IN",
     },
   ],
   TECH: [],
@@ -329,7 +344,7 @@ export function AppShell({
               <div>
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-2xl font-semibold">{title}</h1>
-                  {subtitleMode === "tooltip" ? (
+                  {subtitleMode === "tooltip" && subtitle ? (
                     <div className="group relative">
                       <button
                         className="inline-flex size-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm font-semibold text-slate-300 transition hover:border-cyan-400/60 hover:text-white focus-visible:border-cyan-400/60 focus-visible:text-white"
@@ -344,7 +359,7 @@ export function AppShell({
                     </div>
                   ) : null}
                 </div>
-                {subtitleMode === "inline" ? (
+                {subtitleMode === "inline" && subtitle ? (
                   <p className="mt-2 max-w-3xl text-sm text-slate-300">{subtitle}</p>
                 ) : null}
               </div>

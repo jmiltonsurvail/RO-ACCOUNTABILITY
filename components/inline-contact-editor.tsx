@@ -2,11 +2,11 @@
 
 import { type RepairValue } from "@prisma/client";
 import { useActionState, useEffect, useEffectEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
 import { ContactHistoryList } from "@/components/contact-history-list";
+import { GoToCallFeedback } from "@/components/goto-call-feedback";
 import { repairValueOptions } from "@/lib/constants";
-import { formatPhoneHref } from "@/lib/utils";
 
 const initialState: ActionState = {};
 
@@ -32,9 +32,12 @@ export function InlineContactEditor({
   roNumber: number;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [state, formAction, pending] = useActionState(updateContactAction, initialState);
   const [notesValue, setNotesValue] = useState(customerNotes ?? "");
-  const callHref = formatPhoneHref(phone);
+  const callHref = phone
+    ? `/api/goto-connect/call?ro=${roNumber}&returnTo=${encodeURIComponent(pathname)}`
+    : null;
   const contactedValue = notesValue.trim().length > 0 || contacted;
   const handleSaved = useEffectEvent(() => {
     setNotesValue("");
@@ -118,6 +121,7 @@ export function InlineContactEditor({
         )}
       </div>
 
+      <GoToCallFeedback roNumber={roNumber} />
       <ContactHistoryList entries={contactRecords} />
       {state.error ? <p className="text-xs text-rose-600">{state.error}</p> : null}
     </form>

@@ -58,6 +58,7 @@ export const roleLabels: Record<Role, string> = {
   ADVISOR: "Advisor",
   DISPATCHER: "Dispatcher",
   MANAGER: "Manager",
+  SERVICE_SYNCNOW_ADMIN: "ServiceSyncNow Admin",
   TECH: "Tech",
 };
 

@@ -2,7 +2,7 @@ import { Role } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { ImportForm } from "@/components/import-form";
 import { getManagerAlertCount } from "@/lib/alerts";
-import { getServerAuthSession, requireRole } from "@/lib/auth";
+import { getServerAuthSession, requireOrganizationId, requireRole } from "@/lib/auth";
 import { getRecentImportBatch } from "@/lib/data";
 import { formatDateTime } from "@/lib/utils";
 
@@ -11,12 +11,13 @@ export default async function ManagerImportPage({
 }: {
   searchParams: Promise<{ batchId?: string }>;
 }) {
-  await requireRole([Role.MANAGER]);
+  const scopedSession = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(scopedSession);
   const params = await searchParams;
   const [session, latestBatch, managerAlertCount] = await Promise.all([
     getServerAuthSession(),
-    getRecentImportBatch(params.batchId),
-    getManagerAlertCount(),
+    getRecentImportBatch(organizationId, params.batchId),
+    getManagerAlertCount(organizationId),
   ]);
 
   return (
@@ -24,13 +25,13 @@ export default async function ManagerImportPage({
       currentPath="/manager/import"
       managerAlertCount={managerAlertCount}
       session={session!}
-      subtitle="Import the exact daily Xtime CSV. The importer validates the fixed header, normalizes promised values, skips invalid rows, and inactivates missing ROs."
+      subtitle=""
       title="Daily Import"
     >
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
         <ImportForm />
         <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-950">Latest import summary</h2>
+          <h2 className="text-xl font-semibold text-slate-950">Latest Import</h2>
           {latestBatch ? (
             <div className="mt-5 space-y-5">
               <div className="grid gap-4 sm:grid-cols-3">
@@ -84,9 +85,7 @@ export default async function ManagerImportPage({
               </div>
             </div>
           ) : (
-            <p className="mt-5 text-sm text-slate-500">
-              No import has been run yet. Upload the daily CSV to initialize the active RO set.
-            </p>
+            <p className="mt-5 text-sm text-slate-500">No imports yet.</p>
           )}
         </section>
       </div>

@@ -7,7 +7,7 @@ import {
   Role,
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireOrganizationId, requireRole } from "@/lib/auth";
 import { parseXtimeCsv } from "@/lib/import";
 import { prisma } from "@/lib/prisma";
 
@@ -23,6 +23,7 @@ export async function importXtimeCsvAction(
 ): Promise<ImportActionState> {
   void previousState;
   const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
   const csvFile = formData.get("csvFile");
 
   if (!(csvFile instanceof File) || !csvFile.name.toLowerCase().endsWith(".csv")) {
@@ -43,6 +44,7 @@ export async function importXtimeCsvAction(
 
   const batch = await prisma.importBatch.create({
     data: {
+      organizationId,
       sourceFileName: csvFile.name,
       sourceRowCount: parsedFile.sourceRowCount,
       status: ImportStatus.PENDING,
@@ -57,6 +59,7 @@ export async function importXtimeCsvAction(
           importBatchId: batch.id,
           message: `Import started for ${csvFile.name}.`,
           metadata: {
+            organizationId,
             sourceRowCount: parsedFile.sourceRowCount,
           } satisfies Prisma.InputJsonValue,
           type: ActivityType.IMPORT_BATCH_CREATED,
@@ -80,7 +83,12 @@ export async function importXtimeCsvAction(
 
       for (const row of parsedFile.rows) {
         const repairOrder = await transaction.repairOrder.upsert({
-          where: { roNumber: row.roNumber },
+          where: {
+            organizationId_roNumber: {
+              organizationId,
+              roNumber: row.roNumber,
+            },
+          },
           update: {
             asmNumber: row.asmNumber,
             customerName: row.customerName,
@@ -108,6 +116,7 @@ export async function importXtimeCsvAction(
             mode: row.mode,
             model: row.model,
             mtRaw: row.mtRaw,
+            organizationId,
             phone: row.phone,
             promisedAtNormalized: row.promisedAtNormalized,
             promisedRaw: row.promisedRaw,
@@ -129,6 +138,7 @@ export async function importXtimeCsvAction(
             metadata: {
               asmNumber: row.asmNumber,
               mode: row.mode,
+              organizationId,
               promisedRaw: row.promisedRaw,
             } satisfies Prisma.InputJsonValue,
             repairOrderId: repairOrder.id,
@@ -141,6 +151,7 @@ export async function importXtimeCsvAction(
       const staleRepairOrders = await transaction.repairOrder.findMany({
         where: {
           isActive: true,
+          organizationId,
           roNumber: {
             notIn: importedRoNumbers.length > 0 ? importedRoNumbers : [-1],
           },

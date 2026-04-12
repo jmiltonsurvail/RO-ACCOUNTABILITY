@@ -4,13 +4,13 @@ import { AppShell } from "@/components/app-shell";
 import { UserAdminForm } from "@/components/user-admin-form";
 import { UserAdminTable } from "@/components/user-admin-table";
 import { getManagerAlertCount } from "@/lib/alerts";
-import { requireRole } from "@/lib/auth";
+import { requireOrganizationId, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-async function syncImportedStaffPlaceholders() {
+async function syncImportedStaffPlaceholders(organizationId: string) {
   const [advisorRepairOrders, techRepairOrders, existingUsers] = await Promise.all([
     prisma.repairOrder.findMany({
-      where: { isActive: true },
+      where: { isActive: true, organizationId },
       select: {
         advisorName: true,
         asmNumber: true,
@@ -19,6 +19,7 @@ async function syncImportedStaffPlaceholders() {
     prisma.repairOrder.findMany({
       where: {
         isActive: true,
+        organizationId,
         techNumber: { not: null },
       },
       select: {
@@ -33,6 +34,7 @@ async function syncImportedStaffPlaceholders() {
         techNumber: true,
       },
       where: {
+        organizationId,
         role: {
           in: [Role.ADVISOR, Role.TECH],
         },
@@ -99,6 +101,7 @@ async function syncImportedStaffPlaceholders() {
         asmNumber,
         email: `advisor-${asmNumber}@placeholder.local`,
         name,
+        organizationId,
         passwordHash: placeholderPasswordHash,
         role: Role.ADVISOR,
         techNumber: null,
@@ -108,6 +111,7 @@ async function syncImportedStaffPlaceholders() {
         asmNumber: null,
         email: `tech-${techNumber}@placeholder.local`,
         name,
+        organizationId,
         passwordHash: placeholderPasswordHash,
         role: Role.TECH,
         techNumber,
@@ -119,7 +123,8 @@ async function syncImportedStaffPlaceholders() {
 
 export default async function ManagerUsersPage() {
   const session = await requireRole([Role.MANAGER]);
-  await syncImportedStaffPlaceholders();
+  const organizationId = requireOrganizationId(session);
+  await syncImportedStaffPlaceholders(organizationId);
   const [users, managerAlertCount] = await Promise.all([
     prisma.user.findMany({
       orderBy: [{ role: "asc" }, { name: "asc" }, { email: "asc" }],
@@ -133,8 +138,11 @@ export default async function ManagerUsersPage() {
         role: true,
         techNumber: true,
       },
+      where: {
+        organizationId,
+      },
     }),
-    getManagerAlertCount(),
+    getManagerAlertCount(organizationId),
   ]);
 
   return (
@@ -143,7 +151,7 @@ export default async function ManagerUsersPage() {
       fullHeight
       managerAlertCount={managerAlertCount}
       session={session}
-      subtitle="Create user logins and manage imported staff placeholders. Advisors need an ASM number, and tech roster entries use a tech number."
+      subtitle=""
       title="User Admin"
     >
       <section className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">

@@ -27,6 +27,15 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
         });
 
         if (!user?.active) {
@@ -51,6 +60,9 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           id: user.id,
           name: user.name ?? user.email,
+          organizationId: user.organization?.id ?? null,
+          organizationName: user.organization?.name ?? null,
+          organizationSlug: user.organization?.slug ?? null,
           role: user.role,
         };
       },
@@ -63,6 +75,9 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.asmNumber = user.asmNumber;
+        token.organizationId = user.organizationId;
+        token.organizationName = user.organizationName;
+        token.organizationSlug = user.organizationSlug;
         token.role = user.role;
       }
 
@@ -73,6 +88,12 @@ export const authOptions: NextAuthOptions = {
         session.user.asmNumber =
           typeof token.asmNumber === "number" ? token.asmNumber : null;
         session.user.id = token.sub;
+        session.user.organizationId =
+          typeof token.organizationId === "string" ? token.organizationId : null;
+        session.user.organizationName =
+          typeof token.organizationName === "string" ? token.organizationName : null;
+        session.user.organizationSlug =
+          typeof token.organizationSlug === "string" ? token.organizationSlug : null;
         session.user.role = token.role;
       }
 
@@ -86,6 +107,10 @@ export async function getServerAuthSession() {
 }
 
 export function resolveDashboardPath(role: Role | null | undefined) {
+  if (role === Role.SERVICE_SYNCNOW_ADMIN) {
+    return "/servicesyncnow-admin";
+  }
+
   if (role === Role.MANAGER) {
     return "/manager";
   }
@@ -99,6 +124,25 @@ export function resolveDashboardPath(role: Role | null | undefined) {
   }
 
   return "/advisor";
+}
+
+export function resolveAuthenticatedPath(input: {
+  organizationId?: string | null;
+  role: Role | null | undefined;
+}) {
+  if (input.role === Role.SERVICE_SYNCNOW_ADMIN) {
+    return "/servicesyncnow-admin";
+  }
+
+  if (
+    input.role &&
+    input.role !== Role.TECH &&
+    !input.organizationId
+  ) {
+    return "/org-required";
+  }
+
+  return resolveDashboardPath(input.role);
 }
 
 export async function requireSession() {
@@ -115,8 +159,26 @@ export async function requireRole(roles: Role[]) {
   const session = await requireSession();
 
   if (!roles.includes(session.user.role)) {
-    redirect(resolveDashboardPath(session.user.role));
+    redirect(
+      resolveAuthenticatedPath({
+        organizationId: session.user.organizationId,
+        role: session.user.role,
+      }),
+    );
   }
 
   return session;
+}
+
+export function requireOrganizationId(input: {
+  user: {
+    organizationId: string | null;
+    role: Role;
+  };
+}) {
+  if (!input.user.organizationId) {
+    redirect("/org-required");
+  }
+
+  return input.user.organizationId;
 }

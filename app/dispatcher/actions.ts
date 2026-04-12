@@ -2,7 +2,7 @@
 
 import { ActivityType, Prisma, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireOrganizationId, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { blockerFormSchema, clearBlockerSchema } from "@/lib/validation";
 
@@ -28,6 +28,7 @@ export async function saveBlockerAction(
 ): Promise<ActionState> {
   void previousState;
   const session = await requireRole([Role.DISPATCHER, Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
   const parsed = blockerFormSchema.safeParse({
     blockerReason: formData.get("blockerReason"),
     fallbackAsmNumber: formData.get("fallbackAsmNumber"),
@@ -47,7 +48,12 @@ export async function saveBlockerAction(
 
   await prisma.$transaction(async (transaction) => {
     let repairOrder = await transaction.repairOrder.findUnique({
-      where: { roNumber: parsed.data.roNumber },
+      where: {
+        organizationId_roNumber: {
+          organizationId,
+          roNumber: parsed.data.roNumber,
+        },
+      },
       include: {
         blockerState: true,
         contactState: true,
@@ -75,6 +81,7 @@ export async function saveBlockerAction(
           phone: null,
           promisedAtNormalized: techPromisedDate,
           promisedRaw: parsed.data.techPromisedDate?.trim() || "Manual Entry",
+          organizationId,
           rawSourceData: {
             createdByRole: "DISPATCHER",
             source: "manual-fallback",
@@ -176,6 +183,7 @@ export async function clearBlockerAction(
 ): Promise<ActionState> {
   void previousState;
   const session = await requireRole([Role.DISPATCHER, Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
   const parsed = clearBlockerSchema.safeParse({
     roNumber: formData.get("roNumber"),
   });
@@ -185,7 +193,12 @@ export async function clearBlockerAction(
   }
 
   const repairOrder = await prisma.repairOrder.findUnique({
-    where: { roNumber: parsed.data.roNumber },
+    where: {
+      organizationId_roNumber: {
+        organizationId,
+        roNumber: parsed.data.roNumber,
+      },
+    },
     include: { blockerState: true },
   });
 

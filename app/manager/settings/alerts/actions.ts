@@ -2,7 +2,7 @@
 
 import { Prisma, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireOrganizationId, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { alertRuleSchema } from "@/lib/validation";
 
@@ -16,7 +16,8 @@ export async function updateAlertRuleAction(
   formData: FormData,
 ): Promise<AlertRuleActionState> {
   void previousState;
-  await requireRole([Role.MANAGER]);
+  const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
 
   const parsed = alertRuleSchema.safeParse({
     enabled: formData.get("enabled") ?? "false",
@@ -38,8 +39,10 @@ export async function updateAlertRuleAction(
         name: parsed.data.name,
       },
       where: {
-        id: parsed.data.ruleId,
-        trigger: parsed.data.trigger,
+        organizationId_trigger: {
+          organizationId,
+          trigger: parsed.data.trigger,
+        },
       },
     });
   } catch (error) {

@@ -2,7 +2,7 @@
 
 import { Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireOrganizationId, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slaSettingsSchema } from "@/lib/validation";
 
@@ -16,7 +16,8 @@ export async function updateSlaSettingsAction(
   formData: FormData,
 ): Promise<SlaSettingsActionState> {
   void previousState;
-  await requireRole([Role.MANAGER]);
+  const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
 
   const parsed = slaSettingsSchema.safeParse({
     blockedAgingHours: formData.get("blockedAgingHours"),
@@ -35,7 +36,7 @@ export async function updateSlaSettingsAction(
       blockedAgingHours: parsed.data.blockedAgingHours,
       contactSlaHours: parsed.data.contactSlaHours,
       dueSoonHours: parsed.data.dueSoonHours,
-      id: "default",
+      organizationId,
     },
     update: {
       blockedAgingHours: parsed.data.blockedAgingHours,
@@ -43,7 +44,7 @@ export async function updateSlaSettingsAction(
       dueSoonHours: parsed.data.dueSoonHours,
     },
     where: {
-      id: "default",
+      organizationId,
     },
   });
 

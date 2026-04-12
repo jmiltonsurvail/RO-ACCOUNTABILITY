@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getServerAuthSession, resolveDashboardPath } from "@/lib/auth";
+import { getServerAuthSession, resolveAuthenticatedPath } from "@/lib/auth";
 
 export default async function HomePage() {
   const session = await getServerAuthSession();
@@ -8,5 +8,10 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  redirect(resolveDashboardPath(session.user.role));
+  redirect(
+    resolveAuthenticatedPath({
+      organizationId: session.user.organizationId,
+      role: session.user.role,
+    }),
+  );
 }

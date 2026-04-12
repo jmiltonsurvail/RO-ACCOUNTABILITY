@@ -1,12 +1,17 @@
 import { redirect } from "next/navigation";
-import { getServerAuthSession, resolveDashboardPath } from "@/lib/auth";
+import { getServerAuthSession, resolveAuthenticatedPath } from "@/lib/auth";
 import { LoginForm } from "@/components/login-form";
 
 export default async function LoginPage() {
   const session = await getServerAuthSession();
 
   if (session?.user) {
-    redirect(resolveDashboardPath(session.user.role));
+    redirect(
+      resolveAuthenticatedPath({
+        organizationId: session.user.organizationId,
+        role: session.user.role,
+      }),
+    );
   }
 
   return (

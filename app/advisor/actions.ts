@@ -2,7 +2,7 @@
 
 import { ActivityType, Prisma, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireOrganizationId, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { contactFormSchema } from "@/lib/validation";
 
@@ -18,6 +18,7 @@ export async function updateContactAction(
 ): Promise<ActionState> {
   void previousState;
   const session = await requireRole([Role.ADVISOR, Role.DISPATCHER, Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
   const parsed = contactFormSchema.safeParse({
     contacted: formData.get("contacted") ?? "false",
     hasRentalCar: formData.get("hasRentalCar") ?? "false",
@@ -31,7 +32,12 @@ export async function updateContactAction(
   }
 
   const repairOrder = await prisma.repairOrder.findUnique({
-    where: { roNumber: parsed.data.roNumber },
+    where: {
+      organizationId_roNumber: {
+        organizationId,
+        roNumber: parsed.data.roNumber,
+      },
+    },
     include: {
       blockerState: true,
       contactState: true,

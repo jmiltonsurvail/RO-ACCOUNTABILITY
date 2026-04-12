@@ -80,7 +80,7 @@ function formatReportUserLabel(input: {
   return input.name?.trim() || input.email || input.fallback;
 }
 
-async function getAdvisorNamesByAsm() {
+async function getAdvisorNamesByAsm(organizationId: string) {
   const advisorUsers = await prisma.user.findMany({
     select: {
       asmNumber: true,
@@ -88,6 +88,7 @@ async function getAdvisorNamesByAsm() {
       name: true,
     },
     where: {
+      organizationId,
       asmNumber: {
         not: null,
       },
@@ -107,7 +108,7 @@ async function getAdvisorNamesByAsm() {
   );
 }
 
-async function getTechNamesByNumber() {
+async function getTechNamesByNumber(organizationId: string) {
   const techUsers = await prisma.user.findMany({
     select: {
       email: true,
@@ -115,6 +116,7 @@ async function getTechNamesByNumber() {
       techNumber: true,
     },
     where: {
+      organizationId,
       role: Role.TECH,
       techNumber: {
         not: null,
@@ -148,15 +150,15 @@ export function getManagerReportRangeLabel(range: ManagerReportRange) {
   return managerReportRangeConfig[range].label;
 }
 
-export async function getActiveRepairOrders() {
+export async function getActiveRepairOrders(organizationId: string) {
   const [repairOrders, advisorNamesByAsm, techNamesByNumber] = await Promise.all([
     prisma.repairOrder.findMany({
-      where: { isActive: true },
+      where: { isActive: true, organizationId },
       orderBy: [{ asmNumber: "asc" }, { roNumber: "asc" }],
       include: activeRepairOrderBoardInclude,
     }),
-    getAdvisorNamesByAsm(),
-    getTechNamesByNumber(),
+    getAdvisorNamesByAsm(organizationId),
+    getTechNamesByNumber(organizationId),
   ]);
 
   return repairOrders
@@ -172,12 +174,13 @@ export async function getActiveRepairOrders() {
     .sort((left, right) => compareRepairOrderUrgency(left, right));
 }
 
-export async function getAdvisorBoard(asmNumber: number) {
+export async function getAdvisorBoard(organizationId: string, asmNumber: number) {
   const [repairOrders, advisorNamesByAsm, techNamesByNumber] = await Promise.all([
     prisma.repairOrder.findMany({
       where: {
         asmNumber,
         isActive: true,
+        organizationId,
         blockerState: {
           isBlocked: true,
         },
@@ -185,8 +188,8 @@ export async function getAdvisorBoard(asmNumber: number) {
       orderBy: [{ roNumber: "asc" }],
       include: roCardInclude,
     }),
-    getAdvisorNamesByAsm(),
-    getTechNamesByNumber(),
+    getAdvisorNamesByAsm(organizationId),
+    getTechNamesByNumber(organizationId),
   ]);
 
   return repairOrders
@@ -202,10 +205,11 @@ export async function getAdvisorBoard(asmNumber: number) {
     .sort((left, right) => compareRepairOrderUrgency(left, right));
 }
 
-export async function getManagerDashboardData() {
+export async function getManagerDashboardData(organizationId: string) {
   const blockedRepairOrders = await prisma.repairOrder.findMany({
     where: {
       isActive: true,
+      organizationId,
       blockerState: {
         isBlocked: true,
       },
@@ -215,6 +219,9 @@ export async function getManagerDashboardData() {
   });
 
   const importBatches = await prisma.importBatch.findMany({
+    where: {
+      organizationId,
+    },
     orderBy: { createdAt: "desc" },
     take: 5,
     include: {
@@ -317,14 +324,17 @@ export async function getManagerDashboardData() {
   };
 }
 
-export async function getManagerReportsData(rangeInput?: string | null) {
+export async function getManagerReportsData(
+  organizationId: string,
+  rangeInput?: string | null,
+) {
   const range = normalizeManagerReportRange(rangeInput);
   const now = new Date();
   const since = getManagerReportSinceDate(range, now);
 
   const [activeRepairOrders, users, activities] = await Promise.all([
     prisma.repairOrder.findMany({
-      where: { isActive: true },
+      where: { isActive: true, organizationId },
       orderBy: [{ asmNumber: "asc" }, { roNumber: "asc" }],
       include: {
         blockerState: true,
@@ -342,6 +352,7 @@ export async function getManagerReportsData(rangeInput?: string | null) {
         techNumber: true,
       },
       where: {
+        organizationId,
         OR: [
           {
             asmNumber: {
@@ -384,6 +395,26 @@ export async function getManagerReportsData(rangeInput?: string | null) {
                 gte: since,
               },
             }
+          : {}),
+        OR: [
+          {
+            repairOrder: {
+              organizationId,
+            },
+          },
+          {
+            importBatch: {
+              organizationId,
+            },
+          },
+          {
+            user: {
+              organizationId,
+            },
+          },
+        ],
+        ...(since
+          ? {}
           : {}),
         type: {
           in: [
@@ -756,10 +787,10 @@ export async function getManagerReportsData(rangeInput?: string | null) {
   };
 }
 
-export async function getRecentImportBatch(batchId?: string) {
+export async function getRecentImportBatch(organizationId: string, batchId?: string) {
   if (batchId) {
-    return prisma.importBatch.findUnique({
-      where: { id: batchId },
+    return prisma.importBatch.findFirst({
+      where: { id: batchId, organizationId },
       include: {
         rowErrors: {
           orderBy: { rowNumber: "asc" },
@@ -770,6 +801,9 @@ export async function getRecentImportBatch(batchId?: string) {
   }
 
   return prisma.importBatch.findFirst({
+    where: {
+      organizationId,
+    },
     orderBy: { createdAt: "desc" },
     include: {
       rowErrors: {
@@ -796,6 +830,10 @@ export async function logActivity(input: {
 export function roleHome(role: Role) {
   if (role === Role.MANAGER) {
     return "/manager";
+  }
+
+  if (role === Role.SERVICE_SYNCNOW_ADMIN) {
+    return "/servicesyncnow-admin";
   }
 
   if (role === Role.DISPATCHER) {

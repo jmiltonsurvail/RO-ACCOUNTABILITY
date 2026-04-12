@@ -1,23 +1,24 @@
 import { Role } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { DispatcherWorkspace } from "@/components/dispatcher-workspace";
-import { getServerAuthSession, requireRole } from "@/lib/auth";
+import { getServerAuthSession, requireOrganizationId, requireRole } from "@/lib/auth";
 import { getActiveRepairOrders } from "@/lib/data";
 import { getSlaSettings } from "@/lib/sla-settings";
 
 export default async function DispatcherPage() {
-  await requireRole([Role.DISPATCHER, Role.MANAGER]);
+  const scopedSession = await requireRole([Role.DISPATCHER, Role.MANAGER]);
+  const organizationId = requireOrganizationId(scopedSession);
   const session = await getServerAuthSession();
   const [repairOrders, slaSettings] = await Promise.all([
-    getActiveRepairOrders(),
-    getSlaSettings(),
+    getActiveRepairOrders(organizationId),
+    getSlaSettings(organizationId),
   ]);
 
   return (
     <AppShell
       currentPath="/dispatcher"
       session={session!}
-      subtitle="Search imported repair orders, set blockers, preserve blocker age, and clear blockers when the work can move again."
+      subtitle=""
       title="Dispatcher Console"
     >
       <DispatcherWorkspace
