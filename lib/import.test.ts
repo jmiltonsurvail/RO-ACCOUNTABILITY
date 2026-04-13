@@ -12,6 +12,7 @@ const validCsv = `RO,Tag,Promised,Model,Year,Customer,Email,Phone,ASM,Tech,Mode,
 6157699,5210,W 6:00 pm,SILVERADO 1500,2022,Swindell,,321-458-8308,785,,Approval,4:43,7:16
 6157111,4961,W 01-02-26,TRAVERSE,2025,Healey,healey@example.com,603-320-2742,642,435,Repair,6d,10d
 6157666,5204,6:00 PM,CITY EXPRESS,2015,Clement,,321-225-2309,785,435,Approval,5:18,10:50
+6158000,5100,4/11/26,TRAX,2024,Example,example@example.com,321-555-0100,785,435,Approval,1d,1d
     ,,,,,,,,,,,,
 `;
 
@@ -47,6 +48,11 @@ describe("normalizePromisedValue", () => {
     expect(result?.toISOString()).toContain("2025-12-20");
   });
 
+  it("parses m/d/yy values", () => {
+    const result = normalizePromisedValue("4/11/26", importDate);
+    expect(result?.toISOString()).toContain("2026-04-11");
+  });
+
   it("parses W mm-dd-yy values", () => {
     const result = normalizePromisedValue("W 12-24-25", importDate);
     expect(result?.toISOString()).toContain("2025-12-24");
@@ -69,9 +75,9 @@ describe("parseXtimeCsv", () => {
   it("skips blank trailer rows and parses valid data rows", () => {
     const result = parseXtimeCsv(validCsv, new Date("2026-03-12T09:00:00.000Z"));
 
-    expect(result.rows).toHaveLength(4);
+    expect(result.rows).toHaveLength(5);
     expect(result.errors).toHaveLength(0);
-    expect(result.sourceRowCount).toBe(6);
+    expect(result.sourceRowCount).toBe(7);
   });
 
   it("flags rows missing required fields", () => {

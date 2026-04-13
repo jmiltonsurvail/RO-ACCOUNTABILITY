@@ -39,6 +39,7 @@ export type ParsedCsvFile = {
 };
 
 const datePattern = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+const shortYearDatePattern = /^\d{1,2}\/\d{1,2}\/\d{2}$/;
 const weekdayDatePattern = /^W\s+(\d{2})-(\d{2})-(\d{2})$/i;
 const timePattern = /^(\d{1,2}):(\d{2})\s*([AP]M)$/i;
 const weekdayTimePattern = /^W\s+(\d{1,2}:\d{2}\s*[AP]M)$/i;
@@ -84,6 +85,11 @@ export function normalizePromisedValue(value: string, importDate: Date) {
 
   if (datePattern.test(trimmed)) {
     return startOfDay(parseDate(trimmed, "M/d/yyyy", importDate));
+  }
+
+  if (shortYearDatePattern.test(trimmed)) {
+    const [month, day, year] = trimmed.split("/");
+    return startOfDay(parseDate(`${month}/${day}/20${year}`, "M/d/yyyy", importDate));
   }
 
   const weekdayDateMatch = trimmed.match(weekdayDatePattern);
