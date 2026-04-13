@@ -12,6 +12,7 @@ import {
 import { Readable } from "node:stream";
 import { getPlatformIntegrationSettings } from "@/lib/platform-integrations";
 import { prisma } from "@/lib/prisma";
+import { getRecordingStorageSettings } from "@/lib/recording-storage-settings";
 
 const DEFAULT_OPENAI_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
 const DEFAULT_OPENAI_SUMMARY_MODEL = "gpt-4.1-mini";
@@ -256,6 +257,7 @@ export async function processCallSessionRecording(
       processedRecordingObjectKey: true,
       rawRecordingObjectKey: true,
       recordingStatus: true,
+      storageBucket: true,
       repairOrder: {
         select: {
           roNumber: true,
@@ -336,8 +338,10 @@ export async function processCallSessionRecording(
   }
 
   const settings = await getPlatformIntegrationSettings();
+  const storageSettings = await getRecordingStorageSettings(callSession.organizationId);
+  const storageBucket = callSession.storageBucket ?? storageSettings.s3Bucket;
 
-  if (!settings.awsRegion || !settings.s3Bucket) {
+  if (!storageSettings.awsRegion || !storageBucket) {
     const message = "AWS region and S3 bucket are required before processing recordings.";
     await markTranscriptFailure({
       callSessionId,
@@ -365,12 +369,12 @@ export async function processCallSessionRecording(
     };
   }
 
-  const s3 = getS3Client(settings.awsRegion);
+  const s3 = getS3Client(storageSettings.awsRegion);
 
   try {
     const object = await s3.send(
       new GetObjectCommand({
-        Bucket: settings.s3Bucket,
+        Bucket: storageBucket,
         Key: callSession.rawRecordingObjectKey,
       }),
     );
@@ -384,7 +388,7 @@ export async function processCallSessionRecording(
       await s3.send(
         new PutObjectCommand({
           Body: audioBuffer,
-          Bucket: settings.s3Bucket,
+          Bucket: storageBucket,
           ContentType: contentType,
           Key: callSession.processedRecordingObjectKey,
         }),
@@ -432,7 +436,7 @@ export async function processCallSessionRecording(
       await s3.send(
         new PutObjectCommand({
           Body: JSON.stringify(transcriptArtifact, null, 2),
-          Bucket: settings.s3Bucket,
+          Bucket: storageBucket,
           ContentType: "application/json",
           Key: callSession.transcriptJsonObjectKey,
         }),
@@ -443,7 +447,7 @@ export async function processCallSessionRecording(
       await s3.send(
         new PutObjectCommand({
           Body: transcription.text,
-          Bucket: settings.s3Bucket,
+          Bucket: storageBucket,
           ContentType: "text/plain; charset=utf-8",
           Key: callSession.transcriptTextObjectKey,
         }),

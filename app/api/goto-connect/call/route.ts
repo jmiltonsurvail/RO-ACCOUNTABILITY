@@ -207,6 +207,7 @@ export async function GET(request: NextRequest) {
     organizationId,
     settings: platformSettings,
   });
+  const storageBucket = settings.recordingS3Bucket ?? platformSettings.s3Bucket ?? null;
 
   if (!response.ok) {
     const failureMessage = await getGoToCallFailureMessage(response);
@@ -227,6 +228,7 @@ export async function GET(request: NextRequest) {
         sourceExtension: advisor?.gotoConnectExtension ?? null,
         sourceLineId,
         status: CallSessionStatus.FAILED,
+        storageBucket,
         storagePrefix: storageKeys.storagePrefix,
         transcriptJsonObjectKey: storageKeys.transcriptJsonObjectKey,
         transcriptStatus: TranscriptProcessingStatus.PENDING,
@@ -272,6 +274,7 @@ export async function GET(request: NextRequest) {
       sourceExtension: advisor?.gotoConnectExtension ?? null,
       sourceLineId,
       status: CallSessionStatus.QUEUED,
+      storageBucket,
       storagePrefix: storageKeys.storagePrefix,
       transcriptJsonObjectKey: storageKeys.transcriptJsonObjectKey,
       transcriptStatus: TranscriptProcessingStatus.PENDING,

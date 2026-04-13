@@ -13,7 +13,6 @@ const initialState: ActionState = {};
 export function InlineContactEditor({
   contacted,
   contactRecords,
-  customerNotes,
   hasRentalCar,
   phone,
   repairValue,
@@ -21,7 +20,6 @@ export function InlineContactEditor({
 }: {
   contacted: boolean;
   contactRecords: ContactHistoryEntry[];
-  customerNotes: string | null;
   hasRentalCar: boolean;
   phone: string | null;
   repairValue: RepairValue | null;
@@ -30,7 +28,7 @@ export function InlineContactEditor({
   const router = useRouter();
   const pathname = usePathname();
   const [state, formAction, pending] = useActionState(updateContactAction, initialState);
-  const [notesValue, setNotesValue] = useState(customerNotes ?? "");
+  const [notesValue, setNotesValue] = useState("");
   const callHref = phone
     ? `/api/goto-connect/call?ro=${roNumber}&returnTo=${encodeURIComponent(pathname)}`
     : null;

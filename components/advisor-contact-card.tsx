@@ -62,9 +62,7 @@ export function AdvisorContactCard({
   const pathname = usePathname();
   const [state, formAction, pending] = useActionState(updateContactAction, initialState);
   const [isExpanded, setIsExpanded] = useState(!(repairOrder.contactState?.contacted ?? false));
-  const [notesValue, setNotesValue] = useState(
-    repairOrder.contactState?.customerNotes ?? "",
-  );
+  const [notesValue, setNotesValue] = useState("");
   const contactedValue =
     notesValue.trim().length > 0 || (repairOrder.contactState?.contacted ?? false);
   const handleSaved = useEffectEvent(() => {

@@ -30,6 +30,40 @@ export function PlatformIntegrationsForm({
   return (
     <form action={formAction} className="grid gap-5">
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-2xl font-semibold text-slate-950">AWS Provisioning</h2>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-slate-700">
+              Provisioning Access Key ID
+            </span>
+            <input
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              defaultValue={settings.awsProvisioningAccessKeyId ?? ""}
+              name="awsProvisioningAccessKeyId"
+              placeholder="AWS access key id with bucket and IAM provisioning access"
+              type="text"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-slate-700">
+              Provisioning Secret Access Key
+            </span>
+            <input
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              name="awsProvisioningSecretAccessKey"
+              placeholder={
+                settings.awsProvisioningSecretAccessKey
+                  ? "Stored. Enter a new value to replace it."
+                  : "AWS secret access key"
+              }
+              type="password"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-2xl font-semibold text-slate-950">Amazon S3</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="block">

@@ -106,6 +106,8 @@ model Organization {
 model PlatformIntegrationSettings {
   id                       String   @id @default("default")
   awsRegion                String?
+  awsProvisioningAccessKeyId String?
+  awsProvisioningSecretAccessKey String?
   s3Bucket                 String?
   s3RawRecordingsPrefix    String?
   s3ProcessedCallsPrefix   String?
@@ -304,6 +306,11 @@ model GoToConnectSettings {
   notificationChannelId String?
   notificationWebhookToken String?
   phoneNumberId     String?
+  recordingAwsRegion String?
+  recordingIamAccessKeyId String?
+  recordingIamUserName String?
+  recordingProvisionedAt DateTime?
+  recordingS3Bucket String?
   refreshToken      String?
   launchUrlTemplate String?
   createdAt         DateTime @default(now())
@@ -351,6 +358,7 @@ model CallSession {
   storagePrefix              String
   rawRecordingObjectKey      String?
   processedRecordingObjectKey String?
+  storageBucket              String?
   transcriptJsonObjectKey    String?
   transcriptTextObjectKey    String?
   lastError                  String?

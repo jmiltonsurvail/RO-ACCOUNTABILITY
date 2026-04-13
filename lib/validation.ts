@@ -214,6 +214,8 @@ export const createOrganizationManagerSchema = z.object({
 
 export const platformIntegrationSettingsSchema = z.object({
   awsRegion: optionalString.pipe(z.string().trim().max(100).optional()),
+  awsProvisioningAccessKeyId: optionalString.pipe(z.string().trim().max(200).optional()),
+  awsProvisioningSecretAccessKey: optionalString.pipe(z.string().trim().max(400).optional()),
   openAiApiKey: optionalString.pipe(z.string().trim().max(400).optional()),
   openAiTranscriptionModel: optionalString.pipe(z.string().trim().max(120).optional()),
   s3Bucket: optionalString.pipe(z.string().trim().max(120).optional()),

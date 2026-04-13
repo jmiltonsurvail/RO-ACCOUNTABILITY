@@ -43,6 +43,7 @@
 
 - [x] Define the call-session data model to store GoTo call identifiers, RO linkage, tenant linkage, and recording/transcript status.
 - [ ] Configure GoTo call recordings to land in S3.
+- [x] Add org-level AWS provisioning so each GoTo tenant can get a flat root bucket plus IAM upload credentials.
 - [x] Design tenant-scoped S3 key structure for recordings and transcripts.
 - [x] Add S3 event processing for new recordings.
 - [x] Add OpenAI transcription workflow for completed recordings.

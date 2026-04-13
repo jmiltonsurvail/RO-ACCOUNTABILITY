@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   connectGoToOauthAction,
   type GoToConnectConnectionTestActionState,
+  type GoToRecordingProvisionActionState,
   type GoToConnectSettingsActionState,
+  provisionGoToRecordingBucketAction,
   testGoToConnectSettingsAction,
   updateGoToConnectSettingsAction,
 } from "@/app/manager/settings/integrations/goto-connect/actions";
@@ -13,6 +15,7 @@ import type { GoToConnectSettingsValues } from "@/lib/goto-connect";
 
 const initialSaveState: GoToConnectSettingsActionState = {};
 const initialTestState: GoToConnectConnectionTestActionState = {};
+const initialProvisionState: GoToRecordingProvisionActionState = {};
 
 export function GoToConnectSettingsForm({
   defaultTestExtension,
@@ -37,6 +40,10 @@ export function GoToConnectSettingsForm({
   const [testState, testAction, testPending] = useActionState(
     testGoToConnectSettingsAction,
     initialTestState,
+  );
+  const [provisionState, provisionAction, provisionPending] = useActionState(
+    provisionGoToRecordingBucketAction,
+    initialProvisionState,
   );
 
   useEffect(() => {
@@ -120,6 +127,19 @@ export function GoToConnectSettingsForm({
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Step 4
+            </p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">
+              Provision the recording bucket
+            </p>
+            <p className="mt-2 text-sm text-slate-600">
+              Use <span className="font-semibold text-slate-900">Provision Recording Bucket</span>{" "}
+              to generate the S3 bucket and IAM user for this org. In GoTo, use the bucket name
+              only and leave the folder path blank.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Step 5
             </p>
             <p className="mt-2 text-sm font-semibold text-slate-950">
               Finish the call setup
@@ -264,19 +284,104 @@ export function GoToConnectSettingsForm({
             </div>
           </div>
         </details>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Recording Bucket
+              </p>
+              <p className="mt-2 text-sm text-slate-900">
+                {settings.recordingS3Bucket
+                  ? "Provisioned for this org."
+                  : "Not provisioned yet."}
+              </p>
+            </div>
+            <button
+              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:text-slate-950 disabled:opacity-50"
+              disabled={savePending || testPending || connectPending || provisionPending}
+              formAction={provisionAction}
+              type="submit"
+            >
+              {provisionPending ? "Provisioning..." : "Provision Recording Bucket"}
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Bucket
+              </p>
+              <p className="mt-2 break-all text-sm text-slate-900">
+                {provisionState.bucketName || settings.recordingS3Bucket || "Not provisioned"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                IAM User
+              </p>
+              <p className="mt-2 break-all text-sm text-slate-900">
+                {provisionState.iamUserName || settings.recordingIamUserName || "Not provisioned"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Access Key ID
+              </p>
+              <p className="mt-2 break-all text-sm text-slate-900">
+                {provisionState.accessKeyId ||
+                  settings.recordingIamAccessKeyId ||
+                  "Not provisioned"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Region
+              </p>
+              <p className="mt-2 text-sm text-slate-900">
+                {provisionState.region || settings.recordingAwsRegion || "us-east-1"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Provisioned
+              </p>
+              <p className="mt-2 text-sm text-slate-900">
+                {settings.recordingProvisionedAt || "Not provisioned"}
+              </p>
+            </div>
+          </div>
+
+          {provisionState.secretAccessKey ? (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                Secret Access Key
+              </p>
+              <p className="mt-2 break-all font-mono text-sm text-amber-950">
+                {provisionState.secretAccessKey}
+              </p>
+              <p className="mt-2 text-xs text-amber-800">
+                Copy this now. The app does not show the secret again after this response.
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-4">
+      <div className="mt-5 flex flex-wrap items-center gap-4">
         <button
           className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
-          disabled={savePending || testPending || connectPending}
+          disabled={savePending || testPending || connectPending || provisionPending}
           type="submit"
         >
           {savePending ? "Saving..." : "Save GoTo Settings"}
         </button>
         <button
           className="rounded-full bg-cyan-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-50"
-          disabled={savePending || testPending || connectPending}
+          disabled={savePending || testPending || connectPending || provisionPending}
           formAction={connectAction}
           type="submit"
         >
@@ -284,7 +389,7 @@ export function GoToConnectSettingsForm({
         </button>
         <button
           className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:text-slate-950 disabled:opacity-50"
-          disabled={savePending || testPending || connectPending}
+          disabled={savePending || testPending || connectPending || provisionPending}
           formAction={testAction}
           type="submit"
         >
@@ -301,6 +406,12 @@ export function GoToConnectSettingsForm({
         {saveState.error ? <p className="text-sm text-rose-600">{saveState.error}</p> : null}
         {connectState.success ? <p className="text-sm text-emerald-700">{connectState.success}</p> : null}
         {connectState.error ? <p className="text-sm text-rose-600">{connectState.error}</p> : null}
+        {provisionState.success ? (
+          <p className="text-sm text-emerald-700">{provisionState.success}</p>
+        ) : null}
+        {provisionState.error ? (
+          <p className="text-sm text-rose-600">{provisionState.error}</p>
+        ) : null}
         {testState.success ? <p className="text-sm text-emerald-700">{testState.success}</p> : null}
         {testState.error ? <p className="text-sm text-rose-600">{testState.error}</p> : null}
       </div>

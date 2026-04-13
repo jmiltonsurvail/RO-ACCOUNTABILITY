@@ -840,7 +840,6 @@ export function ActiveRoBoard({
                             <InlineContactEditor
                               contacted={contacted}
                               contactRecords={repairOrder.contactRecords}
-                              customerNotes={repairOrder.contactState?.customerNotes ?? null}
                               hasRentalCar={hasRentalCar}
                               phone={repairOrder.phone}
                               repairValue={repairOrder.repairValue}

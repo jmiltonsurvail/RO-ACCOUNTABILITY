@@ -4,6 +4,7 @@ import { ActivityType, Role } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { provisionGoToRecordingBucket } from "@/lib/aws-recording-provisioning";
 import { requireOrganizationId, requireRole } from "@/lib/auth";
 import {
   createGoToNotificationChannel,
@@ -18,6 +19,7 @@ import {
   testGoToConnection,
 } from "@/lib/goto-connect";
 import { logActivity } from "@/lib/data";
+import { getPlatformIntegrationSettings } from "@/lib/platform-integrations";
 import { prisma } from "@/lib/prisma";
 import {
   gotoConnectAdvisorExtensionSchema,
@@ -31,6 +33,16 @@ export type GoToConnectSettingsActionState = {
 
 export type GoToConnectConnectionTestActionState = {
   error?: string;
+  success?: string;
+};
+
+export type GoToRecordingProvisionActionState = {
+  accessKeyId?: string;
+  bucketName?: string;
+  error?: string;
+  iamUserName?: string;
+  region?: string;
+  secretAccessKey?: string;
   success?: string;
 };
 
@@ -335,6 +347,121 @@ export async function updateGoToConnectSettingsAction(
       ? `GoTo Connect settings saved for account ${nextAccountKey}. Re-resolved ${reResolvedSummary.updatedCount} advisor line mappings.`
       : `GoTo Connect settings saved for account ${nextAccountKey}.`,
   };
+}
+
+export async function provisionGoToRecordingBucketAction(
+  _previousState: GoToRecordingProvisionActionState,
+  _formData: FormData,
+): Promise<GoToRecordingProvisionActionState> {
+  void _previousState;
+  void _formData;
+  const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
+
+  const [organization, settings, platformSettings] = await Promise.all([
+    prisma.organization.findUnique({
+      where: {
+        id: organizationId,
+      },
+      select: {
+        slug: true,
+      },
+    }),
+    prisma.goToConnectSettings.findUnique({
+      where: {
+        organizationId,
+      },
+      select: {
+        recordingIamAccessKeyId: true,
+        recordingIamUserName: true,
+        recordingS3Bucket: true,
+      },
+    }),
+    getPlatformIntegrationSettings(),
+  ]);
+
+  if (!organization) {
+    return {
+      error: "Organization not found.",
+    };
+  }
+
+  if (settings?.recordingS3Bucket && settings.recordingIamAccessKeyId) {
+    return {
+      accessKeyId: settings.recordingIamAccessKeyId,
+      bucketName: settings.recordingS3Bucket,
+      error:
+        "A recording bucket is already provisioned for this org. Rotate credentials separately instead of provisioning again.",
+      iamUserName: settings.recordingIamUserName ?? undefined,
+      region: "us-east-1",
+    };
+  }
+
+  if (
+    !platformSettings.awsProvisioningAccessKeyId ||
+    !platformSettings.awsProvisioningSecretAccessKey
+  ) {
+    return {
+      error:
+        "AWS provisioning credentials are missing in Platform Integrations. Save them from the ServiceSyncNow admin area first.",
+    };
+  }
+
+  try {
+    const provisioned = await provisionGoToRecordingBucket({
+      organizationSlug: organization.slug,
+      provisioningAccessKeyId: platformSettings.awsProvisioningAccessKeyId,
+      provisioningSecretAccessKey: platformSettings.awsProvisioningSecretAccessKey,
+    });
+
+    await prisma.goToConnectSettings.upsert({
+      where: {
+        organizationId,
+      },
+      create: {
+        organizationId,
+        recordingAwsRegion: provisioned.region,
+        recordingIamAccessKeyId: provisioned.accessKeyId,
+        recordingIamUserName: provisioned.iamUserName,
+        recordingProvisionedAt: new Date(),
+        recordingS3Bucket: provisioned.bucketName,
+      },
+      update: {
+        recordingAwsRegion: provisioned.region,
+        recordingIamAccessKeyId: provisioned.accessKeyId,
+        recordingIamUserName: provisioned.iamUserName,
+        recordingProvisionedAt: new Date(),
+        recordingS3Bucket: provisioned.bucketName,
+      },
+    });
+
+    await logActivity({
+      message: `Provisioned GoTo recording bucket ${provisioned.bucketName}.`,
+      metadata: {
+        iamAccessKeyId: provisioned.accessKeyId,
+        iamUserName: provisioned.iamUserName,
+        region: provisioned.region,
+        recordingS3Bucket: provisioned.bucketName,
+      },
+      type: ActivityType.GOTO_CONNECT_SETTINGS_UPDATED,
+      userId: session.user.id,
+    });
+
+    revalidatePath("/manager/settings/integrations/goto-connect");
+
+    return {
+      accessKeyId: provisioned.accessKeyId,
+      bucketName: provisioned.bucketName,
+      iamUserName: provisioned.iamUserName,
+      region: provisioned.region,
+      secretAccessKey: provisioned.secretAccessKey,
+      success: "GoTo recording bucket provisioned. Copy the bucket name, key, and secret into GoTo now.",
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Unable to provision the GoTo recording bucket.",
+    };
+  }
 }
 
 export async function testGoToConnectSettingsAction(

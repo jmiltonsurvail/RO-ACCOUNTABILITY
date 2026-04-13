@@ -39,6 +39,7 @@ export async function GET(
       callEndedAt: true,
       processedRecordingObjectKey: true,
       rawRecordingObjectKey: true,
+      storageBucket: true,
       repairOrder: {
         select: {
           roNumber: true,
@@ -71,7 +72,11 @@ export async function GET(
     callSession.transcriptTextObjectKey
   ) {
     try {
-      transcriptText = await getCallSessionTextAsset(callSession.transcriptTextObjectKey);
+      transcriptText = await getCallSessionTextAsset({
+        objectKey: callSession.transcriptTextObjectKey,
+        organizationId: callSession.organizationId,
+        storageBucket: callSession.storageBucket,
+      });
     } catch (error) {
       transcriptError =
         error instanceof Error ? error.message : "Unable to load transcript text.";

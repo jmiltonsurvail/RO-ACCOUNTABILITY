@@ -18,6 +18,11 @@ export type GoToConnectSettingsValues = {
   notificationWebhookToken: string | null;
   organizationId: string | null;
   phoneNumberId: string | null;
+  recordingAwsRegion: string | null;
+  recordingIamAccessKeyId: string | null;
+  recordingIamUserName: string | null;
+  recordingProvisionedAt: string | null;
+  recordingS3Bucket: string | null;
   refreshToken: string | null;
 };
 
@@ -38,6 +43,11 @@ export const defaultGoToConnectSettings: GoToConnectSettingsValues = {
   notificationWebhookToken: null,
   organizationId: null,
   phoneNumberId: null,
+  recordingAwsRegion: null,
+  recordingIamAccessKeyId: null,
+  recordingIamUserName: null,
+  recordingProvisionedAt: null,
+  recordingS3Bucket: null,
   refreshToken: null,
 };
 
@@ -73,6 +83,11 @@ export async function getGoToConnectSettings(
     notificationWebhookToken: settings.notificationWebhookToken,
     organizationId: settings.goToOrganizationId,
     phoneNumberId: settings.phoneNumberId,
+    recordingAwsRegion: settings.recordingAwsRegion,
+    recordingIamAccessKeyId: settings.recordingIamAccessKeyId,
+    recordingIamUserName: settings.recordingIamUserName,
+    recordingProvisionedAt: settings.recordingProvisionedAt?.toISOString() ?? null,
+    recordingS3Bucket: settings.recordingS3Bucket,
     refreshToken: settings.refreshToken,
   };
 }
@@ -450,6 +465,11 @@ export async function getGoToConnectSettingsWithAccessToken(
         notificationWebhookToken: updated.notificationWebhookToken,
         organizationId: updated.goToOrganizationId,
         phoneNumberId: updated.phoneNumberId,
+        recordingAwsRegion: updated.recordingAwsRegion,
+        recordingIamAccessKeyId: updated.recordingIamAccessKeyId,
+        recordingIamUserName: updated.recordingIamUserName,
+        recordingProvisionedAt: updated.recordingProvisionedAt?.toISOString() ?? null,
+        recordingS3Bucket: updated.recordingS3Bucket,
         refreshToken: updated.refreshToken,
       };
     } catch {

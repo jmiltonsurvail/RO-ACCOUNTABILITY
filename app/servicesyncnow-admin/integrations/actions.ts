@@ -20,6 +20,8 @@ export async function updatePlatformIntegrationSettingsAction(
 
   const parsed = platformIntegrationSettingsSchema.safeParse({
     awsRegion: formData.get("awsRegion"),
+    awsProvisioningAccessKeyId: formData.get("awsProvisioningAccessKeyId"),
+    awsProvisioningSecretAccessKey: formData.get("awsProvisioningSecretAccessKey"),
     openAiApiKey: formData.get("openAiApiKey"),
     openAiTranscriptionModel: formData.get("openAiTranscriptionModel"),
     s3Bucket: formData.get("s3Bucket"),
@@ -41,6 +43,8 @@ export async function updatePlatformIntegrationSettingsAction(
     where: { id: "default" },
     create: {
       awsRegion: parsed.data.awsRegion ?? null,
+      awsProvisioningAccessKeyId: parsed.data.awsProvisioningAccessKeyId ?? null,
+      awsProvisioningSecretAccessKey: parsed.data.awsProvisioningSecretAccessKey ?? null,
       id: "default",
       openAiApiKey: parsed.data.openAiApiKey ?? null,
       openAiTranscriptionModel: parsed.data.openAiTranscriptionModel ?? null,
@@ -50,6 +54,12 @@ export async function updatePlatformIntegrationSettingsAction(
     },
     update: {
       awsRegion: parsed.data.awsRegion ?? null,
+      awsProvisioningAccessKeyId:
+        parsed.data.awsProvisioningAccessKeyId ?? existing?.awsProvisioningAccessKeyId ?? null,
+      awsProvisioningSecretAccessKey:
+        parsed.data.awsProvisioningSecretAccessKey ??
+        existing?.awsProvisioningSecretAccessKey ??
+        null,
       openAiApiKey: parsed.data.openAiApiKey ?? existing?.openAiApiKey ?? null,
       openAiTranscriptionModel: parsed.data.openAiTranscriptionModel ?? null,
       s3Bucket: parsed.data.s3Bucket ?? null,

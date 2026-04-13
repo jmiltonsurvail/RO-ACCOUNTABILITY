@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 
 export type PlatformIntegrationSettingsValues = {
   awsRegion: string | null;
+  awsProvisioningAccessKeyId: string | null;
+  awsProvisioningSecretAccessKey: string | null;
   openAiApiKey: string | null;
   openAiTranscriptionModel: string | null;
   s3Bucket: string | null;
@@ -11,6 +13,8 @@ export type PlatformIntegrationSettingsValues = {
 
 export const defaultPlatformIntegrationSettings: PlatformIntegrationSettingsValues = {
   awsRegion: null,
+  awsProvisioningAccessKeyId: null,
+  awsProvisioningSecretAccessKey: null,
   openAiApiKey: null,
   openAiTranscriptionModel: null,
   s3Bucket: null,
@@ -29,6 +33,8 @@ export async function getPlatformIntegrationSettings(): Promise<PlatformIntegrat
 
   return {
     awsRegion: settings.awsRegion,
+    awsProvisioningAccessKeyId: settings.awsProvisioningAccessKeyId,
+    awsProvisioningSecretAccessKey: settings.awsProvisioningSecretAccessKey,
     openAiApiKey: settings.openAiApiKey,
     openAiTranscriptionModel: settings.openAiTranscriptionModel,
     s3Bucket: settings.s3Bucket,

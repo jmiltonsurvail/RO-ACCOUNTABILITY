@@ -1,6 +1,5 @@
 import { ActivityType, RecordingProcessingStatus } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
-import { getPlatformIntegrationSettings } from "@/lib/platform-integrations";
 import { prisma } from "@/lib/prisma";
 import { processCallSessionRecording } from "@/lib/recording-transcription";
 import { parseS3RecordingEvent } from "@/lib/s3-recordings";
@@ -22,7 +21,6 @@ export async function POST(request: NextRequest) {
 
   const payload = await request.json();
   const records = parseS3RecordingEvent(payload);
-  const settings = await getPlatformIntegrationSettings();
 
   let ignoredBucketCount = 0;
   let matchedCount = 0;
@@ -31,11 +29,6 @@ export async function POST(request: NextRequest) {
   let unmatchedCount = 0;
 
   for (const record of records) {
-    if (settings.s3Bucket && record.bucket !== settings.s3Bucket) {
-      ignoredBucketCount += 1;
-      continue;
-    }
-
     if (!record.goToInitiatorId) {
       unmatchedCount += 1;
       continue;
@@ -47,12 +40,29 @@ export async function POST(request: NextRequest) {
       },
       select: {
         id: true,
+        organization: {
+          select: {
+            goToConnectSettings: {
+              select: {
+                recordingS3Bucket: true,
+              },
+            },
+          },
+        },
         repairOrderId: true,
       },
     });
 
     if (!callSession) {
       unmatchedCount += 1;
+      continue;
+    }
+
+    const expectedBucket =
+      callSession.organization.goToConnectSettings?.recordingS3Bucket?.trim() ?? null;
+
+    if (expectedBucket && expectedBucket !== record.bucket) {
+      ignoredBucketCount += 1;
       continue;
     }
 
@@ -64,6 +74,7 @@ export async function POST(request: NextRequest) {
         lastError: null,
         rawRecordingObjectKey: record.key,
         recordingStatus: RecordingProcessingStatus.READY,
+        storageBucket: record.bucket,
       },
     });
 

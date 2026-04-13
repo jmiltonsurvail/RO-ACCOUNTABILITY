@@ -34,6 +34,7 @@ export async function GET(
       organizationId: true,
       processedRecordingObjectKey: true,
       rawRecordingObjectKey: true,
+      storageBucket: true,
     },
   });
 
@@ -56,7 +57,11 @@ export async function GET(
   }
 
   try {
-    const asset = await getCallSessionS3Object(objectKey);
+    const asset = await getCallSessionS3Object({
+      objectKey,
+      organizationId: callSession.organizationId,
+      storageBucket: callSession.storageBucket,
+    });
 
     return new Response(asset.body, {
       headers: {

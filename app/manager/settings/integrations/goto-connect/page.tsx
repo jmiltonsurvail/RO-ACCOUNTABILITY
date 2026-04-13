@@ -75,7 +75,7 @@ export default async function ManagerGoToConnectSettingsPage({
           </Link>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Status
@@ -114,6 +114,14 @@ export default async function ManagerGoToConnectSettingsPage({
             </p>
             <p className="mt-2 text-2xl font-semibold text-slate-950">
               {settings.callEventsConfiguredAt ? "Configured" : "Pending"}
+            </p>
+          </div>
+          <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Recording Bucket
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-950">
+              {settings.recordingS3Bucket ? "Provisioned" : "Pending"}
             </p>
           </div>
         </div>
