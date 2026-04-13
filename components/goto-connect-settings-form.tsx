@@ -80,6 +80,7 @@ export function GoToConnectSettingsForm({
                 <span className="font-semibold text-slate-900">Required Scopes:</span>{" "}
                 <span className="font-mono text-slate-900">users.v1.lines.read</span>{" "}
                 <span className="font-mono text-slate-900">calls.v2.initiate</span>{" "}
+                <span className="font-mono text-slate-900">call-events.v1.events.read</span>{" "}
                 <span className="font-mono text-slate-900">call-events.v1.notifications.manage</span>{" "}
                 <span className="font-mono text-slate-900">cr.v1.read</span>
               </p>

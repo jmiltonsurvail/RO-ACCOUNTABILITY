@@ -809,7 +809,7 @@ export async function subscribeToGoToCallEvents(input: {
     body: JSON.stringify({
       accountKeys: [
         {
-          events: ["STARTING", "CONNECTED", "ENDING"],
+          events: ["STARTING", "ENDING"],
           id: input.accountKey,
         },
       ],
