@@ -197,9 +197,6 @@ export async function getAdvisorBoard(organizationId: string, asmNumber: number)
         asmNumber,
         isActive: true,
         organizationId,
-        blockerState: {
-          isBlocked: true,
-        },
       },
       orderBy: [{ roNumber: "asc" }],
       include: roCardInclude,

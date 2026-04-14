@@ -99,7 +99,7 @@ export default async function AdvisorPage() {
       <div className="grid gap-5">
         {repairOrders.length === 0 ? (
           <section className="rounded-[1.75rem] border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <p className="text-lg font-medium text-slate-900">No blocked ROs assigned.</p>
+            <p className="text-lg font-medium text-slate-900">No active ROs assigned.</p>
           </section>
         ) : (
           <>
@@ -131,7 +131,7 @@ export default async function AdvisorPage() {
                 </div>
                 <div className="rounded-[1.25rem] bg-cyan-100 px-5 py-4 text-cyan-900">
                   <p className="text-xs uppercase tracking-[0.2em] opacity-70">
-                    Total Blocked
+                    Total Active
                   </p>
                   <p className="mt-2 text-3xl font-semibold">{serializedRepairOrders.length}</p>
                 </div>
