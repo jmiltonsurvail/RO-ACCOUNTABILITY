@@ -804,7 +804,6 @@ export function ActiveRoBoard({
                       {actionMode === "edit" ? (
                         <InlineBlockerEditor
                           blockerReason={blocker?.blockerReason ?? null}
-                          foremanNotes={blocker?.foremanNotes ?? null}
                           isBlocked={blocked}
                           roNumber={repairOrder.roNumber}
                           techPromisedDate={blocker?.techPromisedDate ?? null}
