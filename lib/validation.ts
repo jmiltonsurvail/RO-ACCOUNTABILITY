@@ -103,7 +103,7 @@ export const blockerFormSchema = z.object({
     z.coerce.number().int().min(1950).max(2100).optional(),
   ),
   blockerReason: z.nativeEnum(BlockerReason),
-  foremanNotes: optionalString.pipe(z.string().trim().max(2000).optional()),
+  foremanNotes: z.string().trim().min(1, "Notes are required.").max(2000),
   techPromisedDate: optionalString,
 });
 

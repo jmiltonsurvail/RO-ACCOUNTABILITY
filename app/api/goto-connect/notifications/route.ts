@@ -213,18 +213,56 @@ async function processCallEventsReportSummary(input: {
     };
   }
 
-  await prisma.callSession.update({
+  const callCreatedAt = parseDate(report.callCreated);
+  const callEndedAt = parseDate(report.callEnded);
+  const contactTimestamp = callEndedAt ?? callCreatedAt ?? new Date();
+  const wasConnected = didCallConnect(report);
+  const existingContactRecord = await prisma.contactRecord.findFirst({
     where: {
-      id: callSession.id,
+      callSessionId: callSession.id,
     },
-    data: {
-      callCreatedAt: parseDate(report.callCreated),
-      callEndedAt: parseDate(report.callEnded),
-      conversationSpaceId: report.conversationSpaceId ?? input.conversationSpaceId,
-      durationSeconds: getDurationSeconds(report),
-      rawCallReportJson: report as Prisma.InputJsonValue,
-      wasConnected: didCallConnect(report),
+    select: {
+      id: true,
     },
+  });
+
+  await prisma.$transaction(async (transaction) => {
+    await transaction.callSession.update({
+      where: {
+        id: callSession.id,
+      },
+      data: {
+        callCreatedAt,
+        callEndedAt,
+        conversationSpaceId: report.conversationSpaceId ?? input.conversationSpaceId,
+        durationSeconds: getDurationSeconds(report),
+        rawCallReportJson: report as Prisma.InputJsonValue,
+        wasConnected,
+      },
+    });
+
+    if (!existingContactRecord) {
+      const trackedCallSession = await transaction.callSession.findUnique({
+        where: {
+          id: callSession.id,
+        },
+        select: {
+          initiatedByUserId: true,
+          repairOrderId: true,
+        },
+      });
+
+      if (trackedCallSession) {
+        await transaction.contactRecord.create({
+          data: {
+            advisorUserId: trackedCallSession.initiatedByUserId,
+            callSessionId: callSession.id,
+            contactedAt: contactTimestamp,
+            repairOrderId: trackedCallSession.repairOrderId,
+          },
+        });
+      }
+    }
   });
 
   return {

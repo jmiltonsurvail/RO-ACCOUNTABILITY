@@ -319,8 +319,8 @@ export default async function ManagerReportsPage({
                   <th className="pb-3 pr-4 font-semibold">Advisor</th>
                   <th className="pb-3 pr-4 font-semibold">Active ROs</th>
                   <th className="pb-3 pr-4 font-semibold">Blocked</th>
-                  <th className="pb-3 pr-4 font-semibold">Contacted</th>
-                  <th className="pb-3 pr-4 font-semibold">Needs Contact</th>
+                  <th className="pb-3 pr-4 font-semibold">Contacted Today</th>
+                  <th className="pb-3 pr-4 font-semibold">Needs Contact Today</th>
                   <th className="pb-3 pr-4 font-semibold">Overdue</th>
                   <th className="pb-3 pr-4 font-semibold">Contact Rate</th>
                   <th className="pb-3 font-semibold">{reports.rangeLabel} Updates</th>

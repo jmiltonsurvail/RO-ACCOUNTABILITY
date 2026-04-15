@@ -1,7 +1,7 @@
 "use client";
 
 import { type BlockerReason } from "@prisma/client";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useEffectEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveBlockerAction, type ActionState } from "@/app/dispatcher/actions";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
@@ -11,25 +11,32 @@ const initialState: ActionState = {};
 
 export function InlineBlockerEditor({
   blockerReason,
-  foremanNotes,
   isBlocked,
   roNumber,
   techPromisedDate,
 }: {
   blockerReason: BlockerReason | null;
-  foremanNotes: string | null;
   isBlocked: boolean;
   roNumber: number;
   techPromisedDate: string | null;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(saveBlockerAction, initialState);
+  const [selectedBlockerReason, setSelectedBlockerReason] = useState(blockerReason ?? "");
+  const [notesValue, setNotesValue] = useState("");
+  const [promisedDateValue, setPromisedDateValue] = useState(techPromisedDate?.slice(0, 10) ?? "");
+  const handleSaved = useEffectEvent(() => {
+    setSelectedBlockerReason("");
+    setNotesValue("");
+    setPromisedDateValue("");
+    router.refresh();
+  });
 
   useEffect(() => {
     if (state.success) {
-      router.refresh();
+      handleSaved();
     }
-  }, [router, state.success]);
+  }, [state.success]);
 
   return (
     <form action={formAction} className="grid gap-3">
@@ -41,9 +48,12 @@ export function InlineBlockerEditor({
         </span>
         <select
           className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-          defaultValue={blockerReason ?? ""}
+          onChange={(event) =>
+            setSelectedBlockerReason(event.target.value as BlockerReason | "")
+          }
           name="blockerReason"
           required
+          value={selectedBlockerReason}
         >
           <option disabled value="">
             Select blocker reason
@@ -58,13 +68,15 @@ export function InlineBlockerEditor({
 
       <label className="block">
         <span className="mb-2 block text-xs uppercase tracking-[0.18em] text-slate-400">
-          Notes
+          Add Note
         </span>
         <textarea
           className="min-h-28 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-          defaultValue={foremanNotes ?? ""}
           name="foremanNotes"
-          placeholder="Describe the blocker and latest tech notes."
+          onChange={(event) => setNotesValue(event.target.value)}
+          placeholder="Add the latest blocker update. The app will append it with a timestamp."
+          required
+          value={notesValue}
         />
       </label>
 
@@ -74,9 +86,10 @@ export function InlineBlockerEditor({
         </span>
         <input
           className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-          defaultValue={techPromisedDate?.slice(0, 10) ?? ""}
           name="techPromisedDate"
+          onChange={(event) => setPromisedDateValue(event.target.value)}
           type="date"
+          value={promisedDateValue}
         />
       </label>
 

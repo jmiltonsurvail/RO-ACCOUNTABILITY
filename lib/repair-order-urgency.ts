@@ -12,8 +12,12 @@ type RepairOrderUrgencyInput = {
     isBlocked?: boolean;
     techPromisedDate: MaybeDate;
   } | null;
+  contactRecords?: Array<{
+    contactedAt: Date | string;
+  }>;
   contactState: {
     contacted: boolean;
+    contactedAt?: MaybeDate;
     hasRentalCar?: boolean;
   } | null;
   promisedAtNormalized: MaybeDate;
@@ -91,8 +95,31 @@ export function isRepairOrderDueToday(
   return dueDate.toDateString() === now.toDateString() && dueDate >= now;
 }
 
+export function getLatestRepairOrderContactAt(repairOrder: RepairOrderUrgencyInput) {
+  const latestRecordContactAt = parseDate(repairOrder.contactRecords?.[0]?.contactedAt ?? null);
+
+  if (latestRecordContactAt) {
+    return latestRecordContactAt;
+  }
+
+  return parseDate(repairOrder.contactState?.contactedAt ?? null);
+}
+
+export function hasRepairOrderContactToday(
+  repairOrder: RepairOrderUrgencyInput,
+  now: Date = new Date(),
+) {
+  const latestContactAt = getLatestRepairOrderContactAt(repairOrder);
+
+  if (!latestContactAt) {
+    return false;
+  }
+
+  return latestContactAt.toDateString() === now.toDateString();
+}
+
 export function needsRepairOrderContact(repairOrder: RepairOrderUrgencyInput) {
-  return isRepairOrderBlocked(repairOrder) && !repairOrder.contactState?.contacted;
+  return isRepairOrderBlocked(repairOrder) && !hasRepairOrderContactToday(repairOrder);
 }
 
 export function isRepairOrderContactPastSla(

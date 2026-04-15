@@ -4,12 +4,13 @@ import { type BlockerReason, type RepairValue } from "@prisma/client";
 import { useDeferredValue, useMemo, useState } from "react";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
 import { CompactStatCard } from "@/components/compact-stat-card";
+import { ContactEditModal } from "@/components/contact-edit-modal";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
-import { InlineContactEditor } from "@/components/inline-contact-editor";
 import { InlineBlockerEditor } from "@/components/inline-blocker-editor";
 import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
 import {
   compareRepairOrderUrgency,
+  hasRepairOrderContactToday,
   getRepairOrderDueDate,
   getRepairOrderUrgencyScore,
   isRepairOrderAtRisk,
@@ -139,6 +140,7 @@ export function ActiveRoBoard({
   const [contactFilter, setContactFilter] = useState<ContactFilter>("all");
   const [dueFilter, setDueFilter] = useState<DueFilter>("all");
   const [quickView, setQuickView] = useState<QuickView>("all");
+  const [contactModalRoNumber, setContactModalRoNumber] = useState<number | null>(null);
   const deferredSearch = useDeferredValue(search);
 
   const asmOptions = useMemo(
@@ -197,7 +199,7 @@ export function ActiveRoBoard({
       .filter((repairOrder) => {
         const dueDate = getRepairOrderDueDate(repairOrder);
         const blocked = Boolean(repairOrder.blockerState?.isBlocked);
-        const contacted = repairOrder.contactState?.contacted ?? false;
+        const contacted = hasRepairOrderContactToday(repairOrder);
         const searchIndex = [
           repairOrder.roNumber,
           repairOrder.tag ?? "",
@@ -374,6 +376,11 @@ export function ActiveRoBoard({
     );
   }, [filteredRepairOrders, slaSettings]);
 
+  const contactModalRepairOrder =
+    contactModalRoNumber !== null
+      ? repairOrders.find((repairOrder) => repairOrder.roNumber === contactModalRoNumber) ?? null
+      : null;
+
   const resetFilters = () => {
     setSearch("");
     setAsmFilter("all");
@@ -485,9 +492,6 @@ export function ActiveRoBoard({
 
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
           <label>
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              ASM
-            </span>
             <select
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
               onChange={(event) => setAsmFilter(event.target.value)}
@@ -503,9 +507,6 @@ export function ActiveRoBoard({
           </label>
 
           <label>
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Tag
-            </span>
             <select
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
               onChange={(event) => setTagFilter(event.target.value)}
@@ -522,9 +523,6 @@ export function ActiveRoBoard({
           </label>
 
           <label>
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Mode
-            </span>
             <select
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
               onChange={(event) => setModeFilter(event.target.value)}
@@ -540,9 +538,6 @@ export function ActiveRoBoard({
           </label>
 
           <label>
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Tech
-            </span>
             <select
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
               onChange={(event) => setTechFilter(event.target.value)}
@@ -559,9 +554,6 @@ export function ActiveRoBoard({
           </label>
 
           <label>
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Blocker
-            </span>
             <select
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
               onChange={(event) => setBlockerFilter(event.target.value as BlockerFilter)}
@@ -574,9 +566,6 @@ export function ActiveRoBoard({
           </label>
 
           <label>
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Action lane
-            </span>
             <select
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
               onChange={(event) => {
@@ -595,7 +584,7 @@ export function ActiveRoBoard({
             >
               <option value="all">All action lanes</option>
               <option value="needs-contact">Needs customer contact</option>
-              <option value="contacted">Customer contacted</option>
+              <option value="contacted">Contacted today</option>
               <option value="no-record">No contact record</option>
               <option value="overdue">Overdue due date</option>
               <option value="today">Due later today</option>
@@ -605,9 +594,6 @@ export function ActiveRoBoard({
           </label>
 
           <div className="flex flex-col justify-end">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-transparent">
-              Reset
-            </span>
             <button
               className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-cyan-400 hover:text-slate-950 disabled:opacity-50"
               disabled={!filtersAreActive}
@@ -630,7 +616,7 @@ export function ActiveRoBoard({
             const blocker = repairOrder.blockerState;
             const dueDate = getRepairOrderDueDate(repairOrder);
             const blocked = Boolean(blocker?.isBlocked);
-            const contacted = repairOrder.contactState?.contacted ?? false;
+            const contacted = hasRepairOrderContactToday(repairOrder);
             const hasRentalCar = repairOrder.contactState?.hasRentalCar ?? false;
             const repairValueLabel = repairOrder.repairValue
               ? repairValueLabels[repairOrder.repairValue]
@@ -693,8 +679,8 @@ export function ActiveRoBoard({
                           {needsContact
                             ? "Needs Contact"
                             : contacted
-                              ? "Contacted"
-                              : "No Contact Record"}
+                              ? "Contacted Today"
+                              : "Needs Contact Today"}
                         </span>
                         {repairValueLabel ? (
                           <span
@@ -786,7 +772,7 @@ export function ActiveRoBoard({
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                         Notes
                       </p>
-                      <p className="mt-2 text-sm leading-6 text-slate-700">
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                         {blocker?.foremanNotes || "No notes entered."}
                       </p>
                     </div>
@@ -832,21 +818,19 @@ export function ActiveRoBoard({
                       )}
 
                       {contactMode === "edit" ? (
-                        <>
-                          <div className="border-t border-slate-200 pt-3">
-                            <p className="mb-3 text-xs uppercase tracking-[0.2em] text-slate-400">
-                              Customer Contact
-                            </p>
-                            <InlineContactEditor
-                              contacted={contacted}
-                              contactRecords={repairOrder.contactRecords}
-                              hasRentalCar={hasRentalCar}
-                              phone={repairOrder.phone}
-                              repairValue={repairOrder.repairValue}
-                              roNumber={repairOrder.roNumber}
-                            />
-                          </div>
-                        </>
+                        <div className="border-t border-slate-200 pt-3">
+                          <p className="mb-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+                            Customer Contact
+                          </p>
+                          <button
+                            className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-800 transition hover:border-cyan-400 hover:text-slate-950"
+                            onClick={() => setContactModalRoNumber(repairOrder.roNumber)}
+                            type="button"
+                          >
+                            <span className="text-sm leading-none">+</span>
+                            <span>Edit Contact</span>
+                          </button>
+                        </div>
                       ) : null}
                     </div>
                   </div>
@@ -856,6 +840,18 @@ export function ActiveRoBoard({
           })
         )}
       </div>
+      {contactModalRepairOrder ? (
+        <ContactEditModal
+          contacted={contactModalRepairOrder.contactState?.contacted ?? false}
+          contactRecords={contactModalRepairOrder.contactRecords}
+          customerName={contactModalRepairOrder.customerName}
+          hasRentalCar={contactModalRepairOrder.contactState?.hasRentalCar ?? false}
+          onClose={() => setContactModalRoNumber(null)}
+          phone={contactModalRepairOrder.phone}
+          repairValue={contactModalRepairOrder.repairValue}
+          roNumber={contactModalRepairOrder.roNumber}
+        />
+      ) : null}
     </section>
   );
 }

@@ -94,6 +94,17 @@ export async function updateContactAction(
           },
         })
       : null;
+    const existingLinkedContactRecord =
+      shouldCreateContactRecord && latestCallSession
+        ? await transaction.contactRecord.findFirst({
+            where: {
+              callSessionId: latestCallSession.id,
+            },
+            select: {
+              id: true,
+            },
+          })
+        : null;
 
     await transaction.repairOrder.update({
       where: { id: repairOrder.id },
@@ -122,15 +133,28 @@ export async function updateContactAction(
     });
 
     if (shouldCreateContactRecord) {
-      await transaction.contactRecord.create({
-        data: {
-          advisorUserId: session.user.id,
-          callSessionId: latestCallSession?.id ?? null,
-          contactedAt: contactTimestamp ?? new Date(),
-          customerNotes: parsed.data.customerNotes || null,
-          repairOrderId: repairOrder.id,
-        },
-      });
+      if (existingLinkedContactRecord) {
+        await transaction.contactRecord.update({
+          where: {
+            id: existingLinkedContactRecord.id,
+          },
+          data: {
+            advisorUserId: session.user.id,
+            contactedAt: contactTimestamp ?? new Date(),
+            customerNotes: parsed.data.customerNotes || null,
+          },
+        });
+      } else {
+        await transaction.contactRecord.create({
+          data: {
+            advisorUserId: session.user.id,
+            callSessionId: latestCallSession?.id ?? null,
+            contactedAt: contactTimestamp ?? new Date(),
+            customerNotes: parsed.data.customerNotes || null,
+            repairOrderId: repairOrder.id,
+          },
+        });
+      }
     }
 
     await transaction.activityLog.create({

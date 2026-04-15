@@ -14,16 +14,20 @@ export function InlineContactEditor({
   contacted,
   contactRecords,
   hasRentalCar,
+  onSaved,
   phone,
   repairValue,
   roNumber,
+  showHistoryAndSummary = true,
 }: {
   contacted: boolean;
   contactRecords: ContactHistoryEntry[];
   hasRentalCar: boolean;
+  onSaved?: () => void;
   phone: string | null;
   repairValue: RepairValue | null;
   roNumber: number;
+  showHistoryAndSummary?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -38,6 +42,7 @@ export function InlineContactEditor({
       ?.callSummary ?? null;
   const handleSaved = useEffectEvent(() => {
     setNotesValue("");
+    onSaved?.();
     router.refresh();
   });
 
@@ -119,13 +124,17 @@ export function InlineContactEditor({
       </div>
 
       <GoToCallFeedback roNumber={roNumber} />
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Call Summary</p>
-        <p className="mt-2 text-sm leading-6 text-slate-700">
-          {latestCallSummary || "No call summary yet."}
-        </p>
-      </div>
-      <ContactHistoryList entries={contactRecords} />
+      {showHistoryAndSummary ? (
+        <>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Call Summary</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700">
+              {latestCallSummary || "No call summary yet."}
+            </p>
+          </div>
+          <ContactHistoryList entries={contactRecords} />
+        </>
+      ) : null}
       {state.error ? <p className="text-xs text-rose-600">{state.error}</p> : null}
     </form>
   );

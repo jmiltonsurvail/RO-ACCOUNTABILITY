@@ -7,6 +7,7 @@ import { updateContactAction, type ActionState } from "@/app/advisor/actions";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
 import { blockerReasonLabels, repairValueLabels, repairValueOptions } from "@/lib/constants";
+import { hasRepairOrderContactToday } from "@/lib/repair-order-urgency";
 import { formatDateTime, hoursSince } from "@/lib/utils";
 
 const initialState: ActionState = {};
@@ -61,10 +62,11 @@ export function AdvisorContactCard({
   const router = useRouter();
   const pathname = usePathname();
   const [state, formAction, pending] = useActionState(updateContactAction, initialState);
-  const [isExpanded, setIsExpanded] = useState(!(repairOrder.contactState?.contacted ?? false));
+  const contactedToday = hasRepairOrderContactToday(repairOrder);
+  const [isExpanded, setIsExpanded] = useState(!contactedToday);
   const [notesValue, setNotesValue] = useState("");
   const contactedValue =
-    notesValue.trim().length > 0 || (repairOrder.contactState?.contacted ?? false);
+    notesValue.trim().length > 0 || contactedToday;
   const handleSaved = useEffectEvent(() => {
     setNotesValue("");
     if (contactedValue) {
@@ -86,10 +88,10 @@ export function AdvisorContactCard({
   const callHref = repairOrder.phone
     ? `/api/goto-connect/call?ro=${repairOrder.roNumber}&returnTo=${encodeURIComponent(pathname)}`
     : null;
-  const contactRecordLabel = repairOrder.contactState?.contacted
-    ? "Contacted"
-    : "No Contact";
-  const contactRecordTone = repairOrder.contactState?.contacted
+  const contactRecordLabel = contactedToday
+    ? "Contacted Today"
+    : "Needs Contact Today";
+  const contactRecordTone = contactedToday
     ? "bg-emerald-100 text-emerald-800"
     : "bg-slate-200 text-slate-700";
   const techLabel =

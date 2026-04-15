@@ -13,6 +13,48 @@ export type ActionState = {
 
 const initialState: ActionState = {};
 
+function getBlockerNoteActorLabel(role: Role) {
+  if (role === Role.MANAGER) {
+    return "Manager";
+  }
+
+  return "Dispatcher";
+}
+
+function formatBlockerNoteEntry(input: {
+  actorRole: Role;
+  note: string;
+  timestamp: Date;
+}) {
+  const timestampLabel = new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/New_York",
+  }).format(input.timestamp);
+
+  return `[${timestampLabel}] ${getBlockerNoteActorLabel(input.actorRole)}: ${input.note.trim()}`;
+}
+
+function appendBlockerNote(input: {
+  actorRole: Role;
+  existingNotes: string | null | undefined;
+  newNote: string;
+  timestamp: Date;
+}) {
+  const nextEntry = formatBlockerNoteEntry({
+    actorRole: input.actorRole,
+    note: input.newNote,
+    timestamp: input.timestamp,
+  });
+  const existingNotes = input.existingNotes?.trim();
+
+  if (!existingNotes) {
+    return nextEntry;
+  }
+
+  return `${existingNotes}\n\n${nextEntry}`;
+}
+
 function parseDateInput(value: string | undefined) {
   if (!value?.trim()) {
     return null;
@@ -105,13 +147,20 @@ export async function saveBlockerAction(
     const blockerStartedAt = blockerState?.isBlocked
       ? blockerState.blockerStartedAt
       : new Date();
+    const noteTimestamp = new Date();
+    const mergedForemanNotes = appendBlockerNote({
+      actorRole: session.user.role,
+      existingNotes: blockerState?.foremanNotes,
+      newNote: parsed.data.foremanNotes,
+      timestamp: noteTimestamp,
+    });
 
     await transaction.blockerState.upsert({
       where: { repairOrderId: repairOrder.id },
       update: {
         blockerReason: parsed.data.blockerReason,
         dispatcherUserId: session.user.id,
-        foremanNotes: parsed.data.foremanNotes || null,
+        foremanNotes: mergedForemanNotes,
         isBlocked: true,
         blockerStartedAt,
         techPromisedDate,
@@ -119,7 +168,7 @@ export async function saveBlockerAction(
       create: {
         blockerReason: parsed.data.blockerReason,
         dispatcherUserId: session.user.id,
-        foremanNotes: parsed.data.foremanNotes || null,
+        foremanNotes: mergedForemanNotes,
         isBlocked: true,
         blockerStartedAt,
         repairOrderId: repairOrder.id,
@@ -149,7 +198,7 @@ export async function saveBlockerAction(
         message: `Blocker set to ${parsed.data.blockerReason}.`,
         metadata: {
           blockerReason: parsed.data.blockerReason,
-          foremanNotes: parsed.data.foremanNotes || null,
+          appendedForemanNote: parsed.data.foremanNotes,
           techPromisedDate: techPromisedDate?.toISOString() ?? null,
         } satisfies Prisma.InputJsonValue,
         repairOrderId: repairOrder.id,

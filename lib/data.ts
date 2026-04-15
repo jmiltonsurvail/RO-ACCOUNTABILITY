@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   compareRepairOrderUrgency,
   getRepairOrderBlockedHours,
+  hasRepairOrderContactToday,
   isRepairOrderOverdue,
 } from "@/lib/repair-order-urgency";
 
@@ -269,7 +270,7 @@ export async function getManagerDashboardData(organizationId: string) {
         accumulator.overdue += 1;
       }
 
-      if (!repairOrder.contactState?.contacted) {
+      if (!hasRepairOrderContactToday(repairOrder)) {
         accumulator.notContacted += 1;
       }
 
@@ -297,7 +298,7 @@ export async function getManagerDashboardData(organizationId: string) {
 
     summary.blockedCount += 1;
 
-    if (!repairOrder.contactState?.contacted) {
+    if (!hasRepairOrderContactToday(repairOrder)) {
       summary.notContactedCount += 1;
     }
 
@@ -308,7 +309,7 @@ export async function getManagerDashboardData(organizationId: string) {
     .map((repairOrder) => {
       const hoursBlocked = getRepairOrderBlockedHours(repairOrder);
       const isOverdue = isRepairOrderOverdue(repairOrder);
-      const contacted = repairOrder.contactState?.contacted ?? false;
+      const contacted = hasRepairOrderContactToday(repairOrder);
 
       return {
         ...repairOrder,
@@ -352,6 +353,10 @@ export async function getManagerReportsData(
       include: {
         blockerState: true,
         contactState: true,
+        contactRecords: {
+          orderBy: { contactedAt: "desc" },
+          take: 1,
+        },
       },
     }),
     prisma.user.findMany({
@@ -541,7 +546,7 @@ export async function getManagerReportsData(
   for (const repairOrder of activeRepairOrders) {
     const blocked = Boolean(repairOrder.blockerState?.isBlocked);
     const overdue = isRepairOrderOverdue(repairOrder);
-    const needsContact = blocked && !repairOrder.contactState?.contacted;
+    const needsContact = blocked && !hasRepairOrderContactToday(repairOrder);
 
     const techKey =
       repairOrder.techNumber !== null
@@ -605,7 +610,7 @@ export async function getManagerReportsData(
     if (blocked) {
       advisorSummary.blockedCount += 1;
 
-      if (repairOrder.contactState?.contacted) {
+      if (hasRepairOrderContactToday(repairOrder)) {
         advisorSummary.contactedBlockedCount += 1;
       } else {
         advisorSummary.notContactedBlockedCount += 1;
@@ -727,8 +732,7 @@ export async function getManagerReportsData(
     isRepairOrderOverdue(repairOrder),
   );
   const needsContact = activeRepairOrders.filter(
-    (repairOrder) =>
-      repairOrder.blockerState?.isBlocked && !repairOrder.contactState?.contacted,
+    (repairOrder) => repairOrder.blockerState?.isBlocked && !hasRepairOrderContactToday(repairOrder),
   );
 
   return {
