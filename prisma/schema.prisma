@@ -351,6 +351,7 @@ model CallSession {
   wasConnected               Boolean?
   sourceLineId               String?
   sourceExtension            String?
+  goToCallSessionId          String?                    @unique
   goToInitiatorId            String?                    @unique
   status                     CallSessionStatus          @default(QUEUED)
   recordingStatus            RecordingProcessingStatus  @default(PENDING)

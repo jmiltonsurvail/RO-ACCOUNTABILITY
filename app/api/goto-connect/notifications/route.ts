@@ -78,6 +78,22 @@ function extractConversationIdsFromEvent(payload: GoToCallEventPayload) {
   return Array.from(ids);
 }
 
+function extractGoToCallSessionIdsFromEvent(payload: GoToCallEventPayload) {
+  const ids = new Set<string>();
+
+  for (const related of payload.metadata?.associatedConversations ?? []) {
+    if (!related || typeof related !== "object") {
+      continue;
+    }
+
+    if ("id" in related && typeof related.id === "string" && related.id.trim()) {
+      ids.add(related.id.trim());
+    }
+  }
+
+  return Array.from(ids);
+}
+
 async function findTrackedCallSession(input: {
   conversationIds: string[];
   organizationId: string;
@@ -90,6 +106,7 @@ async function findTrackedCallSession(input: {
 
   for (const conversationId of input.conversationIds) {
     orConditions.push({ conversationSpaceId: conversationId });
+    orConditions.push({ goToCallSessionId: conversationId });
     orConditions.push({ goToInitiatorId: conversationId });
   }
 
@@ -134,8 +151,9 @@ async function processCallEvent(input: {
   payload: GoToCallEventPayload;
 }) {
   const conversationIds = extractConversationIdsFromEvent(input.payload);
+  const goToCallSessionIds = extractGoToCallSessionIdsFromEvent(input.payload);
   const callSession = await findTrackedCallSession({
-    conversationIds,
+    conversationIds: [...conversationIds, ...goToCallSessionIds],
     organizationId: input.organizationId,
   });
 
@@ -162,6 +180,11 @@ async function processCallEvent(input: {
     ...(stateType === "CONNECTED"
       ? {
           wasConnected: true,
+        }
+      : {}),
+    ...(goToCallSessionIds[0]
+      ? {
+          goToCallSessionId: goToCallSessionIds[0],
         }
       : {}),
   };

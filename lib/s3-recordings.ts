@@ -12,6 +12,13 @@ type S3EventNotification = {
   }>;
 };
 
+type ParsedGoToRecordingIdentifiers = {
+  customerPhoneDigits: string | null;
+  goToCallSessionId: string | null;
+  goToInitiatorId: string | null;
+  recordedAt: Date | null;
+};
+
 function decodeS3ObjectKey(key: string) {
   return decodeURIComponent(key.replace(/\+/g, " "));
 }
@@ -19,6 +26,32 @@ function decodeS3ObjectKey(key: string) {
 function getFileNameFromObjectKey(key: string) {
   const normalizedKey = decodeS3ObjectKey(key);
   return normalizedKey.split("/").at(-1) ?? normalizedKey;
+}
+
+function parseGoToRecordingIdentifiersFromFileName(fileName: string): ParsedGoToRecordingIdentifiers {
+  const withoutExtension = fileName.replace(/\.[^.]+$/, "");
+  const segments = withoutExtension.split("~").map((segment) => segment.trim());
+  const timestampSegment = segments[0] ?? null;
+  const goToCallSessionId = segments[1] || null;
+  const customerPhoneDigits =
+    segments[2]?.replace(/\D+/g, "").trim() || null;
+  const goToInitiatorId = segments.at(-1) || null;
+
+  const recordedAt =
+    timestampSegment && !Number.isNaN(new Date(timestampSegment).getTime())
+      ? new Date(timestampSegment)
+      : null;
+
+  return {
+    customerPhoneDigits: customerPhoneDigits && customerPhoneDigits.length > 0
+      ? customerPhoneDigits
+      : null,
+    goToCallSessionId:
+      goToCallSessionId && goToCallSessionId.length > 0 ? goToCallSessionId : null,
+    goToInitiatorId:
+      goToInitiatorId && goToInitiatorId.length > 0 ? goToInitiatorId : null,
+    recordedAt,
+  };
 }
 
 export function extractGoToInitiatorIdFromObjectKey(key: string) {
@@ -51,11 +84,18 @@ export function parseS3RecordingEvent(event: unknown) {
         return null;
       }
 
+      const fileName = getFileNameFromObjectKey(key);
+      const parsedIdentifiers = parseGoToRecordingIdentifiersFromFileName(fileName);
+
       return {
         bucket,
+        customerPhoneDigits: parsedIdentifiers.customerPhoneDigits,
         eventName: record.eventName ?? null,
-        goToInitiatorId: extractGoToInitiatorIdFromObjectKey(key),
+        goToCallSessionId: parsedIdentifiers.goToCallSessionId,
+        goToInitiatorId:
+          parsedIdentifiers.goToInitiatorId ?? extractGoToInitiatorIdFromObjectKey(key),
         key,
+        recordedAt: parsedIdentifiers.recordedAt,
       };
     })
     .filter(
@@ -63,9 +103,12 @@ export function parseS3RecordingEvent(event: unknown) {
         record,
       ): record is {
         bucket: string;
+        customerPhoneDigits: string | null;
         eventName: string | null;
+        goToCallSessionId: string | null;
         goToInitiatorId: string | null;
         key: string;
+        recordedAt: Date | null;
       } => Boolean(record),
     );
 }
