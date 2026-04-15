@@ -3,6 +3,7 @@
 import { ActivityType, Role } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
 import { provisionGoToRecordingBucket } from "@/lib/aws-recording-provisioning";
 import { requireOrganizationId, requireRole } from "@/lib/auth";
@@ -648,6 +649,10 @@ export async function syncGoToCallTrackingAction() {
       )}`,
     );
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     redirect(
       `/manager/settings/integrations/goto-connect?tracking=error&trackingMessage=${encodeURIComponent(
         error instanceof Error ? error.message : "Unable to configure GoTo call tracking.",
