@@ -492,66 +492,83 @@ export async function POST(request: NextRequest) {
   const reportSource = getReportSource(reportNotification);
   const reportType = getReportType(reportNotification);
 
-  if (
-    reportSource === "call-events-report" &&
-    contentConversationSpaceId
-  ) {
-    logGoTo("info", "webhook:branch:call-report", {
-      conversationSpaceId: contentConversationSpaceId,
-      organizationId: settings.organizationId,
-      type: reportType,
-    });
-    const result = await processCallEventsReportSummary({
-      conversationSpaceId: contentConversationSpaceId,
-      organizationId: settings.organizationId,
-    });
+  try {
+    if (
+      reportSource === "call-events-report" &&
+      contentConversationSpaceId
+    ) {
+      logGoTo("info", "webhook:branch:call-report", {
+        conversationSpaceId: contentConversationSpaceId,
+        organizationId: settings.organizationId,
+        type: reportType,
+      });
+      const result = await processCallEventsReportSummary({
+        conversationSpaceId: contentConversationSpaceId,
+        organizationId: settings.organizationId,
+      });
 
-    return NextResponse.json({
-      ok: true,
-      result,
-    });
-  }
+      return NextResponse.json({
+        ok: true,
+        result,
+      });
+    }
 
-  if (
-    reportSource === "call-events" ||
-    normalizedMetadata?.conversationSpaceId ||
-    normalizedMetadata?.associatedConversations?.length ||
-    normalizedMetadata?.initiatorId
-  ) {
-    logGoTo("info", "webhook:branch:call-event", {
+    if (
+      reportSource === "call-events" ||
+      normalizedMetadata?.conversationSpaceId ||
+      normalizedMetadata?.associatedConversations?.length ||
+      normalizedMetadata?.initiatorId
+    ) {
+      logGoTo("info", "webhook:branch:call-event", {
+        associatedConversationCount: normalizedMetadata?.associatedConversations?.length ?? 0,
+        conversationSpaceId: normalizedMetadata?.conversationSpaceId ?? null,
+        initiatorId: normalizedMetadata?.initiatorId ?? null,
+        organizationId: settings.organizationId,
+        stateType: normalizedState?.type ?? null,
+      });
+      const result = await processCallEvent({
+        organizationId: settings.organizationId,
+        payload: callEvent,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        result,
+      });
+    }
+
+    logGoTo("warn", "webhook:ignored", {
       associatedConversationCount: normalizedMetadata?.associatedConversations?.length ?? 0,
-      conversationSpaceId: normalizedMetadata?.conversationSpaceId ?? null,
-      initiatorId: normalizedMetadata?.initiatorId ?? null,
+      contentConversationSpaceId,
+      contentKeys,
+      dataKeys,
+      dataSource: reportSource,
+      dataType: reportType,
+      hasData: Boolean(reportNotification.data || reportNotification.content),
+      hasMetadata: Boolean(normalizedMetadata),
+      metadataConversationSpaceId: normalizedMetadata?.conversationSpaceId ?? null,
+      metadataKeys,
       organizationId: settings.organizationId,
-      stateType: normalizedState?.type ?? null,
+      topLevelKeys,
     });
-    const result = await processCallEvent({
-      organizationId: settings.organizationId,
-      payload: callEvent,
-    });
-
     return NextResponse.json({
+      ignored: true,
       ok: true,
-      result,
     });
-  }
+  } catch (error) {
+    logGoTo("error", "webhook:processing-failed", {
+      conversationSpaceId: contentConversationSpaceId ?? normalizedMetadata?.conversationSpaceId ?? null,
+      message: error instanceof Error ? error.message : "Unknown webhook processing error",
+      organizationId: settings.organizationId,
+      reportSource,
+      reportType,
+    });
 
-  logGoTo("warn", "webhook:ignored", {
-    associatedConversationCount: normalizedMetadata?.associatedConversations?.length ?? 0,
-    contentConversationSpaceId,
-    contentKeys,
-    dataKeys,
-    dataSource: reportSource,
-    dataType: reportType,
-    hasData: Boolean(reportNotification.data || reportNotification.content),
-    hasMetadata: Boolean(normalizedMetadata),
-    metadataConversationSpaceId: normalizedMetadata?.conversationSpaceId ?? null,
-    metadataKeys,
-    organizationId: settings.organizationId,
-    topLevelKeys,
-  });
-  return NextResponse.json({
-    ignored: true,
-    ok: true,
-  });
+    return NextResponse.json(
+      {
+        error: "Webhook processing failed.",
+      },
+      { status: 500 },
+    );
+  }
 }
