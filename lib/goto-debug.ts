@@ -19,6 +19,9 @@ function removeUndefined(value: unknown): unknown {
 export function logGoTo(level: GoToLogLevel, event: string, details?: Record<string, unknown>) {
   const logger =
     level === "error" ? console.error : level === "warn" ? console.warn : console.info;
+  const payload = removeUndefined(details ?? {});
+  const serialized =
+    payload && typeof payload === "object" ? JSON.stringify(payload) : String(payload);
 
-  logger(`[GoTo] ${event}`, removeUndefined(details ?? {}));
+  logger(`[GoTo] ${event} ${serialized}`);
 }
