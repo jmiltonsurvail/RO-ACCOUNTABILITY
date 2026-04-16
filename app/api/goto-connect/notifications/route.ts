@@ -9,6 +9,28 @@ import { logGoTo } from "@/lib/goto-debug";
 import { prisma } from "@/lib/prisma";
 
 type GoToCallEventPayload = {
+  content?: {
+    metadata?: {
+      accountKey?: string;
+      associatedConversations?: Array<
+        | string
+        | {
+            conversationSpaceId?: string;
+            id?: string;
+          }
+      >;
+      callCreated?: string;
+      conversationSpaceId?: string;
+      dialString?: string;
+      direction?: string;
+      initiatorId?: string;
+    };
+    state?: {
+      id?: string;
+      sequenceNumber?: number;
+      type?: string;
+    };
+  };
   metadata?: {
     associatedConversations?: Array<
       | string
@@ -19,6 +41,7 @@ type GoToCallEventPayload = {
     >;
     callCreated?: string;
     conversationSpaceId?: string;
+    initiatorId?: string;
   };
   state?: {
     type?: string;
@@ -26,6 +49,11 @@ type GoToCallEventPayload = {
 };
 
 type GoToCallEventsReportNotification = {
+  content?: {
+    conversationSpaceId?: string;
+  };
+  source?: string;
+  type?: string;
   data?: {
     content?: {
       conversationSpaceId?: string;
@@ -34,6 +62,26 @@ type GoToCallEventsReportNotification = {
     type?: string;
   };
 };
+
+function getEventMetadata(payload: GoToCallEventPayload) {
+  return payload.content?.metadata ?? payload.metadata ?? null;
+}
+
+function getEventState(payload: GoToCallEventPayload) {
+  return payload.content?.state ?? payload.state ?? null;
+}
+
+function getReportConversationSpaceId(payload: GoToCallEventsReportNotification) {
+  return payload.data?.content?.conversationSpaceId ?? payload.content?.conversationSpaceId ?? null;
+}
+
+function getReportSource(payload: GoToCallEventsReportNotification) {
+  return payload.data?.source ?? payload.source ?? null;
+}
+
+function getReportType(payload: GoToCallEventsReportNotification) {
+  return payload.data?.type ?? payload.type ?? null;
+}
 
 function getPayloadPreview(rawBody: string, maxLength = 1200) {
   return rawBody.length > maxLength ? `${rawBody.slice(0, maxLength)}…` : rawBody;
@@ -50,12 +98,13 @@ function parseDate(value: string | null | undefined) {
 
 function extractConversationIdsFromEvent(payload: GoToCallEventPayload) {
   const ids = new Set<string>();
+  const metadata = getEventMetadata(payload);
 
-  if (payload.metadata?.conversationSpaceId?.trim()) {
-    ids.add(payload.metadata.conversationSpaceId.trim());
+  if (metadata?.conversationSpaceId?.trim()) {
+    ids.add(metadata.conversationSpaceId.trim());
   }
 
-  for (const related of payload.metadata?.associatedConversations ?? []) {
+  for (const related of metadata?.associatedConversations ?? []) {
     if (typeof related === "string" && related.trim()) {
       ids.add(related.trim());
       continue;
@@ -85,8 +134,9 @@ function extractConversationIdsFromEvent(payload: GoToCallEventPayload) {
 
 function extractGoToCallSessionIdsFromEvent(payload: GoToCallEventPayload) {
   const ids = new Set<string>();
+  const metadata = getEventMetadata(payload);
 
-  for (const related of payload.metadata?.associatedConversations ?? []) {
+  for (const related of metadata?.associatedConversations ?? []) {
     if (!related || typeof related !== "object") {
       continue;
     }
@@ -99,11 +149,23 @@ function extractGoToCallSessionIdsFromEvent(payload: GoToCallEventPayload) {
   return Array.from(ids);
 }
 
+function extractInitiatorIdsFromEvent(payload: GoToCallEventPayload) {
+  const ids = new Set<string>();
+  const metadata = getEventMetadata(payload);
+
+  if (metadata?.initiatorId?.trim()) {
+    ids.add(metadata.initiatorId.trim());
+  }
+
+  return Array.from(ids);
+}
+
 async function findTrackedCallSession(input: {
   conversationIds: string[];
+  initiatorIds?: string[];
   organizationId: string;
 }) {
-  if (input.conversationIds.length === 0) {
+  if (input.conversationIds.length === 0 && (input.initiatorIds?.length ?? 0) === 0) {
     return null;
   }
 
@@ -113,6 +175,10 @@ async function findTrackedCallSession(input: {
     orConditions.push({ conversationSpaceId: conversationId });
     orConditions.push({ goToCallSessionId: conversationId });
     orConditions.push({ goToInitiatorId: conversationId });
+  }
+
+  for (const initiatorId of input.initiatorIds ?? []) {
+    orConditions.push({ goToInitiatorId: initiatorId });
   }
 
   return prisma.callSession.findFirst({
@@ -157,14 +223,19 @@ async function processCallEvent(input: {
 }) {
   const conversationIds = extractConversationIdsFromEvent(input.payload);
   const goToCallSessionIds = extractGoToCallSessionIdsFromEvent(input.payload);
+  const initiatorIds = extractInitiatorIdsFromEvent(input.payload);
+  const metadata = getEventMetadata(input.payload);
+  const state = getEventState(input.payload);
   logGoTo("info", "webhook:call-event:parsed", {
     conversationIds,
     goToCallSessionIds,
+    initiatorIds,
     organizationId: input.organizationId,
-    stateType: input.payload.state?.type ?? null,
+    stateType: state?.type ?? null,
   });
   const callSession = await findTrackedCallSession({
     conversationIds: [...conversationIds, ...goToCallSessionIds],
+    initiatorIds,
     organizationId: input.organizationId,
   });
 
@@ -172,8 +243,9 @@ async function processCallEvent(input: {
     logGoTo("warn", "webhook:call-event:unmatched", {
       conversationIds,
       goToCallSessionIds,
+      initiatorIds,
       organizationId: input.organizationId,
-      stateType: input.payload.state?.type ?? null,
+      stateType: state?.type ?? null,
     });
     return {
       matched: false,
@@ -182,16 +254,16 @@ async function processCallEvent(input: {
   }
 
   const primaryConversationId = conversationIds[0] ?? null;
-  const stateType = input.payload.state?.type?.toUpperCase() ?? null;
+  const stateType = state?.type?.toUpperCase() ?? null;
   const data: Prisma.CallSessionUpdateInput = {
     ...(primaryConversationId
       ? {
           conversationSpaceId: primaryConversationId,
         }
       : {}),
-    ...(input.payload.metadata?.callCreated
+    ...(metadata?.callCreated
       ? {
-          callCreatedAt: parseDate(input.payload.metadata.callCreated),
+          callCreatedAt: parseDate(metadata.callCreated),
         }
       : {}),
     ...(stateType === "CONNECTED"
@@ -217,6 +289,7 @@ async function processCallEvent(input: {
     callSessionId: callSession.id,
     conversationSpaceId: primaryConversationId,
     goToCallSessionId: goToCallSessionIds[0] ?? null,
+    goToInitiatorId: initiatorIds[0] ?? null,
     organizationId: input.organizationId,
     stateType,
   });
@@ -399,26 +472,37 @@ export async function POST(request: NextRequest) {
     reportNotification.data && typeof reportNotification.data === "object"
       ? Object.keys(reportNotification.data as Record<string, unknown>)
       : [];
-  const contentKeys =
+  const normalizedContent =
     reportNotification.data?.content && typeof reportNotification.data.content === "object"
-      ? Object.keys(reportNotification.data.content as Record<string, unknown>)
+      ? reportNotification.data.content
+      : reportNotification.content && typeof reportNotification.content === "object"
+        ? reportNotification.content
+        : null;
+  const contentKeys =
+    normalizedContent && typeof normalizedContent === "object"
+      ? Object.keys(normalizedContent as Record<string, unknown>)
       : [];
+  const normalizedMetadata = getEventMetadata(callEvent);
   const metadataKeys =
-    callEvent.metadata && typeof callEvent.metadata === "object"
-      ? Object.keys(callEvent.metadata as Record<string, unknown>)
+    normalizedMetadata && typeof normalizedMetadata === "object"
+      ? Object.keys(normalizedMetadata as Record<string, unknown>)
       : [];
+  const normalizedState = getEventState(callEvent);
+  const contentConversationSpaceId = getReportConversationSpaceId(reportNotification);
+  const reportSource = getReportSource(reportNotification);
+  const reportType = getReportType(reportNotification);
 
   if (
-    reportNotification.data?.source === "call-events-report" &&
-    reportNotification.data?.content?.conversationSpaceId
+    reportSource === "call-events-report" &&
+    contentConversationSpaceId
   ) {
     logGoTo("info", "webhook:branch:call-report", {
-      conversationSpaceId: reportNotification.data.content.conversationSpaceId,
+      conversationSpaceId: contentConversationSpaceId,
       organizationId: settings.organizationId,
-      type: reportNotification.data?.type ?? null,
+      type: reportType,
     });
     const result = await processCallEventsReportSummary({
-      conversationSpaceId: reportNotification.data.content.conversationSpaceId,
+      conversationSpaceId: contentConversationSpaceId,
       organizationId: settings.organizationId,
     });
 
@@ -428,12 +512,18 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  if (callEvent.metadata?.conversationSpaceId || callEvent.metadata?.associatedConversations?.length) {
+  if (
+    reportSource === "call-events" ||
+    normalizedMetadata?.conversationSpaceId ||
+    normalizedMetadata?.associatedConversations?.length ||
+    normalizedMetadata?.initiatorId
+  ) {
     logGoTo("info", "webhook:branch:call-event", {
-      associatedConversationCount: callEvent.metadata?.associatedConversations?.length ?? 0,
-      conversationSpaceId: callEvent.metadata?.conversationSpaceId ?? null,
+      associatedConversationCount: normalizedMetadata?.associatedConversations?.length ?? 0,
+      conversationSpaceId: normalizedMetadata?.conversationSpaceId ?? null,
+      initiatorId: normalizedMetadata?.initiatorId ?? null,
       organizationId: settings.organizationId,
-      stateType: callEvent.state?.type ?? null,
+      stateType: normalizedState?.type ?? null,
     });
     const result = await processCallEvent({
       organizationId: settings.organizationId,
@@ -447,15 +537,15 @@ export async function POST(request: NextRequest) {
   }
 
   logGoTo("warn", "webhook:ignored", {
-    associatedConversationCount: callEvent.metadata?.associatedConversations?.length ?? 0,
-    contentConversationSpaceId: reportNotification.data?.content?.conversationSpaceId ?? null,
+    associatedConversationCount: normalizedMetadata?.associatedConversations?.length ?? 0,
+    contentConversationSpaceId,
     contentKeys,
     dataKeys,
-    dataSource: reportNotification.data?.source ?? null,
-    dataType: reportNotification.data?.type ?? null,
-    hasData: Boolean(reportNotification.data),
-    hasMetadata: Boolean(callEvent.metadata),
-    metadataConversationSpaceId: callEvent.metadata?.conversationSpaceId ?? null,
+    dataSource: reportSource,
+    dataType: reportType,
+    hasData: Boolean(reportNotification.data || reportNotification.content),
+    hasMetadata: Boolean(normalizedMetadata),
+    metadataConversationSpaceId: normalizedMetadata?.conversationSpaceId ?? null,
     metadataKeys,
     organizationId: settings.organizationId,
     topLevelKeys,
