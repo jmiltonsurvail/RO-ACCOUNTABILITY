@@ -6,6 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
+import {
+  getDerivedCallStatus,
+  getDerivedCallStatusClasses,
+  getDerivedCallStatusLabel,
+} from "@/lib/call-session-status";
 import { blockerReasonLabels, repairValueLabels, repairValueOptions } from "@/lib/constants";
 import { hasRepairOrderContactToday } from "@/lib/repair-order-urgency";
 import { formatDateTime, hoursSince } from "@/lib/utils";
@@ -104,6 +109,8 @@ export function AdvisorContactCard({
   const latestCallSummary =
     repairOrder.contactRecords.find((record) => record.linkedCallRecord?.callSummary)
       ?.linkedCallRecord?.callSummary ?? null;
+  const latestCallRecord =
+    repairOrder.contactRecords.find((record) => record.linkedCallRecord)?.linkedCallRecord ?? null;
 
   return (
     <form
@@ -250,10 +257,23 @@ export function AdvisorContactCard({
             <GoToCallFeedback roNumber={repairOrder.roNumber} />
           </div>
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Call Summary</p>
-            <p className="mt-2 text-sm leading-6 text-slate-700">
-              {latestCallSummary || "No call summary yet."}
-            </p>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Latest Call</p>
+            {latestCallRecord ? (
+              <>
+                <span
+                  className={`mt-2 inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getDerivedCallStatusClasses(
+                    getDerivedCallStatus(latestCallRecord),
+                  )}`}
+                >
+                  {getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
+                </span>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {latestCallSummary || latestCallRecord.goToAiSummary || "No call summary yet."}
+                </p>
+              </>
+            ) : (
+              <p className="mt-2 text-sm leading-6 text-slate-700">No call record yet.</p>
+            )}
           </div>
           <div className="mt-4">
             <ContactHistoryList entries={repairOrder.contactRecords} />

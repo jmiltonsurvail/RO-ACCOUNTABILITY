@@ -343,10 +343,16 @@ model CallSession {
   customerName               String
   customerPhone              String?
   callSummary                String?
+  callState                  String?
+  callerOutcome              String?
+  callAnsweredAt             DateTime?
   callCreatedAt              DateTime?
   callEndedAt                DateTime?
   conversationSpaceId        String?
   durationSeconds            Int?
+  goToAiSummary              String?
+  goToPrimaryRecordingId     String?
+  goToRecordingIds           Json?
   rawCallReportJson          Json?
   wasConnected               Boolean?
   sourceLineId               String?

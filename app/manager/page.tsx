@@ -54,9 +54,19 @@ export default async function ManagerPage() {
                 null,
               linkedCallRecord: record.callSession
                 ? {
+                    callAnsweredAt:
+                      record.callSession.callAnsweredAt?.toISOString() ?? null,
+                    callEndedAt:
+                      record.callSession.callEndedAt?.toISOString() ?? null,
                     callSessionId: record.callSession.id,
                     callSummary: record.callSession.callSummary,
+                    callState: record.callSession.callState,
+                    callerOutcome: record.callSession.callerOutcome,
+                    durationSeconds: record.callSession.durationSeconds,
+                    goToAiSummary: record.callSession.goToAiSummary,
+                    goToPrimaryRecordingId: record.callSession.goToPrimaryRecordingId,
                     transcriptStatus: record.callSession.transcriptStatus,
+                    wasConnected: record.callSession.wasConnected,
                   }
                 : null,
               contactedAt: record.contactedAt.toISOString(),

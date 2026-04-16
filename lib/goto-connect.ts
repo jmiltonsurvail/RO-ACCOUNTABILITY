@@ -126,14 +126,25 @@ export type GoToConnectionTestResult = {
 
 export type GoToCallEventsReport = {
   accountKey?: string;
+  aiAnalysis?: {
+    summary?: string;
+    topics?: string[];
+  };
+  callAnswered?: string;
   callCreated?: string;
   callEnded?: string;
   callStates?: Array<{
     type?: string;
   }>;
+  caller?: {
+    recordingId?: string;
+  };
+  callerOutcome?: string;
   conversationSpaceId?: string;
   direction?: string;
-  participants?: Array<unknown>;
+  participants?: Array<{
+    recordingId?: string;
+  }>;
 };
 
 export type ResolvedGoToLine = {

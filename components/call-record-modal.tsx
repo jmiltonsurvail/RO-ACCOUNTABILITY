@@ -1,12 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  getDerivedCallStatus,
+  getDerivedCallStatusClasses,
+  getDerivedCallStatusLabel,
+} from "@/lib/call-session-status";
 import { formatDateTime } from "@/lib/utils";
 
 type CallRecordSummary = {
+  callAnsweredAt: string | null;
+  callEndedAt: string | null;
   callSessionId: string;
   callSummary: string | null;
+  callState: string | null;
+  callerOutcome: string | null;
+  durationSeconds: number | null;
+  goToAiSummary: string | null;
+  goToPrimaryRecordingId: string | null;
   transcriptStatus: "FAILED" | "PENDING" | "PROCESSING" | "READY";
+  wasConnected: boolean | null;
 };
 
 type CallRecordModalProps = {
@@ -18,12 +31,17 @@ type CallRecordModalProps = {
 type CallRecordResponse = {
   audioUrl: string | null;
   callSession: {
+    callAnsweredAt: string | null;
     callSummary: string | null;
+    callState: string | null;
     callCreatedAt: string | null;
     callEndedAt: string | null;
+    callerOutcome: string | null;
     customerName: string;
     customerPhone: string | null;
     durationSeconds: number | null;
+    goToAiSummary: string | null;
+    goToPrimaryRecordingId: string | null;
     id: string;
     repairOrderNumber: number;
     requestedAt: string;
@@ -129,6 +147,7 @@ export function CallRecordModal({
 
   const transcriptStatus = state.data?.callSession.transcriptStatus ?? callRecord.transcriptStatus;
   const callSummary = state.data?.callSession.callSummary ?? callRecord.callSummary;
+  const callStatus = getDerivedCallStatus(state.data?.callSession ?? callRecord);
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 px-4 py-6">
@@ -139,7 +158,14 @@ export function CallRecordModal({
             <h2 className="mt-1 text-xl font-semibold text-slate-950">
               Contacted {formatDateTime(contactTimestamp)}
             </h2>
-            <p className="mt-2 text-sm text-slate-600">{getTranscriptStatusLabel(transcriptStatus)}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getDerivedCallStatusClasses(callStatus)}`}
+              >
+                {getDerivedCallStatusLabel(callStatus)}
+              </span>
+              <p className="text-sm text-slate-600">{getTranscriptStatusLabel(transcriptStatus)}</p>
+            </div>
           </div>
           <button
             className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
@@ -165,7 +191,7 @@ export function CallRecordModal({
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Call Summary</p>
                   <p className="mt-2 text-sm leading-6 text-slate-700">
-                    {callSummary || "No summary generated yet."}
+                    {callSummary || state.data.callSession.goToAiSummary || "No summary generated yet."}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -177,11 +203,15 @@ export function CallRecordModal({
                     <p>Call started {formatDateTime(state.data.callSession.requestedAt)}</p>
                     <p>
                       Tracking status{" "}
-                      {state.data.callSession.wasConnected === true
-                        ? "Connected"
-                        : state.data.callSession.wasConnected === false
-                          ? "Not connected"
-                          : "Pending"}
+                      {getDerivedCallStatusLabel(callStatus)}
+                    </p>
+                    <p>Call state {state.data.callSession.callState || "Pending"}</p>
+                    <p>Caller outcome {state.data.callSession.callerOutcome || "Unknown"}</p>
+                    <p>
+                      Answered{" "}
+                      {state.data.callSession.callAnsweredAt
+                        ? formatDateTime(state.data.callSession.callAnsweredAt)
+                        : "Not answered"}
                     </p>
                     <p>
                       Started{" "}
@@ -196,6 +226,9 @@ export function CallRecordModal({
                         : "Pending"}
                     </p>
                     <p>Duration {formatDuration(state.data.callSession.durationSeconds)}</p>
+                    <p>
+                      Recording ID {state.data.callSession.goToPrimaryRecordingId || "Pending"}
+                    </p>
                   </div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">

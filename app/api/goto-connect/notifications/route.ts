@@ -27,6 +27,11 @@ type GoToCallEventPayload = {
     };
     state?: {
       id?: string;
+      recordings?: Array<{
+        id?: string;
+        startTimestamp?: string;
+        transcriptEnabled?: boolean;
+      }>;
       sequenceNumber?: number;
       type?: string;
     };
@@ -48,9 +53,34 @@ type GoToCallEventPayload = {
   };
 };
 
+type GoToCallEventState = {
+  id?: string;
+  recordings?: Array<{
+    id?: string;
+    startTimestamp?: string;
+    transcriptEnabled?: boolean;
+  }>;
+  sequenceNumber?: number;
+  type?: string;
+};
+
 type GoToCallEventsReportNotification = {
   content?: {
+    aiAnalysis?: {
+      summary?: string;
+      topics?: string[];
+    };
+    callAnswered?: string;
+    callCreated?: string;
+    callEnded?: string;
+    caller?: {
+      recordingId?: string;
+    };
+    callerOutcome?: string;
     conversationSpaceId?: string;
+    participants?: Array<{
+      recordingId?: string;
+    }>;
   };
   source?: string;
   type?: string;
@@ -68,7 +98,20 @@ function getEventMetadata(payload: GoToCallEventPayload) {
 }
 
 function getEventState(payload: GoToCallEventPayload) {
-  return payload.content?.state ?? payload.state ?? null;
+  return (payload.content?.state ?? payload.state ?? null) as GoToCallEventState | null;
+}
+
+function extractRecordingIdsFromEvent(payload: GoToCallEventPayload) {
+  const state = getEventState(payload);
+  const ids = new Set<string>();
+
+  for (const recording of state?.recordings ?? []) {
+    if (recording?.id?.trim()) {
+      ids.add(recording.id.trim());
+    }
+  }
+
+  return Array.from(ids);
 }
 
 function getReportConversationSpaceId(payload: GoToCallEventsReportNotification) {
@@ -81,6 +124,38 @@ function getReportSource(payload: GoToCallEventsReportNotification) {
 
 function getReportType(payload: GoToCallEventsReportNotification) {
   return payload.data?.type ?? payload.type ?? null;
+}
+
+function getReportContent(payload: GoToCallEventsReportNotification) {
+  return payload.data?.content ?? payload.content ?? null;
+}
+
+function getReportRecordingIds(
+  content:
+    | {
+        caller?: {
+          recordingId?: string;
+        };
+        participants?: Array<{
+          recordingId?: string;
+        }>;
+      }
+    | null
+    | undefined,
+) {
+  const ids = new Set<string>();
+
+  if (content?.caller?.recordingId?.trim()) {
+    ids.add(content.caller.recordingId.trim());
+  }
+
+  for (const participant of content?.participants ?? []) {
+    if (participant?.recordingId?.trim()) {
+      ids.add(participant.recordingId.trim());
+    }
+  }
+
+  return Array.from(ids);
 }
 
 function getPayloadPreview(rawBody: string, maxLength = 1200) {
@@ -226,11 +301,13 @@ async function processCallEvent(input: {
   const initiatorIds = extractInitiatorIdsFromEvent(input.payload);
   const metadata = getEventMetadata(input.payload);
   const state = getEventState(input.payload);
+  const recordingIds = extractRecordingIdsFromEvent(input.payload);
   logGoTo("info", "webhook:call-event:parsed", {
     conversationIds,
     goToCallSessionIds,
     initiatorIds,
     organizationId: input.organizationId,
+    recordingIds,
     stateType: state?.type ?? null,
   });
   const callSession = await findTrackedCallSession({
@@ -245,6 +322,7 @@ async function processCallEvent(input: {
       goToCallSessionIds,
       initiatorIds,
       organizationId: input.organizationId,
+      recordingIds,
       stateType: state?.type ?? null,
     });
     return {
@@ -266,9 +344,20 @@ async function processCallEvent(input: {
           callCreatedAt: parseDate(metadata.callCreated),
         }
       : {}),
+    ...(state?.type
+      ? {
+          callState: state.type,
+        }
+      : {}),
     ...(stateType === "CONNECTED"
       ? {
           wasConnected: true,
+        }
+      : {}),
+    ...(recordingIds.length > 0
+      ? {
+          goToPrimaryRecordingId: recordingIds[0],
+          goToRecordingIds: recordingIds as Prisma.InputJsonValue,
         }
       : {}),
     ...(goToCallSessionIds[0]
@@ -290,6 +379,7 @@ async function processCallEvent(input: {
     conversationSpaceId: primaryConversationId,
     goToCallSessionId: goToCallSessionIds[0] ?? null,
     goToInitiatorId: initiatorIds[0] ?? null,
+    primaryRecordingId: recordingIds[0] ?? null,
     organizationId: input.organizationId,
     stateType,
   });
@@ -303,6 +393,7 @@ async function processCallEvent(input: {
 }
 
 async function processCallEventsReportSummary(input: {
+  reportSummaryContent?: NonNullable<GoToCallEventsReportNotification["content"]>;
   organizationId: string;
   conversationSpaceId: string;
 }) {
@@ -348,9 +439,18 @@ async function processCallEventsReportSummary(input: {
   }
 
   const callCreatedAt = parseDate(report.callCreated);
+  const reportSummaryContent = input.reportSummaryContent ?? null;
+  const callAnsweredAt =
+    parseDate(reportSummaryContent?.callAnswered ?? null) ??
+    parseDate(report.callAnswered ?? null);
   const callEndedAt = parseDate(report.callEnded);
   const contactTimestamp = callEndedAt ?? callCreatedAt ?? new Date();
-  const wasConnected = didCallConnect(report);
+  const wasConnected = didCallConnect(report) || Boolean(callAnsweredAt);
+  const reportRecordingIds = getReportRecordingIds(reportSummaryContent);
+  const goToAiSummary =
+    reportSummaryContent?.aiAnalysis?.summary?.trim() || report.aiAnalysis?.summary?.trim() || null;
+  const callerOutcome =
+    reportSummaryContent?.callerOutcome?.trim() || report.callerOutcome?.trim() || null;
   const existingContactRecord = await prisma.contactRecord.findFirst({
     where: {
       callSessionId: callSession.id,
@@ -366,10 +466,20 @@ async function processCallEventsReportSummary(input: {
         id: callSession.id,
       },
       data: {
+        callAnsweredAt,
         callCreatedAt,
         callEndedAt,
+        callState: "ENDED",
+        callerOutcome,
         conversationSpaceId: report.conversationSpaceId ?? input.conversationSpaceId,
         durationSeconds: getDurationSeconds(report),
+        goToAiSummary,
+        ...(reportRecordingIds.length > 0
+          ? {
+              goToPrimaryRecordingId: reportRecordingIds[0],
+              goToRecordingIds: reportRecordingIds as Prisma.InputJsonValue,
+            }
+          : {}),
         rawCallReportJson: report as Prisma.InputJsonValue,
         wasConnected,
       },
@@ -402,9 +512,12 @@ async function processCallEventsReportSummary(input: {
   logGoTo("info", "webhook:call-report:matched", {
     callCreatedAt: callCreatedAt?.toISOString() ?? null,
     callEndedAt: callEndedAt?.toISOString() ?? null,
+    callAnsweredAt: callAnsweredAt?.toISOString() ?? null,
     callSessionId: callSession.id,
+    callerOutcome,
     conversationSpaceId: report.conversationSpaceId ?? input.conversationSpaceId,
     durationSeconds: getDurationSeconds(report),
+    primaryRecordingId: reportRecordingIds[0] ?? null,
     organizationId: input.organizationId,
     wasConnected,
   });
@@ -491,6 +604,7 @@ export async function POST(request: NextRequest) {
   const contentConversationSpaceId = getReportConversationSpaceId(reportNotification);
   const reportSource = getReportSource(reportNotification);
   const reportType = getReportType(reportNotification);
+  const reportContent = getReportContent(reportNotification);
 
   try {
     if (
@@ -503,6 +617,7 @@ export async function POST(request: NextRequest) {
         type: reportType,
       });
       const result = await processCallEventsReportSummary({
+        reportSummaryContent: reportContent ?? undefined,
         conversationSpaceId: contentConversationSpaceId,
         organizationId: settings.organizationId,
       });

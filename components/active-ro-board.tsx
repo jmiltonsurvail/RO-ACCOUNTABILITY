@@ -6,6 +6,11 @@ import { ClearBlockerButton } from "@/components/clear-blocker-button";
 import { CompactStatCard } from "@/components/compact-stat-card";
 import { ContactEditModal } from "@/components/contact-edit-modal";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
+import {
+  getDerivedCallStatus,
+  getDerivedCallStatusClasses,
+  getDerivedCallStatusLabel,
+} from "@/lib/call-session-status";
 import { InlineBlockerEditor } from "@/components/inline-blocker-editor";
 import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
 import {
@@ -786,12 +791,38 @@ export function ActiveRoBoard({
                     </div>
                     <div className="rounded-2xl border border-white/70 bg-white p-4">
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                        Call Summary
+                        Latest Call
                       </p>
-                      <p className="mt-2 text-sm leading-6 text-slate-700">
-                        {repairOrder.contactRecords.find((record) => record.linkedCallRecord?.callSummary)
-                          ?.linkedCallRecord?.callSummary || "No call summary yet."}
-                      </p>
+                      {(() => {
+                        const latestCallRecord = repairOrder.contactRecords.find(
+                          (record) => record.linkedCallRecord,
+                        )?.linkedCallRecord;
+
+                        if (!latestCallRecord) {
+                          return (
+                            <p className="mt-2 text-sm leading-6 text-slate-700">
+                              No call record yet.
+                            </p>
+                          );
+                        }
+
+                        const callStatus = getDerivedCallStatus(latestCallRecord);
+                        const callSummary =
+                          latestCallRecord.callSummary || latestCallRecord.goToAiSummary;
+
+                        return (
+                          <>
+                            <span
+                              className={`mt-2 inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getDerivedCallStatusClasses(callStatus)}`}
+                            >
+                              {getDerivedCallStatusLabel(callStatus)}
+                            </span>
+                            <p className="mt-2 text-sm leading-6 text-slate-700">
+                              {callSummary || "No call summary yet."}
+                            </p>
+                          </>
+                        );
+                      })()}
                     </div>
                     <ContactHistoryList entries={repairOrder.contactRecords} />
                   </div>

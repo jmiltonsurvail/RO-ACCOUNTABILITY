@@ -2,6 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { CallRecordModal } from "@/components/call-record-modal";
+import {
+  getDerivedCallStatus,
+  getDerivedCallStatusClasses,
+  getDerivedCallStatusLabel,
+} from "@/lib/call-session-status";
 import { formatDateTime } from "@/lib/utils";
 
 export type ContactHistoryEntry = {
@@ -9,9 +14,17 @@ export type ContactHistoryEntry = {
   contactedAt: string;
   customerNotes: string | null;
   linkedCallRecord: {
+    callAnsweredAt: string | null;
+    callEndedAt: string | null;
     callSessionId: string;
     callSummary: string | null;
+    callState: string | null;
+    callerOutcome: string | null;
+    durationSeconds: number | null;
+    goToAiSummary: string | null;
+    goToPrimaryRecordingId: string | null;
     transcriptStatus: "FAILED" | "PENDING" | "PROCESSING" | "READY";
+    wasConnected: boolean | null;
   } | null;
 };
 
@@ -106,11 +119,20 @@ export function ContactHistoryList({
                 )}
 
                 {entry.linkedCallRecord ? (
-                  <span
-                    className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getTranscriptStatusPillClasses(entry.linkedCallRecord.transcriptStatus)}`}
-                  >
-                    {getTranscriptStatusLabel(entry.linkedCallRecord.transcriptStatus)}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getDerivedCallStatusClasses(
+                        getDerivedCallStatus(entry.linkedCallRecord),
+                      )}`}
+                    >
+                      {getDerivedCallStatusLabel(getDerivedCallStatus(entry.linkedCallRecord))}
+                    </span>
+                    <span
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getTranscriptStatusPillClasses(entry.linkedCallRecord.transcriptStatus)}`}
+                    >
+                      {getTranscriptStatusLabel(entry.linkedCallRecord.transcriptStatus)}
+                    </span>
+                  </div>
                 ) : null}
               </div>
 

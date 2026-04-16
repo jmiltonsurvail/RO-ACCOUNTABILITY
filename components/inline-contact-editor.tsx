@@ -6,6 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
+import {
+  getDerivedCallStatus,
+  getDerivedCallStatusClasses,
+  getDerivedCallStatusLabel,
+} from "@/lib/call-session-status";
 import { repairValueOptions } from "@/lib/constants";
 
 const initialState: ActionState = {};
@@ -40,6 +45,7 @@ export function InlineContactEditor({
   const latestCallSummary =
     contactRecords.find((record) => record.linkedCallRecord?.callSummary)?.linkedCallRecord
       ?.callSummary ?? null;
+  const latestCallRecord = contactRecords.find((record) => record.linkedCallRecord)?.linkedCallRecord ?? null;
   const handleSaved = useEffectEvent(() => {
     setNotesValue("");
     onSaved?.();
@@ -127,10 +133,23 @@ export function InlineContactEditor({
       {showHistoryAndSummary ? (
         <>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Call Summary</p>
-            <p className="mt-2 text-sm leading-6 text-slate-700">
-              {latestCallSummary || "No call summary yet."}
-            </p>
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Latest Call</p>
+            {latestCallRecord ? (
+              <>
+                <span
+                  className={`mt-2 inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getDerivedCallStatusClasses(
+                    getDerivedCallStatus(latestCallRecord),
+                  )}`}
+                >
+                  {getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
+                </span>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {latestCallSummary || latestCallRecord.goToAiSummary || "No call summary yet."}
+                </p>
+              </>
+            ) : (
+              <p className="mt-2 text-sm leading-6 text-slate-700">No call record yet.</p>
+            )}
           </div>
           <ContactHistoryList entries={contactRecords} />
         </>
