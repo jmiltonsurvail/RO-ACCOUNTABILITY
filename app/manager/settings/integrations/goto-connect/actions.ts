@@ -7,6 +7,7 @@ import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { redirect } from "next/navigation";
 import { provisionGoToRecordingBucket } from "@/lib/aws-recording-provisioning";
 import { requireOrganizationId, requireRole } from "@/lib/auth";
+import { logGoTo } from "@/lib/goto-debug";
 import {
   createGoToNotificationChannel,
   getGoToNotificationWebhookUrl,
@@ -52,6 +53,10 @@ async function syncGoToCallTracking(input: {
   accountKey: string;
   organizationId: string;
 }) {
+  logGoTo("info", "tracking-setup:start", {
+    accountKey: input.accountKey,
+    organizationId: input.organizationId,
+  });
   const existing = await prisma.goToConnectSettings.findUnique({
     where: {
       organizationId: input.organizationId,
@@ -69,6 +74,11 @@ async function syncGoToCallTracking(input: {
     existing.callEventsReportSubscriptionId &&
     existing.callEventsConfiguredAt
   ) {
+    logGoTo("info", "tracking-setup:already-configured", {
+      callEventsReportSubscriptionId: existing.callEventsReportSubscriptionId,
+      notificationChannelId: existing.notificationChannelId,
+      organizationId: input.organizationId,
+    });
     return {
       alreadyConfigured: true,
       callEventsReportSubscriptionId: existing.callEventsReportSubscriptionId,
@@ -87,6 +97,11 @@ async function syncGoToCallTracking(input: {
   const webhookUrl = getGoToNotificationWebhookUrl({
     origin,
     webhookToken,
+  });
+  logGoTo("info", "tracking-setup:webhook-url", {
+    organizationId: input.organizationId,
+    tokenSuffix: webhookToken.slice(-8),
+    webhookUrl,
   });
   const notificationChannelId =
     existing?.notificationChannelId ??
@@ -627,6 +642,13 @@ export async function syncGoToCallTrackingAction() {
       accountKey: settings.accountKey,
       organizationId,
     });
+    logGoTo("info", "tracking-setup:complete", {
+      alreadyConfigured: result.alreadyConfigured,
+      callEventsReportSubscriptionId: result.callEventsReportSubscriptionId,
+      notificationChannelId: result.notificationChannelId,
+      organizationId,
+      tokenSuffix: result.notificationWebhookToken?.slice(-8) ?? null,
+    });
 
     await logActivity({
       message: result.alreadyConfigured
@@ -652,6 +674,12 @@ export async function syncGoToCallTrackingAction() {
     if (isRedirectError(error)) {
       throw error;
     }
+
+    logGoTo("error", "tracking-setup:failed", {
+      accountKey: settings.accountKey,
+      message: error instanceof Error ? error.message : "Unknown error",
+      organizationId,
+    });
 
     redirect(
       `/manager/settings/integrations/goto-connect?tracking=error&trackingMessage=${encodeURIComponent(

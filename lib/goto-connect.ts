@@ -1,3 +1,4 @@
+import { logGoTo } from "@/lib/goto-debug";
 import { prisma } from "@/lib/prisma";
 import { formatPhoneHref } from "@/lib/utils";
 
@@ -786,6 +787,11 @@ export async function createGoToNotificationChannel(input: {
   webhookUrl: string;
   channelNickname: string;
 }) {
+  logGoTo("info", "create-notification-channel:start", {
+    channelNickname: input.channelNickname,
+    webhookUrl: input.webhookUrl,
+  });
+
   const response = await fetch(
     `https://api.goto.com/notification-channel/v1/channels/${encodeURIComponent(input.channelNickname)}`,
     {
@@ -806,6 +812,11 @@ export async function createGoToNotificationChannel(input: {
   );
 
   if (!response.ok) {
+    logGoTo("error", "create-notification-channel:failed", {
+      channelNickname: input.channelNickname,
+      status: response.status,
+      webhookUrl: input.webhookUrl,
+    });
     throw new Error(`GoTo notification channel creation failed with status ${response.status}.`);
   }
 
@@ -814,9 +825,17 @@ export async function createGoToNotificationChannel(input: {
   };
 
   if (!payload.channelId) {
+    logGoTo("error", "create-notification-channel:missing-channel-id", {
+      channelNickname: input.channelNickname,
+      webhookUrl: input.webhookUrl,
+    });
     throw new Error("GoTo notification channel creation did not return a channel id.");
   }
 
+  logGoTo("info", "create-notification-channel:success", {
+    channelId: payload.channelId,
+    channelNickname: input.channelNickname,
+  });
   return payload.channelId;
 }
 
@@ -825,6 +844,11 @@ export async function subscribeToGoToCallEvents(input: {
   accountKey: string;
   channelId: string;
 }) {
+  logGoTo("info", "subscribe-call-events:start", {
+    accountKey: input.accountKey,
+    channelId: input.channelId,
+  });
+
   const response = await fetch("https://api.goto.com/call-events/v1/subscriptions", {
     body: JSON.stringify({
       accountKeys: [
@@ -843,8 +867,18 @@ export async function subscribeToGoToCallEvents(input: {
   });
 
   if (!response.ok) {
+    logGoTo("error", "subscribe-call-events:failed", {
+      accountKey: input.accountKey,
+      channelId: input.channelId,
+      status: response.status,
+    });
     throw new Error(`GoTo call events subscription failed with status ${response.status}.`);
   }
+
+  logGoTo("info", "subscribe-call-events:success", {
+    accountKey: input.accountKey,
+    channelId: input.channelId,
+  });
 }
 
 export async function subscribeToGoToCallEventReports(input: {
@@ -852,6 +886,11 @@ export async function subscribeToGoToCallEventReports(input: {
   accountKey: string;
   channelId: string;
 }) {
+  logGoTo("info", "subscribe-call-event-reports:start", {
+    accountKey: input.accountKey,
+    channelId: input.channelId,
+  });
+
   const response = await fetch("https://api.goto.com/call-events-report/v1/subscriptions", {
     body: JSON.stringify({
       accountKeys: [input.accountKey],
@@ -866,6 +905,11 @@ export async function subscribeToGoToCallEventReports(input: {
   });
 
   if (!response.ok) {
+    logGoTo("error", "subscribe-call-event-reports:failed", {
+      accountKey: input.accountKey,
+      channelId: input.channelId,
+      status: response.status,
+    });
     throw new Error(
       `GoTo call events report subscription failed with status ${response.status}.`,
     );
@@ -880,9 +924,18 @@ export async function subscribeToGoToCallEventReports(input: {
   const subscriptionId = payload.items?.[0]?.id;
 
   if (!subscriptionId) {
+    logGoTo("error", "subscribe-call-event-reports:missing-subscription-id", {
+      accountKey: input.accountKey,
+      channelId: input.channelId,
+    });
     throw new Error("GoTo call events report subscription did not return an id.");
   }
 
+  logGoTo("info", "subscribe-call-event-reports:success", {
+    accountKey: input.accountKey,
+    channelId: input.channelId,
+    subscriptionId,
+  });
   return subscriptionId;
 }
 
@@ -890,6 +943,10 @@ export async function fetchGoToCallEventsReport(input: {
   accessToken: string;
   conversationSpaceId: string;
 }) {
+  logGoTo("info", "fetch-call-events-report:start", {
+    conversationSpaceId: input.conversationSpaceId,
+  });
+
   const response = await fetch(
     `https://api.goto.com/call-events-report/v1/reports/${encodeURIComponent(input.conversationSpaceId)}`,
     {
@@ -902,8 +959,21 @@ export async function fetchGoToCallEventsReport(input: {
   );
 
   if (!response.ok) {
+    logGoTo("error", "fetch-call-events-report:failed", {
+      conversationSpaceId: input.conversationSpaceId,
+      status: response.status,
+    });
     throw new Error(`GoTo call report lookup failed with status ${response.status}.`);
   }
 
-  return (await response.json()) as GoToCallEventsReport;
+  const payload = (await response.json()) as GoToCallEventsReport;
+  logGoTo("info", "fetch-call-events-report:success", {
+    callCreated: payload.callCreated ?? null,
+    callEnded: payload.callEnded ?? null,
+    conversationSpaceId: payload.conversationSpaceId ?? input.conversationSpaceId,
+    direction: payload.direction ?? null,
+    participantCount: payload.participants?.length ?? 0,
+  });
+
+  return payload;
 }

@@ -1,5 +1,6 @@
 import { ActivityType, RecordingProcessingStatus } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
+import { logGoTo } from "@/lib/goto-debug";
 import { prisma } from "@/lib/prisma";
 import { processCallSessionRecording } from "@/lib/recording-transcription";
 import { parseS3RecordingEvent } from "@/lib/s3-recordings";
@@ -131,6 +132,9 @@ export async function POST(request: NextRequest) {
 
   const payload = await request.json();
   const records = parseS3RecordingEvent(payload);
+  logGoTo("info", "recording-ingest:received", {
+    recordCount: records.length,
+  });
 
   let ignoredBucketCount = 0;
   let matchedCount = 0;
@@ -139,7 +143,21 @@ export async function POST(request: NextRequest) {
   let unmatchedCount = 0;
 
   for (const record of records) {
+    logGoTo("info", "recording-ingest:record", {
+      bucket: record.bucket,
+      customerPhoneDigits: record.customerPhoneDigits,
+      eventName: record.eventName,
+      goToCallSessionId: record.goToCallSessionId,
+      goToInitiatorId: record.goToInitiatorId,
+      key: record.key,
+      recordedAt: record.recordedAt?.toISOString() ?? null,
+    });
+
     if (!record.goToInitiatorId && !record.goToCallSessionId) {
+      logGoTo("warn", "recording-ingest:no-identifiers", {
+        bucket: record.bucket,
+        key: record.key,
+      });
       unmatchedCount += 1;
       continue;
     }
@@ -153,6 +171,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (!callSession) {
+      logGoTo("warn", "recording-ingest:unmatched", {
+        bucket: record.bucket,
+        customerPhoneDigits: record.customerPhoneDigits,
+        goToCallSessionId: record.goToCallSessionId,
+        goToInitiatorId: record.goToInitiatorId,
+        key: record.key,
+        recordedAt: record.recordedAt?.toISOString() ?? null,
+      });
       unmatchedCount += 1;
       continue;
     }
@@ -161,6 +187,12 @@ export async function POST(request: NextRequest) {
       callSession.organization.goToConnectSettings?.recordingS3Bucket?.trim() ?? null;
 
     if (expectedBucket && expectedBucket !== record.bucket) {
+      logGoTo("warn", "recording-ingest:ignored-bucket-mismatch", {
+        bucket: record.bucket,
+        callSessionId: callSession.id,
+        expectedBucket,
+        key: record.key,
+      });
       ignoredBucketCount += 1;
       continue;
     }
@@ -201,6 +233,12 @@ export async function POST(request: NextRequest) {
     });
 
     const result = await processCallSessionRecording(callSession.id);
+    logGoTo("info", "recording-ingest:processed", {
+      callSessionId: callSession.id,
+      goToCallSessionId: record.goToCallSessionId,
+      goToInitiatorId: record.goToInitiatorId,
+      resultStatus: result.status,
+    });
 
     if (result.status === "processed") {
       processedCount += 1;

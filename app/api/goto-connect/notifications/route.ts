@@ -5,6 +5,7 @@ import {
   getGoToConnectSettingsWithAccessToken,
   type GoToCallEventsReport,
 } from "@/lib/goto-connect";
+import { logGoTo } from "@/lib/goto-debug";
 import { prisma } from "@/lib/prisma";
 
 type GoToCallEventPayload = {
@@ -152,12 +153,24 @@ async function processCallEvent(input: {
 }) {
   const conversationIds = extractConversationIdsFromEvent(input.payload);
   const goToCallSessionIds = extractGoToCallSessionIdsFromEvent(input.payload);
+  logGoTo("info", "webhook:call-event:parsed", {
+    conversationIds,
+    goToCallSessionIds,
+    organizationId: input.organizationId,
+    stateType: input.payload.state?.type ?? null,
+  });
   const callSession = await findTrackedCallSession({
     conversationIds: [...conversationIds, ...goToCallSessionIds],
     organizationId: input.organizationId,
   });
 
   if (!callSession) {
+    logGoTo("warn", "webhook:call-event:unmatched", {
+      conversationIds,
+      goToCallSessionIds,
+      organizationId: input.organizationId,
+      stateType: input.payload.state?.type ?? null,
+    });
     return {
       matched: false,
       type: "call-event",
@@ -196,6 +209,14 @@ async function processCallEvent(input: {
     data,
   });
 
+  logGoTo("info", "webhook:call-event:matched", {
+    callSessionId: callSession.id,
+    conversationSpaceId: primaryConversationId,
+    goToCallSessionId: goToCallSessionIds[0] ?? null,
+    organizationId: input.organizationId,
+    stateType,
+  });
+
   return {
     callSessionId: callSession.id,
     matched: true,
@@ -208,9 +229,17 @@ async function processCallEventsReportSummary(input: {
   organizationId: string;
   conversationSpaceId: string;
 }) {
+  logGoTo("info", "webhook:call-report:start", {
+    conversationSpaceId: input.conversationSpaceId,
+    organizationId: input.organizationId,
+  });
   const settings = await getGoToConnectSettingsWithAccessToken(input.organizationId);
 
   if (!settings.accessToken) {
+    logGoTo("warn", "webhook:call-report:missing-access-token", {
+      conversationSpaceId: input.conversationSpaceId,
+      organizationId: input.organizationId,
+    });
     return {
       matched: false,
       reason: "missing-access-token",
@@ -229,6 +258,11 @@ async function processCallEventsReportSummary(input: {
   });
 
   if (!callSession) {
+    logGoTo("warn", "webhook:call-report:unmatched", {
+      conversationSpaceId: input.conversationSpaceId,
+      organizationId: input.organizationId,
+      reportConversationSpaceId: report.conversationSpaceId ?? null,
+    });
     return {
       matched: false,
       reason: "no-call-session",
@@ -288,6 +322,16 @@ async function processCallEventsReportSummary(input: {
     }
   });
 
+  logGoTo("info", "webhook:call-report:matched", {
+    callCreatedAt: callCreatedAt?.toISOString() ?? null,
+    callEndedAt: callEndedAt?.toISOString() ?? null,
+    callSessionId: callSession.id,
+    conversationSpaceId: report.conversationSpaceId ?? input.conversationSpaceId,
+    durationSeconds: getDurationSeconds(report),
+    organizationId: input.organizationId,
+    wasConnected,
+  });
+
   return {
     callSessionId: callSession.id,
     matched: true,
@@ -316,8 +360,17 @@ export async function POST(request: NextRequest) {
   }
 
   const rawBody = await request.text();
+  logGoTo("info", "webhook:received", {
+    bodyLength: rawBody.length,
+    organizationId: settings.organizationId,
+    tokenSuffix: token.slice(-8),
+  });
 
   if (!rawBody.trim()) {
+    logGoTo("info", "webhook:empty-body", {
+      organizationId: settings.organizationId,
+      tokenSuffix: token.slice(-8),
+    });
     return NextResponse.json({ ok: true, received: "empty" });
   }
 
@@ -326,6 +379,10 @@ export async function POST(request: NextRequest) {
   try {
     payload = JSON.parse(rawBody);
   } catch {
+    logGoTo("error", "webhook:invalid-json", {
+      organizationId: settings.organizationId,
+      tokenSuffix: token.slice(-8),
+    });
     return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
   }
 
@@ -336,6 +393,11 @@ export async function POST(request: NextRequest) {
     reportNotification.data?.source === "call-events-report" &&
     reportNotification.data?.content?.conversationSpaceId
   ) {
+    logGoTo("info", "webhook:branch:call-report", {
+      conversationSpaceId: reportNotification.data.content.conversationSpaceId,
+      organizationId: settings.organizationId,
+      type: reportNotification.data?.type ?? null,
+    });
     const result = await processCallEventsReportSummary({
       conversationSpaceId: reportNotification.data.content.conversationSpaceId,
       organizationId: settings.organizationId,
@@ -348,6 +410,12 @@ export async function POST(request: NextRequest) {
   }
 
   if (callEvent.metadata?.conversationSpaceId || callEvent.metadata?.associatedConversations?.length) {
+    logGoTo("info", "webhook:branch:call-event", {
+      associatedConversationCount: callEvent.metadata?.associatedConversations?.length ?? 0,
+      conversationSpaceId: callEvent.metadata?.conversationSpaceId ?? null,
+      organizationId: settings.organizationId,
+      stateType: callEvent.state?.type ?? null,
+    });
     const result = await processCallEvent({
       organizationId: settings.organizationId,
       payload: callEvent,
@@ -359,6 +427,11 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  logGoTo("warn", "webhook:ignored", {
+    organizationId: settings.organizationId,
+    topLevelKeys:
+      payload && typeof payload === "object" ? Object.keys(payload as Record<string, unknown>) : [],
+  });
   return NextResponse.json({
     ignored: true,
     ok: true,

@@ -8,6 +8,7 @@ import { type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { getServerAuthSession } from "@/lib/auth";
 import { buildCallSessionStorageKeys } from "@/lib/call-storage";
+import { logGoTo } from "@/lib/goto-debug";
 import {
   getGoToCallFailureMessage,
   getGoToConnectSettingsWithAccessToken,
@@ -127,6 +128,17 @@ export async function GET(request: NextRequest) {
 
   const fallbackDialHref = formatPhoneHref(repairOrder.phone);
 
+  logGoTo("info", "click-to-call:start", {
+    asmNumber: repairOrder.asmNumber,
+    organizationId,
+    repairOrderId: repairOrder.id,
+    returnTo,
+    roNumber,
+    settingsEnabled: settings.enabled,
+    sourceLineId,
+    userRole: session.user.role,
+  });
+
   if (!dialString && !fallbackDialHref) {
     return new Response(null, {
       headers: {
@@ -211,6 +223,15 @@ export async function GET(request: NextRequest) {
 
   if (!response.ok) {
     const failureMessage = await getGoToCallFailureMessage(response);
+    logGoTo("error", "click-to-call:failed", {
+      asmNumber: repairOrder.asmNumber,
+      callSessionId,
+      failureMessage,
+      organizationId,
+      repairOrderId: repairOrder.id,
+      roNumber,
+      sourceLineId,
+    });
 
     await prisma.callSession.create({
       data: {
@@ -257,6 +278,17 @@ export async function GET(request: NextRequest) {
   } catch {
     initiatorId = null;
   }
+
+  logGoTo("info", "click-to-call:queued", {
+    asmNumber: repairOrder.asmNumber,
+    callSessionId,
+    goToInitiatorId: initiatorId,
+    organizationId,
+    repairOrderId: repairOrder.id,
+    roNumber,
+    sourceLineId,
+    storageBucket,
+  });
 
   await prisma.callSession.create({
     data: {
