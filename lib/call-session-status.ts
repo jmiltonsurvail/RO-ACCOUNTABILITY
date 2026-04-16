@@ -104,7 +104,7 @@ export function getDerivedCallStatus(input: CallStatusInput): DerivedCallStatus 
 export function getDerivedCallStatusLabel(status: DerivedCallStatus) {
   switch (status) {
     case "HUMAN_ANSWERED":
-      return "Human Answered";
+      return "Answered";
     case "VOICEMAIL_LEFT":
       return "Left VM";
     case "VOICEMAIL_NO_MESSAGE":
