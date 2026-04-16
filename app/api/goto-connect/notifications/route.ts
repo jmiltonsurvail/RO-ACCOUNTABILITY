@@ -35,6 +35,10 @@ type GoToCallEventsReportNotification = {
   };
 };
 
+function getPayloadPreview(rawBody: string, maxLength = 1200) {
+  return rawBody.length > maxLength ? `${rawBody.slice(0, maxLength)}…` : rawBody;
+}
+
 function parseDate(value: string | null | undefined) {
   if (!value) {
     return null;
@@ -363,6 +367,7 @@ export async function POST(request: NextRequest) {
   logGoTo("info", "webhook:received", {
     bodyLength: rawBody.length,
     organizationId: settings.organizationId,
+    payloadPreview: getPayloadPreview(rawBody),
     tokenSuffix: token.slice(-8),
   });
 
@@ -388,6 +393,20 @@ export async function POST(request: NextRequest) {
 
   const reportNotification = payload as GoToCallEventsReportNotification;
   const callEvent = payload as GoToCallEventPayload;
+  const topLevelKeys =
+    payload && typeof payload === "object" ? Object.keys(payload as Record<string, unknown>) : [];
+  const dataKeys =
+    reportNotification.data && typeof reportNotification.data === "object"
+      ? Object.keys(reportNotification.data as Record<string, unknown>)
+      : [];
+  const contentKeys =
+    reportNotification.data?.content && typeof reportNotification.data.content === "object"
+      ? Object.keys(reportNotification.data.content as Record<string, unknown>)
+      : [];
+  const metadataKeys =
+    callEvent.metadata && typeof callEvent.metadata === "object"
+      ? Object.keys(callEvent.metadata as Record<string, unknown>)
+      : [];
 
   if (
     reportNotification.data?.source === "call-events-report" &&
@@ -428,9 +447,18 @@ export async function POST(request: NextRequest) {
   }
 
   logGoTo("warn", "webhook:ignored", {
+    associatedConversationCount: callEvent.metadata?.associatedConversations?.length ?? 0,
+    contentConversationSpaceId: reportNotification.data?.content?.conversationSpaceId ?? null,
+    contentKeys,
+    dataKeys,
+    dataSource: reportNotification.data?.source ?? null,
+    dataType: reportNotification.data?.type ?? null,
+    hasData: Boolean(reportNotification.data),
+    hasMetadata: Boolean(callEvent.metadata),
+    metadataConversationSpaceId: callEvent.metadata?.conversationSpaceId ?? null,
+    metadataKeys,
     organizationId: settings.organizationId,
-    topLevelKeys:
-      payload && typeof payload === "object" ? Object.keys(payload as Record<string, unknown>) : [],
+    topLevelKeys,
   });
   return NextResponse.json({
     ignored: true,
