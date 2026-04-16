@@ -740,6 +740,43 @@ export function ActiveRoBoard({
                                 : "Missing due date"}
                         </span>
                       </div>
+                      <div className="mt-4 rounded-2xl border border-white/70 bg-white/80 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                            Contact History
+                          </p>
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                            {repairOrder.contactRecords.length} Entr
+                            {repairOrder.contactRecords.length === 1 ? "y" : "ies"}
+                          </span>
+                        </div>
+                        {repairOrder.contactRecords.length === 0 ? (
+                          <p className="mt-2 text-sm text-slate-600">
+                            No contact timestamps logged yet.
+                          </p>
+                        ) : (
+                          <div className="mt-3 space-y-2">
+                            {repairOrder.contactRecords.slice(0, 2).map((record, index) => (
+                              <div
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                                key={`${record.contactedAt}-${index}`}
+                              >
+                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                  <p className="font-medium text-slate-950">
+                                    {formatDateTime(record.contactedAt)}
+                                  </p>
+                                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                                    {record.advisorLabel || "Advisor"}
+                                  </p>
+                                </div>
+                                <p className="mt-1 line-clamp-2 text-slate-600">
+                                  {record.customerNotes || "No customer notes."}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </summary>
