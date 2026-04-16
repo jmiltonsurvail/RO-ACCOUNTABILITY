@@ -28,6 +28,18 @@ function normalize(value: string | null | undefined) {
   return value?.trim().toUpperCase() ?? null;
 }
 
+function isHumanAnsweredOutcome(callerOutcome: string | null) {
+  return callerOutcome === "NORMAL" || callerOutcome === "ANSWERED";
+}
+
+function isVoicemailOutcome(callerOutcome: string | null) {
+  return (
+    callerOutcome === "VOICEMAIL" ||
+    callerOutcome === "VOICE_MAIL" ||
+    callerOutcome === "LEFT_VOICEMAIL"
+  );
+}
+
 function getConnectedDurationSeconds(input: {
   callAnsweredAt?: Date | string | null;
   callEndedAt?: Date | string | null;
@@ -45,11 +57,24 @@ function getConnectedDurationSeconds(input: {
 
 export function getDerivedCallStatus(input: CallStatusInput): DerivedCallStatus {
   const callState = normalize(input.callState);
+  const callerOutcome = normalize(input.callerOutcome);
   const answeredAt = parseDate(input.callAnsweredAt);
   const endedAt = parseDate(input.callEndedAt);
   const connectedDurationSeconds = getConnectedDurationSeconds(input);
 
   if (answeredAt) {
+    if (isHumanAnsweredOutcome(callerOutcome)) {
+      return "HUMAN_ANSWERED";
+    }
+
+    if (isVoicemailOutcome(callerOutcome)) {
+      if (connectedDurationSeconds !== null && connectedDurationSeconds <= 15) {
+        return "VOICEMAIL_NO_MESSAGE";
+      }
+
+      return "VOICEMAIL_LEFT";
+    }
+
     if (!endedAt && (callState === "STARTING" || callState === "CONNECTED" || callState === "RINGING")) {
       return "IN_PROGRESS";
     }
