@@ -16,6 +16,8 @@ export default async function ManagerGoToConnectSettingsPage({
   searchParams,
 }: {
   searchParams?: Promise<{
+    extensionMessage?: string;
+    extensionStatus?: string;
     message?: string;
     oauth?: string;
     tracking?: string;
@@ -208,6 +210,17 @@ export default async function ManagerGoToConnectSettingsPage({
               </form>
             </div>
           </div>
+          {resolvedSearchParams?.extensionMessage ? (
+            <p
+              className={`mt-4 text-sm ${
+                resolvedSearchParams.extensionStatus === "error"
+                  ? "text-rose-600"
+                  : "text-emerald-700"
+              }`}
+            >
+              {resolvedSearchParams.extensionMessage}
+            </p>
+          ) : null}
 
           <div className="mt-5 grid gap-3">
             {advisors.map((advisor) => (

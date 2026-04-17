@@ -172,6 +172,71 @@ describe("GoTo Connect helpers", () => {
     });
   });
 
+  it("resolves a numeric extension when GoTo returns a leading zero", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      json: async () => ({
+        items: [
+          {
+            lines: [
+              {
+                id: "line_523",
+                name: "Advisor Zero",
+                number: "0523",
+              },
+            ],
+          },
+        ],
+      }),
+      ok: true,
+      status: 200,
+    } as Response);
+
+    await expect(
+      resolveGoToLineByExtension({
+        accessToken: "token",
+        accountKey: "account",
+        extension: "523",
+      }),
+    ).resolves.toEqual({
+      lineId: "line_523",
+      lineName: "Advisor Zero",
+      number: "0523",
+    });
+  });
+
+  it("does not guess when zero-stripped numeric extensions are ambiguous", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      json: async () => ({
+        items: [
+          {
+            lines: [
+              {
+                id: "line_0523",
+                name: "Advisor Zero",
+                number: "0523",
+              },
+              {
+                id: "line_523",
+                name: "Advisor Plain",
+                number: "523",
+              },
+            ],
+          },
+        ],
+      }),
+      ok: true,
+      status: 200,
+    } as Response);
+
+    await expect(
+      resolveGoToLineByExtension({
+        accessToken: "token",
+        accountKey: "account",
+        extension: "00523",
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("resolves multiple extensions from one GoTo lookup", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue({
       json: async () => ({

@@ -158,6 +158,11 @@ export type GoToAccountSummary = {
   name: string | null;
 };
 
+type NormalizedExtensionAliases = {
+  canonical: string;
+  zeroStripped: string | null;
+};
+
 function normalizeExtension(value: string | null | undefined) {
   if (!value) {
     return null;
@@ -165,6 +170,21 @@ function normalizeExtension(value: string | null | undefined) {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function getNormalizedExtensionAliases(
+  value: string | null | undefined,
+): NormalizedExtensionAliases | null {
+  const canonical = normalizeExtension(value);
+
+  if (!canonical) {
+    return null;
+  }
+
+  return {
+    canonical,
+    zeroStripped: /^\d+$/.test(canonical) ? canonical.replace(/^0+/, "") || "0" : null,
+  };
 }
 
 async function fetchGoToUsers(input: {
@@ -493,25 +513,50 @@ export async function getGoToConnectSettingsWithAccessToken(
 }
 
 function buildGoToLineMap(payload: GoToUsersResponse) {
-  const lineMap = new Map<string, ResolvedGoToLine>();
+  const exactLineMap = new Map<string, ResolvedGoToLine>();
+  const zeroStrippedLineMap = new Map<string, ResolvedGoToLine | null>();
 
   for (const user of payload.items ?? []) {
     for (const line of user.lines ?? []) {
-      const normalizedNumber = normalizeExtension(line.number);
+      const aliases = getNormalizedExtensionAliases(line.number);
 
-      if (!normalizedNumber || !line.id) {
+      if (!aliases || !line.id) {
         continue;
       }
 
-      lineMap.set(normalizedNumber, {
+      const resolvedLine = {
         lineId: line.id,
         lineName: line.name ?? null,
-        number: line.number ?? normalizedNumber,
-      });
+        number: line.number ?? aliases.canonical,
+      };
+
+      exactLineMap.set(aliases.canonical, resolvedLine);
+
+      if (!aliases.zeroStripped) {
+        continue;
+      }
+
+      if (!zeroStrippedLineMap.has(aliases.zeroStripped)) {
+        zeroStrippedLineMap.set(aliases.zeroStripped, resolvedLine);
+        continue;
+      }
+
+      const existing = zeroStrippedLineMap.get(aliases.zeroStripped);
+
+      if (!existing) {
+        continue;
+      }
+
+      if (existing.lineId !== resolvedLine.lineId) {
+        zeroStrippedLineMap.set(aliases.zeroStripped, null);
+      }
     }
   }
 
-  return lineMap;
+  return {
+    exact: exactLineMap,
+    zeroStripped: zeroStrippedLineMap,
+  };
 }
 
 function getDialString(phone: string | null | undefined) {
@@ -594,9 +639,9 @@ export async function resolveGoToLineByExtension(input: {
   accountKey: string | null;
   extension: string | null;
 }) {
-  const extension = normalizeExtension(input.extension);
+  const aliases = getNormalizedExtensionAliases(input.extension);
 
-  if (!input.accessToken || !input.accountKey || !extension) {
+  if (!input.accessToken || !input.accountKey || !aliases) {
     return null;
   }
 
@@ -609,7 +654,18 @@ export async function resolveGoToLineByExtension(input: {
     return null;
   }
 
-  return buildGoToLineMap(result.payload).get(extension) ?? null;
+  const lineMap = buildGoToLineMap(result.payload);
+  const exactMatch = lineMap.exact.get(aliases.canonical);
+
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  if (!aliases.zeroStripped) {
+    return null;
+  }
+
+  return lineMap.zeroStripped.get(aliases.zeroStripped) ?? null;
 }
 
 export async function resolveGoToLinesByExtensions(input: {
@@ -618,8 +674,8 @@ export async function resolveGoToLinesByExtensions(input: {
   extensions: Array<string | null | undefined>;
 }) {
   const normalizedExtensions = input.extensions
-    .map((extension) => normalizeExtension(extension))
-    .filter((extension): extension is string => Boolean(extension));
+    .map((extension) => getNormalizedExtensionAliases(extension))
+    .filter((extension): extension is NormalizedExtensionAliases => Boolean(extension));
 
   if (
     normalizedExtensions.length === 0 ||
@@ -643,8 +699,10 @@ export async function resolveGoToLinesByExtensions(input: {
   return new Map(
     normalizedExtensions
       .map((extension) => {
-        const line = lineMap.get(extension);
-        return line ? [extension, line] : null;
+        const line =
+          lineMap.exact.get(extension.canonical) ??
+          (extension.zeroStripped ? lineMap.zeroStripped.get(extension.zeroStripped) : null);
+        return line ? [extension.canonical, line] : null;
       })
       .filter((entry): entry is [string, ResolvedGoToLine] => Boolean(entry)),
   );

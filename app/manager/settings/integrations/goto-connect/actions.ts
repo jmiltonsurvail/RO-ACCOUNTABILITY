@@ -569,16 +569,17 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
     return;
   }
 
+  const nextExtension = parsed.data.gotoConnectExtension ?? null;
   const resolvedLine = await resolveGoToLineByExtension({
     accessToken: runtimeSettings.accessToken,
     accountKey: settings.accountKey,
-    extension: parsed.data.gotoConnectExtension ?? null,
+    extension: nextExtension,
   });
 
   await prisma.user.update({
     where: { id: existingAdvisor.id },
     data: {
-      gotoConnectExtension: parsed.data.gotoConnectExtension ?? null,
+      gotoConnectExtension: nextExtension,
       gotoConnectLineId: resolvedLine?.lineId ?? null,
     },
   });
@@ -591,13 +592,45 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
       previousLineId: existingAdvisor.gotoConnectLineId,
       resolvedLineId: resolvedLine?.lineId ?? null,
       resolvedLineName: resolvedLine?.lineName ?? null,
-      updatedExtension: parsed.data.gotoConnectExtension ?? null,
+      updatedExtension: nextExtension,
     },
     type: ActivityType.GOTO_CONNECT_LINE_MAPPING_UPDATED,
     userId: session.user.id,
   });
 
   revalidatePath("/manager/settings/integrations/goto-connect");
+
+  if (!nextExtension) {
+    redirect(
+      "/manager/settings/integrations/goto-connect?extensionStatus=success&extensionMessage=" +
+        encodeURIComponent(`Cleared the GoTo extension mapping for ASM ${existingAdvisor.asmNumber}.`),
+    );
+  }
+
+  if (!runtimeSettings.accessToken || !settings.accountKey) {
+    redirect(
+      "/manager/settings/integrations/goto-connect?extensionStatus=error&extensionMessage=" +
+        encodeURIComponent(
+          `Saved extension ${nextExtension} for ASM ${existingAdvisor.asmNumber}, but GoTo is not fully connected yet. Connect GoTo and confirm the account key, then re-resolve the advisor mappings.`,
+        ),
+    );
+  }
+
+  if (!resolvedLine) {
+    redirect(
+      "/manager/settings/integrations/goto-connect?extensionStatus=error&extensionMessage=" +
+        encodeURIComponent(
+          `Saved extension ${nextExtension} for ASM ${existingAdvisor.asmNumber}, but no matching GoTo line was found. Check the extension in GoTo exactly, including any leading zeroes.`,
+        ),
+    );
+  }
+
+  redirect(
+    "/manager/settings/integrations/goto-connect?extensionStatus=success&extensionMessage=" +
+      encodeURIComponent(
+        `Resolved ASM ${existingAdvisor.asmNumber} to GoTo line ${resolvedLine.lineId}${resolvedLine.lineName ? ` (${resolvedLine.lineName})` : ""}.`,
+      ),
+  );
 }
 
 export async function reResolveGoToConnectAdvisorExtensionsAction() {
