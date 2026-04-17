@@ -172,6 +172,71 @@ describe("GoTo Connect helpers", () => {
     });
   });
 
+  it("follows GoTo user pagination when the matching line is on a later page", async () => {
+    const fetchMock = vi.spyOn(global, "fetch");
+
+    fetchMock
+      .mockResolvedValueOnce({
+        json: async () => ({
+          items: [
+            {
+              lines: [
+                {
+                  id: "line_1000",
+                  name: "Page One",
+                  number: "1000",
+                },
+              ],
+            },
+          ],
+          nextPageMarker: "page-2",
+        }),
+        ok: true,
+        status: 200,
+      } as Response)
+      .mockResolvedValueOnce({
+        json: async () => ({
+          items: [
+            {
+              lines: [
+                {
+                  id: "line_2001",
+                  name: "Page Two",
+                  number: "2001",
+                },
+              ],
+            },
+          ],
+        }),
+        ok: true,
+        status: 200,
+      } as Response);
+
+    await expect(
+      resolveGoToLineByExtension({
+        accessToken: "token",
+        accountKey: "account",
+        extension: "2001",
+      }),
+    ).resolves.toEqual({
+      lineId: "line_2001",
+      lineName: "Page Two",
+      number: "2001",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.goto.com/users/v1/users?accountKey=account",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.goto.com/users/v1/users?accountKey=account&pageMarker=page-2",
+      expect.any(Object),
+    );
+  });
+
   it("resolves a numeric extension when GoTo returns a leading zero", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue({
       json: async () => ({

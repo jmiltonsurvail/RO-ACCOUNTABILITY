@@ -94,6 +94,8 @@ export async function getGoToConnectSettings(
 }
 
 type GoToUsersResponse = {
+  nextPageMarker?: string;
+  nextPageToken?: string;
   items?: Array<{
     lines?: Array<{
       id?: string;
@@ -199,29 +201,64 @@ async function fetchGoToUsers(input: {
     };
   }
 
-  const response = await fetch(
-    `https://api.goto.com/users/v1/users?accountKey=${encodeURIComponent(input.accountKey)}`,
-    {
+  const items: NonNullable<GoToUsersResponse["items"]> = [];
+  const visitedMarkers = new Set<string>();
+  let lastResponse: Response | null = null;
+  let nextPageMarker: string | null = null;
+  let pageCount = 0;
+
+  while (pageCount < 50) {
+    const url = new URL("https://api.goto.com/users/v1/users");
+    url.searchParams.set("accountKey", input.accountKey);
+
+    if (nextPageMarker) {
+      url.searchParams.set("pageMarker", nextPageMarker);
+    }
+
+    const response = await fetch(url.toString(), {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${input.accessToken}`,
       },
       method: "GET",
-    },
-  );
+    });
 
-  if (!response.ok) {
-    return {
-      error: `GoTo lookup failed with status ${response.status}.`,
-      payload: null,
-      response,
-    };
+    lastResponse = response;
+
+    if (!response.ok) {
+      return {
+        error: `GoTo lookup failed with status ${response.status}.`,
+        payload: null,
+        response,
+      };
+    }
+
+    const payload = (await response.json()) as GoToUsersResponse;
+    items.push(...(payload.items ?? []));
+    pageCount += 1;
+
+    const candidateMarker = payload.nextPageMarker ?? payload.nextPageToken ?? null;
+
+    if (!candidateMarker || visitedMarkers.has(candidateMarker)) {
+      return {
+        error: null,
+        payload: {
+          items,
+        },
+        response,
+      };
+    }
+
+    visitedMarkers.add(candidateMarker);
+    nextPageMarker = candidateMarker;
   }
 
   return {
     error: null,
-    payload: (await response.json()) as GoToUsersResponse,
-    response,
+    payload: {
+      items,
+    },
+    response: lastResponse,
   };
 }
 
