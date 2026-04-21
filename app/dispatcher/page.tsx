@@ -22,6 +22,7 @@ export default async function DispatcherPage() {
       title="Dispatcher Console"
     >
       <DispatcherWorkspace
+        autoRefreshMs={15000}
         repairOrders={repairOrders.map((repairOrder) => ({
           advisorName: repairOrder.advisorName,
           asmNumber: repairOrder.asmNumber,

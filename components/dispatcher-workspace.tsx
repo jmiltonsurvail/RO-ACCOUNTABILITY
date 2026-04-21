@@ -36,15 +36,18 @@ type DispatcherOrder = {
 };
 
 export function DispatcherWorkspace({
+  autoRefreshMs = null,
   repairOrders,
   slaSettings,
 }: {
+  autoRefreshMs?: number | null;
   repairOrders: DispatcherOrder[];
   slaSettings: SlaSettingsValues;
 }) {
   return (
     <ActiveRoBoard
       actionMode="edit"
+      autoRefreshMs={autoRefreshMs}
       contactMode="edit"
       repairOrders={repairOrders}
       slaSettings={slaSettings}

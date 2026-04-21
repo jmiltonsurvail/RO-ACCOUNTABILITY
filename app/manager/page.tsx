@@ -25,7 +25,9 @@ export default async function ManagerPage() {
     >
       <div>
         <ActiveRoBoard
+          autoRefreshMs={15000}
           contactMode="edit"
+          includeContactedTodayCard
           repairOrders={activeRepairOrders.map((repairOrder) => ({
             advisorName: repairOrder.advisorName,
             asmNumber: repairOrder.asmNumber,

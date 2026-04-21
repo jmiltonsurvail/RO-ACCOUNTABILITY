@@ -1,7 +1,8 @@
 "use client";
 
 import { type BlockerReason, type RepairValue } from "@prisma/client";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useEffectEvent, useMemo, useState, startTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ClearBlockerButton } from "@/components/clear-blocker-button";
 import { CompactStatCard } from "@/components/compact-stat-card";
 import { ContactEditModal } from "@/components/contact-edit-modal";
@@ -63,6 +64,7 @@ type QuickView =
   | "all"
   | "urgent"
   | "blocked"
+  | "contacted"
   | "overdue"
   | "needs-contact"
   | "rental-car"
@@ -121,21 +123,26 @@ function getAsmDisplayLabel(input: { advisorName: string | null; asmNumber: numb
 
 export function ActiveRoBoard({
   actionMode = "none",
+  autoRefreshMs = null,
   contactMode = "none",
   emptyMessage = "No repair orders match the current filters.",
+  includeContactedTodayCard = false,
   repairOrders,
   slaSettings,
   subtitle,
   title,
 }: {
   actionMode?: "none" | "edit";
+  autoRefreshMs?: number | null;
   contactMode?: "none" | "edit";
   emptyMessage?: string;
+  includeContactedTodayCard?: boolean;
   repairOrders: ActiveRepairOrder[];
   slaSettings: SlaSettingsValues;
   subtitle: string;
   title: string;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [asmFilter, setAsmFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
@@ -146,6 +153,43 @@ export function ActiveRoBoard({
   const [dueFilter, setDueFilter] = useState<DueFilter>("all");
   const [quickView, setQuickView] = useState<QuickView>("all");
   const [contactModalRoNumber, setContactModalRoNumber] = useState<number | null>(null);
+
+  const refreshBoard = useEffectEvent(() => {
+    startTransition(() => {
+      router.refresh();
+    });
+  });
+
+  useEffect(() => {
+    if (!autoRefreshMs || autoRefreshMs <= 0) {
+      return;
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshBoard();
+      }
+    };
+
+    const onFocus = () => {
+      refreshBoard();
+    };
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refreshBoard();
+      }
+    }, autoRefreshMs);
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [autoRefreshMs]);
   const deferredSearch = useDeferredValue(search);
 
   const asmOptions = useMemo(
@@ -300,11 +344,15 @@ export function ActiveRoBoard({
           return false;
         }
 
+        if (quickView === "contacted" && !contacted) {
+          return false;
+        }
+
         if (quickView === "overdue" && !isRepairOrderOverdue(repairOrder, now)) {
           return false;
         }
 
-        if (quickView === "needs-contact" && !needsRepairOrderContact(repairOrder)) {
+        if (quickView === "needs-contact" && contacted) {
           return false;
         }
 
@@ -339,6 +387,7 @@ export function ActiveRoBoard({
     return filteredRepairOrders.reduce(
       (summary, repairOrder) => {
         const blocked = Boolean(repairOrder.blockerState?.isBlocked);
+        const contacted = hasRepairOrderContactToday(repairOrder);
         const needsContact = needsRepairOrderContact(repairOrder);
 
         summary.visible += 1;
@@ -353,6 +402,12 @@ export function ActiveRoBoard({
 
         if (needsContact) {
           summary.needsContact += 1;
+        }
+
+        if (contacted) {
+          summary.contactedToday += 1;
+        } else {
+          summary.needsContactToday += 1;
         }
 
         if (repairOrder.contactState?.hasRentalCar) {
@@ -371,8 +426,10 @@ export function ActiveRoBoard({
       },
       {
         blocked: 0,
+        contactedToday: 0,
         highValue: 0,
         needsContact: 0,
+        needsContactToday: 0,
         overdue: 0,
         rentalCar: 0,
         urgent: 0,
@@ -425,11 +482,22 @@ export function ActiveRoBoard({
       value: filteredStats.blocked,
       view: "blocked" as const,
     },
+    ...(includeContactedTodayCard
+      ? [
+          {
+            description: "Active ROs with a contact logged today",
+            label: "Contacted Today",
+            tone: "bg-emerald-100 text-emerald-900",
+            value: filteredStats.contactedToday,
+            view: "contacted" as const,
+          },
+        ]
+      : []),
     {
-      description: "Blocked and still waiting on advisor outreach",
-      label: "Needs Contact",
+      description: "Active ROs without a contact logged today",
+      label: "Needs Contact Today",
       tone: "bg-orange-100 text-orange-900",
-      value: filteredStats.needsContact,
+      value: filteredStats.needsContactToday,
       view: "needs-contact" as const,
     },
     {
@@ -476,7 +544,12 @@ export function ActiveRoBoard({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
+        <div
+          className={cn(
+            "mt-4 grid gap-2 md:grid-cols-3",
+            includeContactedTodayCard ? "xl:grid-cols-7" : "xl:grid-cols-6",
+          )}
+        >
           {quickViewCards.map((card) => (
             <div className="group relative" key={card.label}>
               <CompactStatCard

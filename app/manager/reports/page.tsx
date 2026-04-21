@@ -118,7 +118,7 @@ export default async function ManagerReportsPage({
     }
 
     if (focus === "needs-contact") {
-      return row.notContactedBlockedCount > 0;
+      return row.notContactedTodayCount > 0;
     }
 
     if (focus === "contact-updates") {
@@ -228,9 +228,10 @@ export default async function ManagerReportsPage({
           <CompactStatCard
             active={focus === "needs-contact"}
             href={buildReportHref(reports.range, "needs-contact")}
-            label="Needs Contact"
+            label="Needs Contact Today"
             tone="bg-cyan-100 text-cyan-950"
             value={reports.summary.needsContact}
+            title="Active ROs without a contact logged today."
           />
           <CompactStatCard
             active={focus === "blocker-updates"}
@@ -340,8 +341,8 @@ export default async function ManagerReportsPage({
                     </td>
                     <td className="py-3 pr-4">{row.activeAssigned}</td>
                     <td className="py-3 pr-4">{row.blockedCount}</td>
-                    <td className="py-3 pr-4">{row.contactedBlockedCount}</td>
-                    <td className="py-3 pr-4">{row.notContactedBlockedCount}</td>
+                    <td className="py-3 pr-4">{row.contactedTodayCount}</td>
+                    <td className="py-3 pr-4">{row.notContactedTodayCount}</td>
                     <td className="py-3 pr-4">{row.overdueCount}</td>
                     <td className="py-3 pr-4">{formatPercent(row.contactRate)}</td>
                     <td className="py-3">{row.recentContactUpdates}</td>

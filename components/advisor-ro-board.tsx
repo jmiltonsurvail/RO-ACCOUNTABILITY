@@ -7,9 +7,9 @@ import {
 } from "@/components/advisor-contact-card";
 import { CompactStatCard } from "@/components/compact-stat-card";
 import {
+  hasRepairOrderContactToday,
   isRepairOrderAtRisk,
   isRepairOrderOverdue,
-  needsRepairOrderContact,
 } from "@/lib/repair-order-urgency";
 import type { SlaSettingsValues } from "@/lib/sla-settings";
 
@@ -55,7 +55,7 @@ export function AdvisorRoBoard({
       }
 
       if (quickFilter === "needs-contact") {
-        return needsRepairOrderContact(repairOrder);
+        return !hasRepairOrderContactToday(repairOrder);
       }
 
       if (quickFilter === "overdue") {
@@ -66,28 +66,13 @@ export function AdvisorRoBoard({
     });
   }, [deferredSearch, quickFilter, repairOrders, slaSettings]);
 
-  const filteredAtRiskRepairOrders = useMemo(
-    () =>
-      filteredRepairOrders.filter((repairOrder) =>
-        isRepairOrderAtRisk(repairOrder, slaSettings),
-      ),
-    [filteredRepairOrders, slaSettings],
-  );
-  const filteredRemainingRepairOrders = useMemo(
-    () =>
-      filteredRepairOrders.filter(
-        (repairOrder) => !isRepairOrderAtRisk(repairOrder, slaSettings),
-      ),
-    [filteredRepairOrders, slaSettings],
-  );
-
   const totalAtRisk = useMemo(
     () =>
       repairOrders.filter((repairOrder) => isRepairOrderAtRisk(repairOrder, slaSettings)).length,
     [repairOrders, slaSettings],
   );
   const totalNeedsContact = useMemo(
-    () => repairOrders.filter((repairOrder) => needsRepairOrderContact(repairOrder)).length,
+    () => repairOrders.filter((repairOrder) => !hasRepairOrderContactToday(repairOrder)).length,
     [repairOrders],
   );
   const totalOverdue = useMemo(
@@ -129,7 +114,7 @@ export function AdvisorRoBoard({
           />
           <CompactStatCard
             active={quickFilter === "needs-contact"}
-            label="Need Contact"
+            label="Needs Contact Today"
             onClick={() =>
               setQuickFilter((current) =>
                 current === "needs-contact" ? "all" : "needs-contact",
@@ -137,6 +122,7 @@ export function AdvisorRoBoard({
             }
             tone="bg-amber-100 text-amber-900"
             value={totalNeedsContact}
+            title="Active ROs without a contact logged today."
           />
           <CompactStatCard
             active={quickFilter === "overdue"}
@@ -171,44 +157,22 @@ export function AdvisorRoBoard({
         </div>
       </section>
 
-      <section className="rounded-[1.75rem] border border-rose-200 bg-rose-50 p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-950">At Risk Now</h2>
-          </div>
-          <div className="rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">
-            {filteredAtRiskRepairOrders.length} cards
-          </div>
-        </div>
-        {filteredAtRiskRepairOrders.length === 0 ? (
-          <div className="mt-5 rounded-3xl border border-dashed border-rose-200 bg-white px-6 py-10 text-center text-sm text-slate-600">
-            No at-risk cards match the current filters.
-          </div>
-        ) : (
-          <div className="mt-5 grid gap-5">
-            {filteredAtRiskRepairOrders.map((repairOrder) => (
-              <AdvisorContactCard key={repairOrder.roNumber} repairOrder={repairOrder} />
-            ))}
-          </div>
-        )}
-      </section>
-
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">Everything Else</h2>
+            <h2 className="text-xl font-semibold text-slate-950">Advisor ROs</h2>
           </div>
           <div className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">
-            {filteredRemainingRepairOrders.length} cards
+            {filteredRepairOrders.length} cards
           </div>
         </div>
-        {filteredRemainingRepairOrders.length === 0 ? (
+        {filteredRepairOrders.length === 0 ? (
           <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-600">
-            No additional cards match the current filters.
+            No cards match the current filters.
           </div>
         ) : (
           <div className="mt-5 grid gap-5">
-            {filteredRemainingRepairOrders.map((repairOrder) => (
+            {filteredRepairOrders.map((repairOrder) => (
               <AdvisorContactCard key={repairOrder.roNumber} repairOrder={repairOrder} />
             ))}
           </div>

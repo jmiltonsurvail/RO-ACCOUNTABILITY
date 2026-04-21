@@ -2,7 +2,7 @@
 
 import { type RepairValue } from "@prisma/client";
 import { useActionState, useEffect, useEffectEvent, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { updateContactAction, type ActionState } from "@/app/advisor/actions";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
@@ -66,17 +66,16 @@ export function AdvisorContactCard({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const shouldReopenFromUrl = searchParams.get("openRo") === String(repairOrder.roNumber);
   const [state, formAction, pending] = useActionState(updateContactAction, initialState);
   const contactedToday = hasRepairOrderContactToday(repairOrder);
-  const [isExpanded, setIsExpanded] = useState(!contactedToday);
+  const [isExpanded, setIsExpanded] = useState(shouldReopenFromUrl);
   const [notesValue, setNotesValue] = useState("");
   const contactedValue =
     notesValue.trim().length > 0 || contactedToday;
   const handleSaved = useEffectEvent(() => {
     setNotesValue("");
-    if (contactedValue) {
-      setIsExpanded(false);
-    }
     router.refresh();
   });
 
@@ -90,9 +89,20 @@ export function AdvisorContactCard({
   const blockerLabel = blocker
     ? blockerReasonLabels[blocker.blockerReason]
     : "No blocker";
-  const callHref = repairOrder.phone
-    ? `/api/goto-connect/call?ro=${repairOrder.roNumber}&returnTo=${encodeURIComponent(pathname)}`
-    : null;
+  const callHref = (() => {
+    if (!repairOrder.phone) {
+      return null;
+    }
+
+    const returnToParams = new URLSearchParams(searchParams.toString());
+    returnToParams.delete("gotoCallMessage");
+    returnToParams.delete("gotoCallRo");
+    returnToParams.delete("gotoCallStatus");
+    returnToParams.set("openRo", String(repairOrder.roNumber));
+    const returnTo = returnToParams.size > 0 ? `${pathname}?${returnToParams.toString()}` : pathname;
+
+    return `/api/goto-connect/call?ro=${repairOrder.roNumber}&returnTo=${encodeURIComponent(returnTo)}`;
+  })();
   const contactRecordLabel = contactedToday
     ? "Contacted Today"
     : "Needs Contact Today";

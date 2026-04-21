@@ -231,8 +231,7 @@ export async function getAdvisorBoard(organizationId: string, asmNumber: number)
         repairOrder.techNumber !== null
           ? techNamesByNumber.get(repairOrder.techNumber) ?? repairOrder.techName ?? null
           : null,
-    }))
-    .sort((left, right) => compareRepairOrderUrgency(left, right));
+    }));
 }
 
 export async function getManagerDashboardData(organizationId: string) {
@@ -517,8 +516,8 @@ export async function getManagerReportsData(
       asmNumber: number;
       blockedCount: number;
       contactRate: number | null;
-      contactedBlockedCount: number;
-      notContactedBlockedCount: number;
+      contactedTodayCount: number;
+      notContactedTodayCount: number;
       overdueCount: number;
       recentContactUpdates: number;
     }
@@ -562,7 +561,8 @@ export async function getManagerReportsData(
   for (const repairOrder of activeRepairOrders) {
     const blocked = Boolean(repairOrder.blockerState?.isBlocked);
     const overdue = isRepairOrderOverdue(repairOrder);
-    const needsContact = blocked && !hasRepairOrderContactToday(repairOrder);
+    const contactedToday = hasRepairOrderContactToday(repairOrder);
+    const needsContact = !contactedToday;
 
     const techKey =
       repairOrder.techNumber !== null
@@ -615,8 +615,8 @@ export async function getManagerReportsData(
       asmNumber: repairOrder.asmNumber,
       blockedCount: 0,
       contactRate: null,
-      contactedBlockedCount: 0,
-      notContactedBlockedCount: 0,
+      contactedTodayCount: 0,
+      notContactedTodayCount: 0,
       overdueCount: 0,
       recentContactUpdates: 0,
     };
@@ -625,12 +625,12 @@ export async function getManagerReportsData(
 
     if (blocked) {
       advisorSummary.blockedCount += 1;
+    }
 
-      if (hasRepairOrderContactToday(repairOrder)) {
-        advisorSummary.contactedBlockedCount += 1;
-      } else {
-        advisorSummary.notContactedBlockedCount += 1;
-      }
+    if (contactedToday) {
+      advisorSummary.contactedTodayCount += 1;
+    } else {
+      advisorSummary.notContactedTodayCount += 1;
     }
 
     if (overdue) {
@@ -668,10 +668,10 @@ export async function getManagerReportsData(
 
   for (const advisorSummary of advisorSummaryMap.values()) {
     advisorSummary.contactRate =
-      advisorSummary.blockedCount === 0
+      advisorSummary.activeAssigned === 0
         ? null
         : Math.round(
-            (advisorSummary.contactedBlockedCount / advisorSummary.blockedCount) *
+            (advisorSummary.contactedTodayCount / advisorSummary.activeAssigned) *
               100,
           );
   }
@@ -748,13 +748,13 @@ export async function getManagerReportsData(
     isRepairOrderOverdue(repairOrder),
   );
   const needsContact = activeRepairOrders.filter(
-    (repairOrder) => repairOrder.blockerState?.isBlocked && !hasRepairOrderContactToday(repairOrder),
+    (repairOrder) => !hasRepairOrderContactToday(repairOrder),
   );
 
   return {
     advisorRows: Array.from(advisorSummaryMap.values()).sort((left, right) => {
-      if (left.notContactedBlockedCount !== right.notContactedBlockedCount) {
-        return right.notContactedBlockedCount - left.notContactedBlockedCount;
+      if (left.notContactedTodayCount !== right.notContactedTodayCount) {
+        return right.notContactedTodayCount - left.notContactedTodayCount;
       }
 
       if (left.blockedCount !== right.blockedCount) {
