@@ -64,6 +64,10 @@ function parseDateInput(value: string | undefined) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function formatDateInputForPromiseRaw(value: string | undefined) {
+  return value?.trim() || null;
+}
+
 export async function saveBlockerAction(
   previousState: ActionState = initialState,
   formData: FormData,
@@ -175,6 +179,18 @@ export async function saveBlockerAction(
         techPromisedDate,
       },
     });
+
+    if (techPromisedDate) {
+      await transaction.repairOrder.update({
+        where: { id: repairOrder.id },
+        data: {
+          promisedAtNormalized: techPromisedDate,
+          promisedRaw:
+            formatDateInputForPromiseRaw(parsed.data.techPromisedDate) ??
+            repairOrder.promisedRaw,
+        },
+      });
+    }
 
     const resetContact = Boolean(repairOrder.contactState?.contacted);
 

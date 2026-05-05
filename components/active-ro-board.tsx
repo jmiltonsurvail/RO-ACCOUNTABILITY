@@ -946,6 +946,9 @@ export function ActiveRoBoard({
                         <InlineBlockerEditor
                           blockerReason={blocker?.blockerReason ?? null}
                           isBlocked={blocked}
+                          key={`${repairOrder.roNumber}-${blocker?.blockerReason ?? "none"}-${
+                            blocker?.techPromisedDate ?? "none"
+                          }`}
                           roNumber={repairOrder.roNumber}
                           techPromisedDate={blocker?.techPromisedDate ?? null}
                         />

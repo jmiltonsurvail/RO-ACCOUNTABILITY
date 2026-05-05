@@ -26,9 +26,7 @@ export function InlineBlockerEditor({
   const [notesValue, setNotesValue] = useState("");
   const [promisedDateValue, setPromisedDateValue] = useState(techPromisedDate?.slice(0, 10) ?? "");
   const handleSaved = useEffectEvent(() => {
-    setSelectedBlockerReason("");
     setNotesValue("");
-    setPromisedDateValue("");
     router.refresh();
   });
 
