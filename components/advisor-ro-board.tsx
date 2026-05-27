@@ -1,11 +1,14 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { Fragment, useDeferredValue, useMemo, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   AdvisorContactCard,
   type AdvisorRepairOrder,
 } from "@/components/advisor-contact-card";
 import { CompactStatCard } from "@/components/compact-stat-card";
+import { ContactHistoryList } from "@/components/contact-history-list";
+import { GoToCallFeedback } from "@/components/goto-call-feedback";
 import {
   hasRepairOrderContactToday,
   isRepairOrderAtRisk,
@@ -18,6 +21,30 @@ import { cn, formatDateTime } from "@/lib/utils";
 type AdvisorQuickFilter = "all" | "at-risk" | "needs-contact" | "overdue";
 type AdvisorBoardLayout = "list" | "cards";
 
+function getDueDateTone(value: string | null) {
+  if (!value) {
+    return "bg-zinc-100 text-zinc-600 ring-zinc-200";
+  }
+
+  const dueDate = new Date(value);
+
+  if (Number.isNaN(dueDate.getTime())) {
+    return "bg-zinc-100 text-zinc-600 ring-zinc-200";
+  }
+
+  const now = new Date();
+
+  if (dueDate < now) {
+    return "bg-rose-100 text-rose-800 ring-rose-200";
+  }
+
+  if (dueDate.toDateString() === now.toDateString()) {
+    return "bg-amber-100 text-amber-900 ring-amber-200";
+  }
+
+  return "bg-blue-50 text-blue-800 ring-blue-100";
+}
+
 export function AdvisorRoBoard({
   repairOrders,
   slaSettings,
@@ -25,8 +52,11 @@ export function AdvisorRoBoard({
   repairOrders: AdvisorRepairOrder[];
   slaSettings: SlaSettingsValues;
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [quickFilter, setQuickFilter] = useState<AdvisorQuickFilter>("all");
   const [boardLayout, setBoardLayout] = useState<AdvisorBoardLayout>("list");
+  const [selectedRoNumber, setSelectedRoNumber] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
 
@@ -262,7 +292,7 @@ export function AdvisorRoBoard({
           </div>
         ) : (
           <div className="mt-5 overflow-hidden rounded-lg border border-zinc-200">
-            <table className="w-full min-w-[56rem] border-collapse text-left text-sm">
+            <table className="w-full min-w-[64rem] border-collapse text-left text-sm">
               <thead className="bg-zinc-50 text-xs uppercase tracking-[0.08em] text-zinc-500">
                 <tr>
                   <th className="px-3 py-2 font-medium">RO</th>
@@ -270,9 +300,10 @@ export function AdvisorRoBoard({
                   <th className="px-3 py-2 font-medium">Vehicle</th>
                   <th className="px-3 py-2 font-medium">Tech</th>
                   <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="px-3 py-2 font-medium">Due</th>
+                  <th className="bg-zinc-100 px-3 py-2 font-semibold text-zinc-800">Due Date</th>
                   <th className="px-3 py-2 font-medium">Last Contact</th>
                   <th className="px-3 py-2 font-medium">Priority</th>
+                  <th className="px-3 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -281,70 +312,248 @@ export function AdvisorRoBoard({
                   const contactedToday = hasRepairOrderContactToday(repairOrder);
                   const dueDate = blocker?.techPromisedDate ?? repairOrder.promisedAtNormalized;
                   const latestContact = repairOrder.contactRecords[0] ?? null;
+                  const latestCallRecord =
+                    repairOrder.contactRecords.find((record) => record.linkedCallRecord)
+                      ?.linkedCallRecord ?? null;
+                  const latestCallSummary =
+                    repairOrder.contactRecords.find((record) => record.linkedCallRecord?.callSummary)
+                      ?.linkedCallRecord?.callSummary ??
+                    latestCallRecord?.goToAiSummary ??
+                    null;
+                  const dueDateTone = getDueDateTone(dueDate);
+                  const selected = selectedRoNumber === repairOrder.roNumber;
+                  const callHref = (() => {
+                    if (!repairOrder.phone) {
+                      return null;
+                    }
+
+                    const returnToParams = new URLSearchParams(searchParams.toString());
+                    returnToParams.delete("gotoCallMessage");
+                    returnToParams.delete("gotoCallRo");
+                    returnToParams.delete("gotoCallStatus");
+                    returnToParams.set("openRo", String(repairOrder.roNumber));
+                    const returnTo =
+                      returnToParams.size > 0
+                        ? `${pathname}?${returnToParams.toString()}`
+                        : pathname;
+
+                    return `/api/goto-connect/call?ro=${repairOrder.roNumber}&returnTo=${encodeURIComponent(returnTo)}`;
+                  })();
 
                   return (
-                    <tr
-                      className="bg-white transition hover:bg-zinc-50"
-                      key={repairOrder.roNumber}
-                    >
-                      <td className="px-3 py-3 align-middle">
-                        <span className="font-mono text-sm font-semibold text-zinc-900">
-                          {repairOrder.roNumber}
-                        </span>
-                        <p className="mt-0.5 text-xs text-zinc-500">Tag {repairOrder.tag || "N/A"}</p>
-                      </td>
-                      <td className="px-3 py-3 align-middle">
-                        <p className="font-medium text-zinc-900">{repairOrder.customerName}</p>
-                        <p className="mt-0.5 text-xs text-zinc-500">{repairOrder.phone || "No phone"}</p>
-                      </td>
-                      <td className="px-3 py-3 align-middle">
-                        <p className="text-zinc-900">
-                          {repairOrder.year} {repairOrder.model}
-                        </p>
-                        <p className="mt-0.5 text-xs text-zinc-500">{repairOrder.mode}</p>
-                      </td>
-                      <td className="px-3 py-3 align-middle text-zinc-700">
-                        {repairOrder.techNumber !== null
-                          ? `Tech ${repairOrder.techNumber}`
-                          : "Unassigned"}
-                        {repairOrder.techName ? (
-                          <p className="mt-0.5 text-xs text-zinc-500">{repairOrder.techName}</p>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-3 align-middle">
-                        <div className="flex flex-wrap gap-1.5">
+                    <Fragment key={repairOrder.roNumber}>
+                      <tr
+                        aria-selected={selected}
+                        className={cn(
+                          "cursor-pointer bg-white transition hover:bg-zinc-50 focus-within:bg-zinc-50",
+                          selected && "bg-zinc-100 hover:bg-zinc-100",
+                        )}
+                        onClick={() =>
+                          setSelectedRoNumber((current) =>
+                            current === repairOrder.roNumber ? null : repairOrder.roNumber,
+                          )
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedRoNumber((current) =>
+                              current === repairOrder.roNumber ? null : repairOrder.roNumber,
+                            );
+                          }
+                        }}
+                        tabIndex={0}
+                      >
+                        <td className="px-3 py-3 align-middle">
+                          <span className="font-mono text-sm font-semibold text-zinc-900">
+                            {repairOrder.roNumber}
+                          </span>
+                          <p className="mt-0.5 text-xs text-zinc-500">Tag {repairOrder.tag || "N/A"}</p>
+                        </td>
+                        <td className="px-3 py-3 align-middle">
+                          <p className="font-medium text-zinc-900">{repairOrder.customerName}</p>
+                          <p className="mt-0.5 text-xs text-zinc-500">{repairOrder.phone || "No phone"}</p>
+                        </td>
+                        <td className="px-3 py-3 align-middle">
+                          <p className="text-zinc-900">
+                            {repairOrder.year} {repairOrder.model}
+                          </p>
+                          <p className="mt-0.5 text-xs text-zinc-500">{repairOrder.mode}</p>
+                        </td>
+                        <td className="px-3 py-3 align-middle text-zinc-700">
+                          {repairOrder.techNumber !== null
+                            ? `Tech ${repairOrder.techNumber}`
+                            : "Unassigned"}
+                          {repairOrder.techName ? (
+                            <p className="mt-0.5 text-xs text-zinc-500">{repairOrder.techName}</p>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-3 align-middle">
+                          <div className="flex flex-wrap gap-1.5">
+                            <span
+                              className={cn(
+                                "rounded-md px-2 py-1 text-xs font-medium",
+                                contactedToday
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-amber-100 text-amber-900",
+                              )}
+                            >
+                              {contactedToday ? "Contacted" : "Needs Contact"}
+                            </span>
+                            <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
+                              {blocker ? blockerReasonLabels[blocker.blockerReason] : "No blocker"}
+                            </span>
+                            {repairOrder.repairValue ? (
+                              <span className="rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white">
+                                {repairValueLabels[repairOrder.repairValue]}
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="bg-zinc-50/70 px-3 py-3 align-middle">
                           <span
                             className={cn(
-                              "rounded-md px-2 py-1 text-xs font-medium",
-                              contactedToday
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-amber-100 text-amber-900",
+                              "inline-flex min-w-36 justify-center rounded-md px-2.5 py-1.5 text-xs font-semibold ring-1 ring-inset",
+                              dueDateTone,
                             )}
                           >
-                            {contactedToday ? "Contacted" : "Needs Contact"}
+                            {formatDateTime(dueDate)}
                           </span>
-                          <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
-                            {blocker ? blockerReasonLabels[blocker.blockerReason] : "No blocker"}
+                        </td>
+                        <td className="px-3 py-3 align-middle text-zinc-700">
+                          {latestContact ? formatDateTime(latestContact.contactedAt) : "No contact"}
+                        </td>
+                        <td className="px-3 py-3 align-middle">
+                          <span className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs font-semibold text-zinc-800">
+                            {repairOrder.priorityScore}
                           </span>
-                          {repairOrder.repairValue ? (
-                            <span className="rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white">
-                              {repairValueLabels[repairOrder.repairValue]}
+                        </td>
+                        <td className="px-3 py-3 align-middle">
+                          {callHref ? (
+                            <a
+                              className="inline-flex h-8 items-center justify-center rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 transition hover:border-zinc-900 hover:text-zinc-950"
+                              href={callHref}
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              Call Customer
+                            </a>
+                          ) : (
+                            <span className="inline-flex h-8 items-center rounded-md border border-zinc-200 px-3 text-xs font-semibold text-zinc-400">
+                              No Phone
                             </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 align-middle text-zinc-700">
-                        {formatDateTime(dueDate)}
-                      </td>
-                      <td className="px-3 py-3 align-middle text-zinc-700">
-                        {latestContact ? formatDateTime(latestContact.contactedAt) : "No contact"}
-                      </td>
-                      <td className="px-3 py-3 align-middle">
-                        <span className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs font-semibold text-zinc-800">
-                          {repairOrder.priorityScore}
-                        </span>
-                      </td>
-                    </tr>
+                          )}
+                        </td>
+                      </tr>
+                      {selected ? (
+                        <tr className="border-t border-zinc-100 bg-zinc-50/70">
+                          <td colSpan={9} className="px-4 py-4">
+                            <div className="grid gap-4 lg:grid-cols-[1fr_1fr_0.9fr]">
+                              <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                                  Work Snapshot
+                                </p>
+                                <div className="mt-3 space-y-2 text-sm text-zinc-700">
+                                  <p>RO: {repairOrder.roNumber}</p>
+                                  <p>Customer: {repairOrder.customerName}</p>
+                                  <p>
+                                    Vehicle: {repairOrder.year} {repairOrder.model}
+                                  </p>
+                                  <p>Mode: {repairOrder.mode}</p>
+                                  <p>Tag: {repairOrder.tag || "N/A"}</p>
+                                  <p>Phone: {repairOrder.phone || "N/A"}</p>
+                                  <p>
+                                    ASM:{" "}
+                                    {repairOrder.advisorName
+                                      ? `${repairOrder.asmNumber} · ${repairOrder.advisorName}`
+                                      : repairOrder.asmNumber}
+                                  </p>
+                                  <p>
+                                    Tech:{" "}
+                                    {repairOrder.techNumber !== null
+                                      ? `${repairOrder.techNumber}${repairOrder.techName ? ` · ${repairOrder.techName}` : ""}`
+                                      : "Unassigned"}
+                                  </p>
+                                  <p>Repair value: {repairOrder.repairValue ? repairValueLabels[repairOrder.repairValue] : "Not set"}</p>
+                                  <p>Rental car: {repairOrder.contactState?.hasRentalCar ? "Yes" : "No"}</p>
+                                  <p>Priority: {repairOrder.priorityScore}</p>
+                                </div>
+                              </div>
+                              <div className="grid gap-4">
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                  <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                                    Blocker And Timing
+                                  </p>
+                                  <div className="mt-3 space-y-2 text-sm text-zinc-700">
+                                    <p>
+                                      Blocker:{" "}
+                                      {blocker
+                                        ? blockerReasonLabels[blocker.blockerReason]
+                                        : "No blocker"}
+                                    </p>
+                                    <p>Due: {formatDateTime(dueDate)}</p>
+                                    <p>
+                                      Blocker started:{" "}
+                                      {blocker
+                                        ? formatDateTime(blocker.blockerStartedAt)
+                                        : "N/A"}
+                                    </p>
+                                    <p>Risk reason: {repairOrder.riskReason}</p>
+                                  </div>
+                                </div>
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                  <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                                    Notes
+                                  </p>
+                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-700">
+                                    {blocker?.foremanNotes ||
+                                      repairOrder.contactState?.customerNotes ||
+                                      "No notes entered."}
+                                  </p>
+                                </div>
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                  <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                                    Latest Call
+                                  </p>
+                                  <p className="mt-2 text-sm leading-6 text-zinc-700">
+                                    {latestCallSummary || "No call summary yet."}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="grid gap-4">
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                  <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                                    Customer Contact
+                                  </p>
+                                  <p className="mt-2 text-sm text-zinc-700">
+                                    Last contact:{" "}
+                                    {latestContact
+                                      ? formatDateTime(latestContact.contactedAt)
+                                      : "No contact logged"}
+                                  </p>
+                                  <div className="mt-3">
+                                    <GoToCallFeedback roNumber={repairOrder.roNumber} />
+                                  </div>
+                                  <div className="mt-4">
+                                    {callHref ? (
+                                      <a
+                                        className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 transition hover:border-zinc-900 hover:text-zinc-950"
+                                        href={callHref}
+                                      >
+                                        Call Customer
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex h-9 items-center rounded-md border border-zinc-200 px-3 text-xs font-semibold text-zinc-400">
+                                        No Phone
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <ContactHistoryList entries={repairOrder.contactRecords} />
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
                   );
                 })}
               </tbody>
