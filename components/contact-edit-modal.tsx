@@ -36,17 +36,17 @@ export function ContactEditModal({
   });
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 px-4 py-6">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-zinc-950/60 px-4 py-6">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-6 py-5">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Customer Contact</p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950">
+            <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">Customer Contact</p>
+            <h2 className="mt-1 text-xl font-semibold text-zinc-900">
               RO {roNumber} · {customerName}
             </h2>
           </div>
           <button
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
             onClick={onClose}
             type="button"
           >

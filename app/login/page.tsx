@@ -15,8 +15,8 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,#144a74_0%,#09111a_55%,#06090d_100%)] px-6 py-16">
-      <section className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl shadow-black/40">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-5 py-16 text-zinc-900">
+      <section className="auth-surface w-full max-w-md rounded-xl border border-[var(--surface-border)] bg-[var(--card-bg)] p-7">
         <LoginForm />
       </section>
     </main>

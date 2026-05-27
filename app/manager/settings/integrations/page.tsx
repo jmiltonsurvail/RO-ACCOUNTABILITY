@@ -41,10 +41,10 @@ export default async function ManagerIntegrationsPage() {
       subtitle=""
       title="Integrations"
     >
-      <section className="grid gap-5 p-4 sm:p-6">
+      <section className="grid gap-5">
         <div className="flex justify-end">
           <Link
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:border-zinc-900 hover:bg-zinc-50"
             href="/manager/settings"
           >
             Back to Settings
@@ -55,22 +55,22 @@ export default async function ManagerIntegrationsPage() {
           {integrationCards.map((card) =>
             "href" in card ? (
               <Link
-                className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm transition hover:border-cyan-300 hover:shadow-md"
+                className="ro-card rounded-lg border border-zinc-200 bg-white p-5 transition hover:border-zinc-300"
                 href={card.href}
                 key={card.label}
               >
-                <h3 className="text-2xl font-semibold text-slate-950">{card.label}</h3>
-                <span className="mt-5 inline-flex rounded-full border border-cyan-300 bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
+                <h3 className="text-xl font-semibold text-zinc-900">{card.label}</h3>
+                <span className="mt-5 inline-flex rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
                   {card.status}
                 </span>
               </Link>
             ) : (
               <section
-                className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm"
+                className="ro-card rounded-lg border border-zinc-200 bg-white p-5"
                 key={card.label}
               >
-                <h3 className="text-2xl font-semibold text-slate-950">{card.label}</h3>
-                <span className="mt-5 inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
+                <h3 className="text-xl font-semibold text-zinc-900">{card.label}</h3>
+                <span className="mt-5 inline-flex rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600">
                   {card.status}
                 </span>
               </section>

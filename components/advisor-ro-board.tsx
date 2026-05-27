@@ -11,9 +11,12 @@ import {
   isRepairOrderAtRisk,
   isRepairOrderOverdue,
 } from "@/lib/repair-order-urgency";
+import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
 import type { SlaSettingsValues } from "@/lib/sla-settings";
+import { cn, formatDateTime } from "@/lib/utils";
 
 type AdvisorQuickFilter = "all" | "at-risk" | "needs-contact" | "overdue";
+type AdvisorBoardLayout = "list" | "cards";
 
 export function AdvisorRoBoard({
   repairOrders,
@@ -23,6 +26,7 @@ export function AdvisorRoBoard({
   slaSettings: SlaSettingsValues;
 }) {
   const [quickFilter, setQuickFilter] = useState<AdvisorQuickFilter>("all");
+  const [boardLayout, setBoardLayout] = useState<AdvisorBoardLayout>("list");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
 
@@ -83,33 +87,83 @@ export function AdvisorRoBoard({
   const filtersAreActive = quickFilter !== "all" || search.trim().length > 0;
 
   return (
-    <div className="grid gap-5">
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="grid gap-4 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_auto] lg:items-start">
-          <label className="block">
-            <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-500"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="RO, tag, customer, model, phone, tech"
-              value={search}
-            />
-          </label>
+    <div className="space-y-4">
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">Advisor Workload</h2>
+            <h2 className="text-lg font-semibold tracking-tight text-zinc-900">Advisor Workload</h2>
           </div>
-          <div className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">
-            Showing {filteredRepairOrders.length} of {repairOrders.length}
+          <div className="flex items-center gap-2">
+            <label className="relative w-72 max-w-full">
+              <span className="sr-only">Search repair orders</span>
+              <svg
+                aria-hidden="true"
+                className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-zinc-400"
+                fill="none"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  d="m14 14 3 3M8.5 15a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.6"
+                />
+              </svg>
+              <input
+                className="h-8 w-full rounded-md bg-white pl-8 pr-3 text-sm text-zinc-900 ring-1 ring-inset ring-zinc-200 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search RO, customer, tech, blocker…"
+                value={search}
+              />
+            </label>
+            <div className="inline-flex h-8 items-center rounded-md bg-white p-0.5 ring-1 ring-inset ring-zinc-200">
+              {(["list", "cards"] as const).map((layout) => (
+                <button
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs font-medium capitalize transition",
+                    boardLayout === layout
+                      ? "bg-zinc-900 text-white"
+                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+                  )}
+                  key={layout}
+                  onClick={() => setBoardLayout(layout)}
+                  type="button"
+                >
+                  {layout === "list" ? (
+                    <svg aria-hidden="true" className="size-3.5" fill="none" viewBox="0 0 20 20">
+                      <path
+                        d="M3 5h14M3 10h14M3 15h14"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeWidth="1.6"
+                      />
+                    </svg>
+                  ) : (
+                    <svg aria-hidden="true" className="size-3.5" fill="none" viewBox="0 0 20 20">
+                      <path
+                        d="M3 4h6v5H3V4Zm8 0h6v5h-6V4ZM3 11h6v5H3v-5Zm8 0h6v5h-6v-5Z"
+                        stroke="currentColor"
+                        strokeLinejoin="round"
+                        strokeWidth="1.6"
+                      />
+                    </svg>
+                  )}
+                  <span className="hidden md:inline">{layout}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           <CompactStatCard
             active={quickFilter === "at-risk"}
             label="At Risk Now"
             onClick={() =>
               setQuickFilter((current) => (current === "at-risk" ? "all" : "at-risk"))
             }
-            tone="bg-slate-950 text-white"
+            tone="neutral"
             value={totalAtRisk}
           />
           <CompactStatCard
@@ -120,7 +174,7 @@ export function AdvisorRoBoard({
                 current === "needs-contact" ? "all" : "needs-contact",
               )
             }
-            tone="bg-amber-100 text-amber-900"
+            tone="amber"
             value={totalNeedsContact}
             title="Active ROs without a contact logged today."
           />
@@ -130,21 +184,42 @@ export function AdvisorRoBoard({
             onClick={() =>
               setQuickFilter((current) => (current === "overdue" ? "all" : "overdue"))
             }
-            tone="bg-rose-100 text-rose-800"
+            tone="rose"
             value={totalOverdue}
           />
           <CompactStatCard
             active={quickFilter === "all"}
             label="Total Active"
             onClick={() => setQuickFilter("all")}
-            tone="bg-cyan-100 text-cyan-900"
+            tone="blue"
             value={repairOrders.length}
           />
         </div>
 
-        <div className="mt-4 flex justify-end">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-inset ring-zinc-200">
+          <svg
+            aria-hidden="true"
+            className="size-4 text-zinc-400"
+            fill="none"
+            viewBox="0 0 20 20"
+          >
+            <path
+              d="M3 5h14l-5.5 6.5V16l-3-1.5v-3L3 5z"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.6"
+            />
+          </svg>
+          <span className="ml-auto text-xs text-zinc-500">
+            Showing{" "}
+            <span className="font-mono font-semibold text-zinc-900">
+              {filteredRepairOrders.length}
+            </span>{" "}
+            of <span className="font-mono text-zinc-700">{repairOrders.length}</span>
+          </span>
           <button
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-cyan-400 hover:text-slate-950 disabled:opacity-50"
+            className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md bg-transparent px-2.5 text-xs font-medium text-zinc-700 ring-1 ring-inset ring-transparent transition hover:bg-zinc-100 disabled:opacity-50"
             disabled={!filtersAreActive}
             onClick={() => {
               setQuickFilter("all");
@@ -152,29 +227,128 @@ export function AdvisorRoBoard({
             }}
             type="button"
           >
-            Reset Filters
+            <svg aria-hidden="true" className="size-3.5" fill="none" viewBox="0 0 20 20">
+              <path
+                d="m5 5 10 10M15 5 5 15"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.6"
+              />
+            </svg>
+            Reset
           </button>
         </div>
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-lg border border-zinc-200 bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">Advisor ROs</h2>
+            <h2 className="text-lg font-semibold text-zinc-900">Advisor ROs</h2>
           </div>
-          <div className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">
-            {filteredRepairOrders.length} cards
+          <div className="rounded-md bg-zinc-100 px-3 py-2 text-xs font-medium text-zinc-700">
+            {filteredRepairOrders.length} {boardLayout === "cards" ? "cards" : "rows"}
           </div>
         </div>
         {filteredRepairOrders.length === 0 ? (
-          <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-600">
+          <div className="mt-5 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center text-sm text-zinc-600">
             No cards match the current filters.
           </div>
-        ) : (
+        ) : boardLayout === "cards" ? (
           <div className="mt-5 grid gap-5">
             {filteredRepairOrders.map((repairOrder) => (
               <AdvisorContactCard key={repairOrder.roNumber} repairOrder={repairOrder} />
             ))}
+          </div>
+        ) : (
+          <div className="mt-5 overflow-hidden rounded-lg border border-zinc-200">
+            <table className="w-full min-w-[56rem] border-collapse text-left text-sm">
+              <thead className="bg-zinc-50 text-xs uppercase tracking-[0.08em] text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">RO</th>
+                  <th className="px-3 py-2 font-medium">Customer</th>
+                  <th className="px-3 py-2 font-medium">Vehicle</th>
+                  <th className="px-3 py-2 font-medium">Tech</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Due</th>
+                  <th className="px-3 py-2 font-medium">Last Contact</th>
+                  <th className="px-3 py-2 font-medium">Priority</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {filteredRepairOrders.map((repairOrder) => {
+                  const blocker = repairOrder.blockerState;
+                  const contactedToday = hasRepairOrderContactToday(repairOrder);
+                  const dueDate = blocker?.techPromisedDate ?? repairOrder.promisedAtNormalized;
+                  const latestContact = repairOrder.contactRecords[0] ?? null;
+
+                  return (
+                    <tr
+                      className="bg-white transition hover:bg-zinc-50"
+                      key={repairOrder.roNumber}
+                    >
+                      <td className="px-3 py-3 align-middle">
+                        <span className="font-mono text-sm font-semibold text-zinc-900">
+                          {repairOrder.roNumber}
+                        </span>
+                        <p className="mt-0.5 text-xs text-zinc-500">Tag {repairOrder.tag || "N/A"}</p>
+                      </td>
+                      <td className="px-3 py-3 align-middle">
+                        <p className="font-medium text-zinc-900">{repairOrder.customerName}</p>
+                        <p className="mt-0.5 text-xs text-zinc-500">{repairOrder.phone || "No phone"}</p>
+                      </td>
+                      <td className="px-3 py-3 align-middle">
+                        <p className="text-zinc-900">
+                          {repairOrder.year} {repairOrder.model}
+                        </p>
+                        <p className="mt-0.5 text-xs text-zinc-500">{repairOrder.mode}</p>
+                      </td>
+                      <td className="px-3 py-3 align-middle text-zinc-700">
+                        {repairOrder.techNumber !== null
+                          ? `Tech ${repairOrder.techNumber}`
+                          : "Unassigned"}
+                        {repairOrder.techName ? (
+                          <p className="mt-0.5 text-xs text-zinc-500">{repairOrder.techName}</p>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-3 align-middle">
+                        <div className="flex flex-wrap gap-1.5">
+                          <span
+                            className={cn(
+                              "rounded-md px-2 py-1 text-xs font-medium",
+                              contactedToday
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-amber-100 text-amber-900",
+                            )}
+                          >
+                            {contactedToday ? "Contacted" : "Needs Contact"}
+                          </span>
+                          <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
+                            {blocker ? blockerReasonLabels[blocker.blockerReason] : "No blocker"}
+                          </span>
+                          {repairOrder.repairValue ? (
+                            <span className="rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white">
+                              {repairValueLabels[repairOrder.repairValue]}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 align-middle text-zinc-700">
+                        {formatDateTime(dueDate)}
+                      </td>
+                      <td className="px-3 py-3 align-middle text-zinc-700">
+                        {latestContact ? formatDateTime(latestContact.contactedAt) : "No contact"}
+                      </td>
+                      <td className="px-3 py-3 align-middle">
+                        <span className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs font-semibold text-zinc-800">
+                          {repairOrder.priorityScore}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </section>

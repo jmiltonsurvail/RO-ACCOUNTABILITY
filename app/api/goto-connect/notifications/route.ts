@@ -459,6 +459,15 @@ async function processCallEventsReportSummary(input: {
       id: true,
     },
   });
+  const trackedCallSession = await prisma.callSession.findUnique({
+    where: {
+      id: callSession.id,
+    },
+    select: {
+      initiatedByUserId: true,
+      repairOrderId: true,
+    },
+  });
 
   await prisma.$transaction(async (transaction) => {
     await transaction.callSession.update({
@@ -485,18 +494,25 @@ async function processCallEventsReportSummary(input: {
       },
     });
 
-    if (!existingContactRecord) {
-      const trackedCallSession = await transaction.callSession.findUnique({
+    if (trackedCallSession) {
+      await transaction.contactState.upsert({
         where: {
-          id: callSession.id,
+          repairOrderId: trackedCallSession.repairOrderId,
         },
-        select: {
-          initiatedByUserId: true,
-          repairOrderId: true,
+        update: {
+          advisorUserId: trackedCallSession.initiatedByUserId,
+          contacted: true,
+          contactedAt: contactTimestamp,
+        },
+        create: {
+          advisorUserId: trackedCallSession.initiatedByUserId,
+          contacted: true,
+          contactedAt: contactTimestamp,
+          repairOrderId: trackedCallSession.repairOrderId,
         },
       });
 
-      if (trackedCallSession) {
+      if (!existingContactRecord) {
         await transaction.contactRecord.create({
           data: {
             advisorUserId: trackedCallSession.initiatedByUserId,

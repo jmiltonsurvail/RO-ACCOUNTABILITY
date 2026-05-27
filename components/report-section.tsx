@@ -17,17 +17,17 @@ export function ReportSection({
 
   return (
     <details
-      className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm"
+      className="ro-card rounded-lg border border-zinc-200 bg-white p-5"
       onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}
       open={open}
     >
       <summary className="cursor-pointer list-none">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
-            {description ? <p className="mt-2 text-sm text-slate-500">{description}</p> : null}
+            <h2 className="text-xl font-semibold text-zinc-900">{title}</h2>
+            {description ? <p className="mt-2 text-sm text-zinc-500">{description}</p> : null}
           </div>
-          <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+          <span className="rounded-md border border-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-600">
             {open ? "Close" : "Open"}
           </span>
         </div>

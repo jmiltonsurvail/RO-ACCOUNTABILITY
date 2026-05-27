@@ -23,13 +23,13 @@ export default async function ManagerAlertsPage() {
       subtitle=""
       title="Alerts"
     >
-      <section className="grid gap-5 p-4 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="grid gap-5">
+        <div className="ro-card flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white p-5">
           <div>
-            <h2 className="text-2xl font-semibold text-slate-950">Current Alert Queue</h2>
+            <h2 className="text-xl font-semibold text-zinc-900">Current Alert Queue</h2>
           </div>
           <Link
-            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
             href="/manager/settings/alerts"
           >
             Manage Rules
@@ -43,53 +43,53 @@ export default async function ManagerAlertsPage() {
         </div>
 
         {alertData.items.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-emerald-200 bg-emerald-50 p-8 text-center shadow-sm">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-8 text-center">
             <p className="text-lg font-medium text-emerald-900">No active manager alerts.</p>
           </div>
         ) : (
           <div className="grid gap-4">
             {alertData.items.map((item) => (
               <section
-                className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm"
+                className="ro-card rounded-lg border border-zinc-200 bg-white p-4"
                 key={item.roNumber}
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white">
+                      <span className="rounded-md bg-zinc-900 px-2 py-1 font-mono text-[11px] font-semibold text-white">
                         RO {item.roNumber}
                       </span>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                      <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
                         {item.techNumber !== null
                           ? `Tech ${item.techNumber}${item.techName ? ` · ${item.techName}` : ""}`
                           : "Tech Unassigned"}
                       </span>
-                      <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                      <span className="rounded-md bg-zinc-900 px-2 py-1 text-xs font-semibold text-white">
                         Tag {item.tag || "N/A"}
                       </span>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                      <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
                         {item.mode}
                       </span>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-slate-950 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
+                      <span className="rounded-md bg-zinc-900 px-2 py-1 text-xs text-white">
                         {getAsmLabel(item.advisorName, item.asmNumber)}
                       </span>
                       {item.repairValue ? (
-                        <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                        <span className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700">
                           Repair Value {repairValueLabels[item.repairValue]}
                         </span>
                       ) : null}
-                      <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                      <span className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700">
                         Priority {item.priorityScore}
                       </span>
                     </div>
-                    <h3 className="mt-3 text-xl font-semibold text-slate-950">{item.customerName}</h3>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <h3 className="mt-3 text-xl font-semibold text-zinc-900">{item.customerName}</h3>
+                    <p className="mt-1 text-sm text-zinc-500">
                       {item.year} {item.model}
                     </p>
                   </div>
-                  <div className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                  <div className="rounded-md bg-zinc-100 px-3 py-2 text-xs font-medium text-zinc-700">
                     {item.blockedHours}h blocked
                   </div>
                 </div>
@@ -97,7 +97,7 @@ export default async function ManagerAlertsPage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   {item.matchedRules.map((rule) => (
                     <span
-                      className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-800"
+                      className="rounded-md bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-800"
                       key={`${item.roNumber}-${rule.trigger}`}
                       title={rule.description}
                     >
@@ -108,17 +108,17 @@ export default async function ManagerAlertsPage() {
 
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <Link
-                    className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800"
                     href="/manager"
                     style={{ color: "#ffffff" }}
                   >
                     Open Dashboard
                   </Link>
-                  <span className="text-sm text-slate-500">
+                  <span className="text-sm text-zinc-500">
                     Active rule matches: {item.matchedRules.length}
                   </span>
                   {item.contactState?.hasRentalCar ? (
-                    <span className="rounded-full border border-rose-700 bg-rose-600 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-white">
+                    <span className="rounded-md border border-rose-700 bg-rose-600 px-2 py-1 text-xs font-bold text-white">
                       {alertTriggerLabels.RENTAL_CAR}
                     </span>
                   ) : null}

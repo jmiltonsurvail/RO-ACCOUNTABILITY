@@ -80,7 +80,7 @@ export function ContactHistoryList({
 
   if (entries.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+      <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 px-4 py-5 text-sm text-zinc-500">
         No contact timestamps logged yet.
       </div>
     );
@@ -88,13 +88,13 @@ export function ContactHistoryList({
 
   return (
     <>
-      <div className="rounded-2xl border border-slate-200 bg-slate-50">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50">
+        <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
             Contact History
           </p>
           {callEnabledCount > 0 ? (
-            <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+            <span className="rounded-md bg-white px-2 py-1 text-[11px] font-medium text-zinc-600">
               {callEnabledCount} Call Record{callEnabledCount === 1 ? "" : "s"}
             </span>
           ) : null}
@@ -102,33 +102,33 @@ export function ContactHistoryList({
         <div className="max-h-56 space-y-3 overflow-y-auto px-4 py-4">
           {entries.map((entry, index) => (
             <div
-              className="rounded-2xl border border-white bg-white px-4 py-3 text-sm text-slate-700"
+              className="rounded-md border border-white bg-white px-4 py-3 text-sm text-zinc-700"
               key={`${entry.contactedAt}-${index}`}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 {entry.linkedCallRecord ? (
                   <button
-                    className="text-left font-medium text-cyan-700 underline decoration-cyan-300 decoration-2 underline-offset-4 transition hover:text-cyan-900"
+                    className="text-left font-medium text-zinc-900 underline decoration-zinc-300 decoration-2 underline-offset-4 transition hover:text-zinc-700"
                     onClick={() => setSelectedEntryIndex(index)}
                     type="button"
                   >
                     {formatDateTime(entry.contactedAt)}
                   </button>
                 ) : (
-                  <p className="font-medium text-slate-950">{formatDateTime(entry.contactedAt)}</p>
+                  <p className="font-medium text-zinc-900">{formatDateTime(entry.contactedAt)}</p>
                 )}
 
                 {entry.linkedCallRecord ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span
-                      className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getDerivedCallStatusClasses(
+                      className={`rounded-md px-2 py-1 text-[11px] font-semibold ${getDerivedCallStatusClasses(
                         getDerivedCallStatus(entry.linkedCallRecord),
                       )}`}
                     >
                       {getDerivedCallStatusLabel(getDerivedCallStatus(entry.linkedCallRecord))}
                     </span>
                     <span
-                      className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${getTranscriptStatusPillClasses(entry.linkedCallRecord.transcriptStatus)}`}
+                      className={`rounded-md px-2 py-1 text-[11px] font-semibold ${getTranscriptStatusPillClasses(entry.linkedCallRecord.transcriptStatus)}`}
                     >
                       {getTranscriptStatusLabel(entry.linkedCallRecord.transcriptStatus)}
                     </span>
@@ -136,7 +136,7 @@ export function ContactHistoryList({
                 ) : null}
               </div>
 
-              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
+              <p className="mt-1 text-xs uppercase tracking-[0.08em] text-zinc-500">
                 {entry.advisorLabel || "Advisor"}
               </p>
               {entry.customerNotes ? (

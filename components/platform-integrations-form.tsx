@@ -29,15 +29,15 @@ export function PlatformIntegrationsForm({
 
   return (
     <form action={formAction} className="grid gap-5">
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-2xl font-semibold text-slate-950">AWS Provisioning</h2>
+      <section className="ro-card rounded-lg border border-zinc-200 bg-white p-5">
+        <h2 className="text-xl font-semibold text-zinc-900">AWS Provisioning</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
+            <span className="mb-2 block text-sm font-medium text-zinc-700">
               Provisioning Access Key ID
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
               defaultValue={settings.awsProvisioningAccessKeyId ?? ""}
               name="awsProvisioningAccessKeyId"
               placeholder="AWS access key id with bucket and IAM provisioning access"
@@ -46,11 +46,11 @@ export function PlatformIntegrationsForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
+            <span className="mb-2 block text-sm font-medium text-zinc-700">
               Provisioning Secret Access Key
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
               name="awsProvisioningSecretAccessKey"
               placeholder={
                 settings.awsProvisioningSecretAccessKey
@@ -63,13 +63,13 @@ export function PlatformIntegrationsForm({
         </div>
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-2xl font-semibold text-slate-950">Amazon S3</h2>
+      <section className="ro-card rounded-lg border border-zinc-200 bg-white p-5">
+        <h2 className="text-xl font-semibold text-zinc-900">Amazon S3</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">AWS Region</span>
+            <span className="mb-2 block text-sm font-medium text-zinc-700">AWS Region</span>
             <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
               defaultValue={settings.awsRegion ?? ""}
               name="awsRegion"
               placeholder="us-east-2"
@@ -78,9 +78,9 @@ export function PlatformIntegrationsForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">S3 Bucket</span>
+            <span className="mb-2 block text-sm font-medium text-zinc-700">S3 Bucket</span>
             <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
               defaultValue={settings.s3Bucket ?? ""}
               name="s3Bucket"
               placeholder="servicesyncnow-call-recordings"
@@ -89,11 +89,11 @@ export function PlatformIntegrationsForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
+            <span className="mb-2 block text-sm font-medium text-zinc-700">
               Raw Recordings Prefix
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
               defaultValue={settings.s3RawRecordingsPrefix ?? ""}
               name="s3RawRecordingsPrefix"
               placeholder="raw/goto"
@@ -102,11 +102,11 @@ export function PlatformIntegrationsForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
+            <span className="mb-2 block text-sm font-medium text-zinc-700">
               Processed Calls Prefix
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
               defaultValue={settings.s3ProcessedCallsPrefix ?? ""}
               name="s3ProcessedCallsPrefix"
               placeholder="tenant"
@@ -116,13 +116,13 @@ export function PlatformIntegrationsForm({
         </div>
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-2xl font-semibold text-slate-950">OpenAI</h2>
+      <section className="ro-card rounded-lg border border-zinc-200 bg-white p-5">
+        <h2 className="text-xl font-semibold text-zinc-900">OpenAI</h2>
         <div className="mt-5 grid gap-4">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">API Key</span>
+            <span className="mb-2 block text-sm font-medium text-zinc-700">API Key</span>
             <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
               name="openAiApiKey"
               placeholder={
                 settings.openAiApiKey
@@ -134,11 +134,11 @@ export function PlatformIntegrationsForm({
           </label>
 
           <label className="block md:max-w-md">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
+            <span className="mb-2 block text-sm font-medium text-zinc-700">
               Transcription Model
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+              className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
               defaultValue={settings.openAiTranscriptionModel ?? ""}
               name="openAiTranscriptionModel"
               placeholder="gpt-4o-mini-transcribe"
@@ -150,7 +150,7 @@ export function PlatformIntegrationsForm({
 
       <div className="flex flex-wrap items-center gap-4">
         <button
-          className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+          className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
           disabled={pending}
           type="submit"
         >

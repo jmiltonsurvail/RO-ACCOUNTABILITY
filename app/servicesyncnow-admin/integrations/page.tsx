@@ -16,10 +16,10 @@ export default async function ServiceSyncNowAdminIntegrationsPage() {
       subtitle=""
       title="Platform Integrations"
     >
-      <section className="grid gap-5 p-4 sm:p-6">
+      <section className="grid gap-5">
         <div className="flex justify-end">
           <Link
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:border-zinc-900 hover:bg-zinc-50"
             href="/servicesyncnow-admin"
           >
             Back to Organizations

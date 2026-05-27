@@ -55,57 +55,24 @@ export async function updateContactAction(
     return { error: "That RO is not assigned to your ASM number.", saved: false };
   }
 
+  if (session.user.role === Role.ADVISOR) {
+    return {
+      error: "Use the Call Customer button to log advisor contact updates.",
+      saved: false,
+    };
+  }
+
   const actorLabel =
     session.user.role === Role.MANAGER
       ? "Manager"
       : session.user.role === Role.DISPATCHER
         ? "Dispatcher"
         : "Advisor";
-  const shouldCreateContactRecord =
-    parsed.data.contacted && Boolean(parsed.data.customerNotes?.trim());
-  const contactTimestamp = shouldCreateContactRecord
-    ? new Date()
-    : parsed.data.contacted
-      ? (repairOrder.contactState?.contactedAt ?? null)
-      : null;
+  const contactTimestamp = parsed.data.contacted
+    ? (repairOrder.contactState?.contactedAt ?? new Date())
+    : null;
 
   await prisma.$transaction(async (transaction) => {
-    const latestEligibleCallStartedAt = contactTimestamp
-      ? new Date(contactTimestamp.getTime() - 12 * 60 * 60 * 1000)
-      : new Date(Date.now() - 12 * 60 * 60 * 1000);
-    const latestCallSession = shouldCreateContactRecord
-      ? await transaction.callSession.findFirst({
-          where: {
-            organizationId,
-            repairOrderId: repairOrder.id,
-            contactRecords: {
-              none: {},
-            },
-            requestedAt: {
-              gte: latestEligibleCallStartedAt,
-              lte: contactTimestamp ?? new Date(),
-            },
-          },
-          orderBy: {
-            requestedAt: "desc",
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null;
-    const existingLinkedContactRecord =
-      shouldCreateContactRecord && latestCallSession
-        ? await transaction.contactRecord.findFirst({
-            where: {
-              callSessionId: latestCallSession.id,
-            },
-            select: {
-              id: true,
-            },
-          })
-        : null;
-
     await transaction.repairOrder.update({
       where: { id: repairOrder.id },
       data: {
@@ -132,35 +99,10 @@ export async function updateContactAction(
       },
     });
 
-    if (shouldCreateContactRecord) {
-      if (existingLinkedContactRecord) {
-        await transaction.contactRecord.update({
-          where: {
-            id: existingLinkedContactRecord.id,
-          },
-          data: {
-            advisorUserId: session.user.id,
-            contactedAt: contactTimestamp ?? new Date(),
-            customerNotes: parsed.data.customerNotes || null,
-          },
-        });
-      } else {
-        await transaction.contactRecord.create({
-          data: {
-            advisorUserId: session.user.id,
-            callSessionId: latestCallSession?.id ?? null,
-            contactedAt: contactTimestamp ?? new Date(),
-            customerNotes: parsed.data.customerNotes || null,
-            repairOrderId: repairOrder.id,
-          },
-        });
-      }
-    }
-
     await transaction.activityLog.create({
       data: {
         message: parsed.data.contacted
-          ? `${actorLabel} marked customer as contacted and logged a contact record.`
+          ? `${actorLabel} updated customer contact state.`
           : `${actorLabel} cleared customer contacted status.`,
         metadata: {
           actorRole: session.user.role,

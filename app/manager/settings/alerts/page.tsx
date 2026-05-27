@@ -19,20 +19,20 @@ export default async function ManagerAlertSettingsPage() {
       subtitle=""
       title="Alert Settings"
     >
-      <section className="grid gap-5 p-4 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="grid gap-5">
+        <div className="ro-card flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white p-5">
           <div>
-            <h2 className="text-2xl font-semibold text-slate-950">Manager Alerts</h2>
+            <h2 className="text-xl font-semibold text-zinc-900">Manager Alerts</h2>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Link
-              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
               href="/manager/alerts"
             >
               Open Alerts
             </Link>
             <Link
-              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
               href="/manager/settings"
             >
               Back to Settings

@@ -37,9 +37,9 @@ export function LoginForm() {
       }}
     >
       <label className="block">
-        <span className="mb-2 block text-sm text-slate-300">Email</span>
+        <span className="mb-2 block text-sm font-medium text-zinc-700">Email</span>
         <input
-          className="w-full rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-slate-50 outline-none ring-0 transition focus:border-cyan-400"
+          className="h-11 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
           name="email"
           placeholder="manager@example.com"
           required
@@ -47,9 +47,9 @@ export function LoginForm() {
         />
       </label>
       <label className="block">
-        <span className="mb-2 block text-sm text-slate-300">Password</span>
+        <span className="mb-2 block text-sm font-medium text-zinc-700">Password</span>
         <input
-          className="w-full rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-slate-50 outline-none ring-0 transition focus:border-cyan-400"
+          className="h-11 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none transition focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
           minLength={8}
           name="password"
           required
@@ -57,12 +57,12 @@ export function LoginForm() {
         />
       </label>
       {error ? (
-        <p className="rounded-2xl border border-rose-400/30 bg-rose-950/40 px-4 py-3 text-sm text-rose-200">
+        <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
           {error}
         </p>
       ) : null}
       <button
-        className="w-full rounded-2xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+        className="h-11 w-full rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={pending}
         type="submit"
       >

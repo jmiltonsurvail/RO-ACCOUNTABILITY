@@ -188,158 +188,117 @@ export function AppShell({
     .slice(0, 2)
     .toUpperCase();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [trayCollapsed, setTrayCollapsed] = useState(false);
   const navItems = navByRole[session.user.role];
 
   return (
     <div
       className={cn(
-        "bg-[radial-gradient(circle_at_top,#15324b_0%,rgba(21,50,75,0.55)_22%,transparent_45%),linear-gradient(180deg,#071018_0%,#0a1724_38%,#0d1f31_100%)]",
+        "bg-[var(--background)] text-zinc-900",
         fullHeight ? "h-dvh overflow-hidden" : "min-h-screen",
       )}
     >
-      <div
-        className={cn(
-          "mx-auto flex w-full max-w-[96rem] gap-4 px-4 py-4 sm:px-6 sm:py-6",
-          fullHeight ? "h-full min-h-0" : "min-h-screen items-start",
-        )}
-      >
-        <aside
-          className={cn(
-            "relative z-20 shrink-0 rounded-[1.75rem] border border-white/10 bg-slate-950/80 text-white shadow-xl backdrop-blur transition-all duration-200",
-            fullHeight ? "flex h-full min-h-0 flex-col" : "sticky top-4",
-            trayCollapsed ? "w-20" : "w-72",
-          )}
-        >
-          <div className="flex h-full min-h-0 flex-col p-3">
-            <div
-              className={cn(
-                "flex items-start gap-3",
-                trayCollapsed ? "justify-center" : "justify-between",
-              )}
-            >
-              {trayCollapsed ? (
-                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-200">
-                  RO
-                </div>
-              ) : (
-                <div>
-                  <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">
-                    {APP_NAME}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-300">{roleLabels[session.user.role]}</p>
-                </div>
-              )}
-              <button
-                className="rounded-2xl border border-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 transition hover:border-cyan-400/40 hover:text-white"
-                onClick={() => {
-                  setTrayCollapsed((current) => !current);
-                  setAccountMenuOpen(false);
-                }}
-                type="button"
-              >
-                {trayCollapsed ? ">>" : "<<"}
-              </button>
-            </div>
+      <header className="sticky top-0 z-30 border-b border-stone-300/70 bg-[var(--page-bg-soft)]/90 backdrop-blur">
+        <div className="mx-auto flex max-w-[120rem] items-center gap-4 px-4 py-2.5 sm:px-5">
+          <Link className="flex shrink-0 items-center gap-2.5" href={navItems[0]?.href ?? "/"}>
+            <span className="inline-flex size-7 items-center justify-center rounded-md bg-zinc-900 font-mono text-[11px] font-bold text-white">
+              RO
+            </span>
+            <span className="hidden whitespace-nowrap md:block">
+              <span className="block text-sm font-semibold tracking-tight text-zinc-900">
+                {APP_NAME}
+              </span>
+              <span className="block text-[10px] uppercase tracking-wide text-zinc-500">
+                {roleLabels[session.user.role]}
+              </span>
+            </span>
+          </Link>
 
-            <nav className="mt-6 flex flex-1 flex-col gap-2 overflow-y-auto">
-              {navItems.map((item) => {
-                const isActive = item.matchPaths
-                  ? item.matchPaths.includes(currentPath)
-                  : currentPath === item.href;
+          <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto">
+            {navItems.map((item) => {
+              const isActive = item.matchPaths
+                ? item.matchPaths.includes(currentPath)
+                : currentPath === item.href;
 
-                return (
-                  <Link
-                    key={item.href}
-                    className={cn(
-                      "flex items-center rounded-2xl transition",
-                      trayCollapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-3",
-                      isActive
-                        ? "bg-cyan-400 text-slate-950"
-                        : "border border-white/10 text-slate-300 hover:border-cyan-400/40 hover:text-white",
-                    )}
-                    href={item.href}
-                    title={trayCollapsed ? item.label : undefined}
-                  >
-                    {trayCollapsed ? (
-                      <span className="relative inline-flex size-10 shrink-0 items-center justify-center rounded-xl font-semibold uppercase tracking-[0.18em]">
-                        <NavIcon name={item.icon} />
-                        {item.icon === "alerts" && managerAlertCount > 0 ? (
-                          <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                            {managerAlertCount}
-                          </span>
-                        ) : null}
-                      </span>
-                    ) : null}
-                    {!trayCollapsed ? (
-                      <>
-                        <span className="text-sm font-medium">{item.label}</span>
-                        {item.icon === "alerts" && managerAlertCount > 0 ? (
-                          <span className="ml-auto rounded-full bg-rose-500 px-2 py-1 text-[11px] font-bold leading-none text-white">
-                            {managerAlertCount}
-                          </span>
-                        ) : null}
-                      </>
-                    ) : null}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            <div className="relative mt-4 border-t border-white/10 pt-4">
-              <div className={cn("flex", trayCollapsed ? "justify-center" : "justify-start")}>
-                <button
+              return (
+                <Link
+                  key={item.href}
                   className={cn(
-                    "inline-flex items-center border border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-400/40 hover:text-white",
-                    trayCollapsed
-                      ? "size-12 justify-center rounded-2xl"
-                      : "gap-3 rounded-2xl px-3 py-2.5",
+                    "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-sm font-medium transition",
+                    isActive
+                      ? "bg-white text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-200"
+                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
                   )}
-                  onClick={() => setAccountMenuOpen((current) => !current)}
-                  type="button"
+                  href={item.href}
                 >
-                  <span className="inline-flex size-9 items-center justify-center rounded-xl bg-cyan-400/10 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
-                    {avatarLabel}
-                  </span>
-                  {!trayCollapsed ? (
-                    <span className="text-left">
-                      <span className="block text-sm font-medium text-white">Account</span>
+                  <NavIcon name={item.icon} />
+                  <span>{item.label}</span>
+                  {item.icon === "alerts" && managerAlertCount > 0 ? (
+                    <span className="ml-0.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white">
+                      {managerAlertCount}
                     </span>
                   ) : null}
-                </button>
-              </div>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="hidden items-center gap-1.5 rounded-md bg-zinc-50 px-2.5 py-1 text-xs text-zinc-500 ring-1 ring-inset ring-zinc-200 lg:flex">
+              <span className="size-1.5 rounded-full bg-emerald-500" />
+              Auto-refresh · 15s
+            </div>
+            <div className="relative">
+              <button
+                className="inline-flex h-8 items-center gap-2 rounded-md bg-white px-1.5 pr-2.5 ring-1 ring-inset ring-zinc-200 transition hover:bg-zinc-50"
+                onClick={() => setAccountMenuOpen((current) => !current)}
+                type="button"
+              >
+                <span className="inline-flex size-6 items-center justify-center rounded-md bg-zinc-100 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-700">
+                  {avatarLabel}
+                </span>
+                <span className="hidden max-w-28 truncate text-sm text-zinc-900 md:inline">
+                  {displayName.split(" ")[0]}
+                </span>
+              </button>
               {accountMenuOpen ? (
-                <div
-                  className={cn(
-                    "absolute z-40 w-64 rounded-[1.25rem] border border-white/10 bg-slate-950 p-4 shadow-2xl",
-                    trayCollapsed ? "bottom-0 left-full ml-3" : "bottom-full left-0 mb-3",
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-cyan-400/10 text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">
-                      {avatarLabel}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-white">{displayName}</p>
-                      <p className="truncate text-xs text-slate-400">{session.user.email}</p>
+                <div className="absolute right-0 top-full z-40 mt-1.5 w-64 overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-zinc-200">
+                  <div className="border-b border-zinc-100 px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex size-9 items-center justify-center rounded-md bg-zinc-100 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-700">
+                        {avatarLabel}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-zinc-900">{displayName}</p>
+                        <p className="truncate text-xs text-zinc-500">{session.user.email}</p>
+                      </div>
+                    </div>
+                    <div className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-700">
+                      {roleLabels[session.user.role]}
                     </div>
                   </div>
-                  <div className="mt-4 flex justify-end">
+                  <div className="flex justify-end px-4 py-3">
                     <LogoutButton />
                   </div>
                 </div>
               ) : null}
             </div>
           </div>
-        </aside>
+        </div>
+      </header>
 
+      <div
+        className={cn(
+          "mx-auto w-full max-w-[120rem] px-4 py-5 sm:px-5",
+          fullHeight ? "flex h-[calc(100dvh-3.375rem)] min-h-0 flex-col" : "min-h-[calc(100vh-3.375rem)]",
+        )}
+      >
         <div
           className={cn(
-            "relative z-0 min-w-0 flex-1 rounded-[1.75rem] border border-white/10 bg-slate-950/35 shadow-xl backdrop-blur",
+            "relative z-0 min-w-0 flex-1",
             fullHeight ? "flex min-h-0 h-full flex-col overflow-hidden" : "",
           )}
         >
-          <header className="border-b border-white/10 px-6 py-5 text-white">
+          <header className="mb-5 px-1 text-zinc-900">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -347,28 +306,28 @@ export function AppShell({
                   {subtitleMode === "tooltip" && subtitle ? (
                     <div className="group relative">
                       <button
-                        className="inline-flex size-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm font-semibold text-slate-300 transition hover:border-cyan-400/60 hover:text-white focus-visible:border-cyan-400/60 focus-visible:text-white"
+                        className="inline-flex size-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-sm font-semibold text-zinc-500 transition hover:border-zinc-900 hover:text-zinc-950 focus-visible:border-zinc-900 focus-visible:text-zinc-950"
                         title={subtitle}
                         type="button"
                       >
                         i
                       </button>
-                      <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-72 -translate-x-1/2 rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-200 shadow-xl group-hover:block group-focus-within:block">
+                      <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-72 -translate-x-1/2 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 shadow-xl group-hover:block group-focus-within:block">
                         {subtitle}
                       </div>
                     </div>
                   ) : null}
                 </div>
                 {subtitleMode === "inline" && subtitle ? (
-                  <p className="mt-2 max-w-3xl text-sm text-slate-300">{subtitle}</p>
+                  <p className="mt-2 max-w-3xl text-sm text-zinc-600">{subtitle}</p>
                 ) : null}
               </div>
             </div>
           </header>
           <main
             className={cn(
-              "w-full px-4 py-4 sm:px-6 sm:py-6",
-              fullHeight ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "py-8",
+              "w-full",
+              fullHeight ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "",
             )}
           >
             {children}

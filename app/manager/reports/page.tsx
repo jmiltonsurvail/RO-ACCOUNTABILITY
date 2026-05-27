@@ -176,12 +176,12 @@ export default async function ManagerReportsPage({
       subtitle=""
       title="Reports"
     >
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="ro-card rounded-lg border border-zinc-200 bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">Report Window</h2>
+            <h2 className="text-xl font-semibold text-zinc-900">Report Window</h2>
           </div>
-          <div className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+          <div className="rounded-md bg-zinc-100 px-3 py-2 text-xs font-medium text-zinc-700">
             Generated {formatDateTime(reports.generatedAt)}
           </div>
         </div>
@@ -190,10 +190,10 @@ export default async function ManagerReportsPage({
           {reportRangeOptions.map((option) => (
             <Link
               className={cn(
-                "rounded-full border px-4 py-2 text-sm font-medium transition",
+                "rounded-md border px-3 py-2 text-sm font-medium transition",
                 reports.range === option.value
-                  ? "border-cyan-400 bg-cyan-50 text-cyan-950"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:text-slate-950",
+                  ? "border-zinc-900 bg-zinc-900 text-white"
+                  : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-900 hover:text-zinc-950",
               )}
               href={`/manager/reports?range=${option.value}`}
               key={option.value}
@@ -229,7 +229,7 @@ export default async function ManagerReportsPage({
             active={focus === "needs-contact"}
             href={buildReportHref(reports.range, "needs-contact")}
             label="Needs Contact Today"
-            tone="bg-cyan-100 text-cyan-950"
+            tone="bg-blue-100 text-blue-950"
             value={reports.summary.needsContact}
             title="Active ROs without a contact logged today."
           />
@@ -237,7 +237,7 @@ export default async function ManagerReportsPage({
             active={focus === "blocker-updates"}
             href={buildReportHref(reports.range, "blocker-updates")}
             label={`${reports.rangeLabel} Blocker Updates`}
-            tone="bg-slate-100 text-slate-900"
+            tone="bg-zinc-100 text-zinc-900"
             value={reports.summary.periodBlockerUpdates}
           />
           <CompactStatCard
@@ -249,12 +249,12 @@ export default async function ManagerReportsPage({
           />
         </div>
         {focus !== "all" ? (
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
             <p>
               Showing report rows for <span className="font-semibold">{focus.replace(/-/g, " ")}</span>.
             </p>
             <Link
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-cyan-300 hover:text-slate-950"
+              className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
               href={buildReportHref(reports.range, "all")}
             >
               Clear Filter

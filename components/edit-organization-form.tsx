@@ -28,17 +28,17 @@ export function EditOrganizationForm({
   }, [router, state.success]);
 
   return (
-    <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
-      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900">
+    <details className="mt-4 rounded-md border border-zinc-200 bg-white">
+      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-900">
         Edit Organization
       </summary>
-      <form action={formAction} className="grid gap-4 border-t border-slate-200 p-4">
+      <form action={formAction} className="grid gap-4 border-t border-zinc-200 p-4">
         <input name="organizationId" type="hidden" value={organizationId} />
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-700">Organization Name</span>
+          <span className="mb-2 block text-sm font-medium text-zinc-700">Organization Name</span>
           <input
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+            className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
             defaultValue={organizationName}
             name="organizationName"
             required
@@ -46,9 +46,9 @@ export function EditOrganizationForm({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-700">Organization Slug</span>
+          <span className="mb-2 block text-sm font-medium text-zinc-700">Organization Slug</span>
           <input
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+            className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
             defaultValue={organizationSlug}
             name="organizationSlug"
             required
@@ -57,7 +57,7 @@ export function EditOrganizationForm({
 
         <div className="flex flex-wrap items-center gap-4">
           <button
-            className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+            className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
             disabled={pending}
             type="submit"
           >

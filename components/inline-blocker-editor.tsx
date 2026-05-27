@@ -41,11 +41,11 @@ export function InlineBlockerEditor({
       <input name="roNumber" type="hidden" value={roNumber} />
 
       <label className="block">
-        <span className="mb-2 block text-xs uppercase tracking-[0.18em] text-slate-400">
+        <span className="mb-2 block text-xs uppercase tracking-[0.08em] text-zinc-500">
           Blocker Reason
         </span>
         <select
-          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+          className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
           onChange={(event) =>
             setSelectedBlockerReason(event.target.value as BlockerReason | "")
           }
@@ -65,11 +65,11 @@ export function InlineBlockerEditor({
       </label>
 
       <label className="block">
-        <span className="mb-2 block text-xs uppercase tracking-[0.18em] text-slate-400">
+        <span className="mb-2 block text-xs uppercase tracking-[0.08em] text-zinc-500">
           Add Note
         </span>
         <textarea
-          className="min-h-28 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+          className="min-h-28 w-full rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900"
           name="foremanNotes"
           onChange={(event) => setNotesValue(event.target.value)}
           placeholder="Add the latest blocker update. The app will append it with a timestamp."
@@ -79,11 +79,11 @@ export function InlineBlockerEditor({
       </label>
 
       <label className="block">
-        <span className="mb-2 block text-xs uppercase tracking-[0.18em] text-slate-400">
+        <span className="mb-2 block text-xs uppercase tracking-[0.08em] text-zinc-500">
           Tech Promised Date
         </span>
         <input
-          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+          className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
           name="techPromisedDate"
           onChange={(event) => setPromisedDateValue(event.target.value)}
           type="date"
@@ -93,7 +93,7 @@ export function InlineBlockerEditor({
 
       <div className="flex flex-wrap items-center gap-3">
         <button
-          className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-md bg-zinc-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
           disabled={pending}
           type="submit"
         >

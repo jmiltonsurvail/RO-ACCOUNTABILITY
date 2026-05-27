@@ -23,9 +23,9 @@ export function CreateOrganizationForm() {
     <form action={formAction} className="grid gap-4">
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-700">Organization Name</span>
+          <span className="mb-2 block text-sm font-medium text-zinc-700">Organization Name</span>
           <input
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+            className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
             name="organizationName"
             placeholder="Service Drive Honda"
             required
@@ -33,9 +33,9 @@ export function CreateOrganizationForm() {
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-700">Organization Slug</span>
+          <span className="mb-2 block text-sm font-medium text-zinc-700">Organization Slug</span>
           <input
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+            className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
             name="organizationSlug"
             placeholder="service-drive-honda"
             required
@@ -43,11 +43,11 @@ export function CreateOrganizationForm() {
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-700">
+          <span className="mb-2 block text-sm font-medium text-zinc-700">
             First Manager Name
           </span>
           <input
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+            className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
             name="firstUserName"
             placeholder="Jane Smith"
             required
@@ -55,11 +55,11 @@ export function CreateOrganizationForm() {
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-700">
+          <span className="mb-2 block text-sm font-medium text-zinc-700">
             First Manager Email
           </span>
           <input
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+            className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
             name="firstUserEmail"
             placeholder="jane@servicesyncnow.com"
             required
@@ -69,11 +69,11 @@ export function CreateOrganizationForm() {
       </div>
 
       <label className="block">
-        <span className="mb-2 block text-sm font-medium text-slate-700">
+        <span className="mb-2 block text-sm font-medium text-zinc-700">
           Temporary Password
         </span>
         <input
-          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+          className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-zinc-900"
           minLength={8}
           name="firstUserPassword"
           placeholder="At least 8 characters"
@@ -84,7 +84,7 @@ export function CreateOrganizationForm() {
 
       <div className="flex flex-wrap items-center gap-4">
         <button
-          className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+          className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
           disabled={pending}
           type="submit"
         >

@@ -47,18 +47,18 @@ export default async function ManagerSettingsPage() {
       subtitle=""
       title="Settings"
     >
-      <section className="grid gap-4 p-4 sm:p-6 lg:grid-cols-2">
+      <section className="grid gap-4 lg:grid-cols-2">
         {settingsCards.map((card) => (
           <Link
-            className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm transition hover:border-cyan-300 hover:shadow-md"
+            className="ro-card rounded-lg border border-zinc-200 bg-white p-5 transition hover:border-zinc-300"
             href={card.href}
             key={card.href}
           >
-            <h2 className="text-2xl font-semibold text-slate-950">{card.label}</h2>
-            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <h2 className="text-xl font-semibold text-zinc-900">{card.label}</h2>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
               {card.meta}
             </p>
-            <p className="mt-5 text-sm font-semibold text-slate-900">Open</p>
+            <p className="mt-5 text-sm font-semibold text-zinc-900">Open</p>
           </Link>
         ))}
       </section>
