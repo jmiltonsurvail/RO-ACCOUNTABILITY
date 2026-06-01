@@ -18,7 +18,7 @@ import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
 import type { SlaSettingsValues } from "@/lib/sla-settings";
 import { cn, formatDateTime } from "@/lib/utils";
 
-type AdvisorQuickFilter = "all" | "at-risk" | "needs-contact" | "overdue";
+type AdvisorQuickFilter = "all" | "at-risk" | "needs-contact" | "overdue" | "rental-car";
 type AdvisorBoardLayout = "list" | "cards";
 
 function getDueDateTone(value: string | null) {
@@ -96,6 +96,10 @@ export function AdvisorRoBoard({
         return isRepairOrderOverdue(repairOrder);
       }
 
+      if (quickFilter === "rental-car") {
+        return Boolean(repairOrder.contactState?.hasRentalCar);
+      }
+
       return true;
     });
   }, [deferredSearch, quickFilter, repairOrders, slaSettings]);
@@ -111,6 +115,10 @@ export function AdvisorRoBoard({
   );
   const totalOverdue = useMemo(
     () => repairOrders.filter((repairOrder) => isRepairOrderOverdue(repairOrder)).length,
+    [repairOrders],
+  );
+  const totalRentalCar = useMemo(
+    () => repairOrders.filter((repairOrder) => repairOrder.contactState?.hasRentalCar).length,
     [repairOrders],
   );
 
@@ -186,7 +194,7 @@ export function AdvisorRoBoard({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
           <CompactStatCard
             active={quickFilter === "at-risk"}
             label="At Risk Now"
@@ -216,6 +224,16 @@ export function AdvisorRoBoard({
             }
             tone="rose"
             value={totalOverdue}
+          />
+          <CompactStatCard
+            active={quickFilter === "rental-car"}
+            label="Rental Car"
+            onClick={() =>
+              setQuickFilter((current) => (current === "rental-car" ? "all" : "rental-car"))
+            }
+            tone="violet"
+            value={totalRentalCar}
+            title="Active ROs with rental-car exposure."
           />
           <CompactStatCard
             active={quickFilter === "all"}
