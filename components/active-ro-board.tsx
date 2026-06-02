@@ -50,6 +50,20 @@ type ActiveRepairOrder = {
     hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
+  callSessions: Array<{
+    callAnsweredAt: string | null;
+    callEndedAt: string | null;
+    callSessionId: string;
+    callSummary: string | null;
+    callState: string | null;
+    callerOutcome: string | null;
+    durationSeconds: number | null;
+    goToAiSummary: string | null;
+    goToPrimaryRecordingId: string | null;
+    requestedAt: string;
+    transcriptStatus: "FAILED" | "PENDING" | "PROCESSING" | "READY";
+    wasConnected: boolean | null;
+  }>;
   contactRecords: ContactHistoryEntry[];
   customerName: string;
   mode: string;
@@ -128,6 +142,16 @@ function hasActiveFilters(input: {
 
 function getAsmDisplayLabel(input: { advisorName: string | null; asmNumber: number }) {
   return input.advisorName ? `ASM ${input.asmNumber} · ${input.advisorName}` : `ASM ${input.asmNumber}`;
+}
+
+function getCallAttemptTimestamp(
+  callAttempt: {
+    callAnsweredAt: string | null;
+    callEndedAt: string | null;
+    requestedAt?: string;
+  } | null,
+) {
+  return callAttempt?.requestedAt ?? callAttempt?.callEndedAt ?? callAttempt?.callAnsweredAt ?? null;
 }
 
 export function ActiveRoBoard({
@@ -1136,12 +1160,18 @@ export function ActiveRoBoard({
                   const urgencyScore = getRepairOrderUrgencyScore(repairOrder, slaSettings, now);
                   const expanded = expandedRows.has(repairOrder.roNumber);
                   const latestContact = repairOrder.contactRecords[0] ?? null;
-                  const latestCallRecord = repairOrder.contactRecords.find(
-                    (record) => record.linkedCallRecord,
-                  )?.linkedCallRecord;
+                  const latestCallRecord =
+                    repairOrder.callSessions[0] ??
+                    repairOrder.contactRecords.find((record) => record.linkedCallRecord)
+                      ?.linkedCallRecord;
                   const callStatus = latestCallRecord ? getDerivedCallStatus(latestCallRecord) : null;
                   const callSummary =
                     latestCallRecord?.callSummary || latestCallRecord?.goToAiSummary || null;
+                  const attemptedToday = Boolean(
+                    latestCallRecord &&
+                      new Date(getCallAttemptTimestamp(latestCallRecord) ?? "").toDateString() ===
+                        new Date().toDateString(),
+                  );
 
                   return (
                     <Fragment key={repairOrder.roNumber}>
@@ -1239,6 +1269,13 @@ export function ActiveRoBoard({
                             {hasRentalCar ? (
                               <span className="rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
                                 Rental
+                              </span>
+                            ) : null}
+                            {!contacted && attemptedToday && callStatus ? (
+                              <span
+                                className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${getDerivedCallStatusClasses(callStatus)}`}
+                              >
+                                Attempted: {getDerivedCallStatusLabel(callStatus)}
                               </span>
                             ) : null}
                           </div>

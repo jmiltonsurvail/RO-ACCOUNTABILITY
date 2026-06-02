@@ -1,5 +1,12 @@
-import { type Prisma } from "@prisma/client";
+import {
+  CallSessionStatus,
+  RecordingProcessingStatus,
+  TranscriptProcessingStatus,
+  type Prisma,
+} from "@prisma/client";
+import { randomUUID } from "crypto";
 import { type NextRequest, NextResponse } from "next/server";
+import { buildCallSessionStorageKeys } from "@/lib/call-storage";
 import {
   fetchGoToCallEventsReport,
   getGoToConnectSettingsWithAccessToken,
@@ -7,6 +14,7 @@ import {
 } from "@/lib/goto-connect";
 import { getDerivedCallStatus } from "@/lib/call-session-status";
 import { logGoTo } from "@/lib/goto-debug";
+import { getPlatformIntegrationSettings } from "@/lib/platform-integrations";
 import { prisma } from "@/lib/prisma";
 
 type GoToCallEventPayload = {
@@ -293,6 +301,357 @@ function didCallConnect(report: GoToCallEventsReport) {
   );
 }
 
+function normalizePhoneDigits(value: string | null | undefined) {
+  const digits = value?.replace(/\D+/g, "") ?? "";
+
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return digits.slice(1);
+  }
+
+  return digits.length >= 10 ? digits.slice(-10) : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function collectPhoneCandidates(value: unknown, candidates = new Set<string>()) {
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectPhoneCandidates(entry, candidates));
+    return candidates;
+  }
+
+  if (!isRecord(value)) {
+    return candidates;
+  }
+
+  for (const [key, entry] of Object.entries(value)) {
+    const normalizedKey = key.toLowerCase();
+
+    if (typeof entry === "string") {
+      const looksLikePhoneKey =
+        normalizedKey.includes("phone") ||
+        normalizedKey.includes("number") ||
+        normalizedKey.includes("dial") ||
+        normalizedKey.includes("ani") ||
+        normalizedKey.includes("callerid");
+      const digits = normalizePhoneDigits(entry);
+
+      if (looksLikePhoneKey && digits) {
+        candidates.add(digits);
+      }
+    }
+
+    collectPhoneCandidates(entry, candidates);
+  }
+
+  return candidates;
+}
+
+function collectLineCandidates(
+  value: unknown,
+  candidates = new Map<string, { extension: string | null; lineId: string | null }>(),
+) {
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectLineCandidates(entry, candidates));
+    return candidates;
+  }
+
+  if (!isRecord(value)) {
+    return candidates;
+  }
+
+  const lineId =
+    typeof value.lineId === "string" && value.lineId.trim() ? value.lineId.trim() : null;
+  const extension =
+    (typeof value.extension === "string" && value.extension.trim()
+      ? value.extension.trim()
+      : null) ||
+    (typeof value.extensionNumber === "string" && value.extensionNumber.trim()
+      ? value.extensionNumber.trim()
+      : null) ||
+    (typeof value.number === "string" && /^\d{2,8}$/.test(value.number.trim())
+      ? value.number.trim()
+      : null);
+
+  if (lineId || extension) {
+    candidates.set(`${lineId ?? ""}:${extension ?? ""}`, { extension, lineId });
+  }
+
+  for (const entry of Object.values(value)) {
+    collectLineCandidates(entry, candidates);
+  }
+
+  return candidates;
+}
+
+function getInboundReceiverCandidates(report: GoToCallEventsReport) {
+  return Array.from(collectLineCandidates(report as unknown).values());
+}
+
+async function resolveInboundReceiverUser(input: {
+  organizationId: string;
+  report: GoToCallEventsReport;
+}) {
+  const candidates = getInboundReceiverCandidates(input.report);
+
+  for (const candidate of candidates) {
+    const user = await prisma.user.findFirst({
+      where: {
+        organizationId: input.organizationId,
+        OR: [
+          ...(candidate.lineId ? [{ gotoConnectLineId: candidate.lineId }] : []),
+          ...(candidate.extension ? [{ gotoConnectExtension: candidate.extension }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        gotoConnectExtension: true,
+        gotoConnectLineId: true,
+      },
+    });
+
+    if (user) {
+      return {
+        sourceExtension: user.gotoConnectExtension,
+        sourceLineId: user.gotoConnectLineId,
+        userId: user.id,
+      };
+    }
+  }
+
+  return {
+    sourceExtension: candidates[0]?.extension ?? null,
+    sourceLineId: candidates[0]?.lineId ?? null,
+    userId: null,
+  };
+}
+
+async function findInboundRepairOrderByPhone(input: {
+  organizationId: string;
+  phoneCandidates: string[];
+}) {
+  if (input.phoneCandidates.length === 0) {
+    return null;
+  }
+
+  const repairOrders = await prisma.repairOrder.findMany({
+    where: {
+      isActive: true,
+      organizationId: input.organizationId,
+      phone: {
+        not: null,
+      },
+    },
+    orderBy: [{ updatedAt: "desc" }],
+    select: {
+      advisorName: true,
+      asmNumber: true,
+      customerName: true,
+      id: true,
+      phone: true,
+      roNumber: true,
+    },
+  });
+
+  const matches = repairOrders.filter((repairOrder) => {
+    const repairOrderPhone = normalizePhoneDigits(repairOrder.phone);
+    return Boolean(repairOrderPhone && input.phoneCandidates.includes(repairOrderPhone));
+  });
+
+  return matches[0] ?? null;
+}
+
+async function ingestInboundCallReport(input: {
+  accessTokenSettings: Awaited<ReturnType<typeof getGoToConnectSettingsWithAccessToken>>;
+  conversationSpaceId: string;
+  organizationId: string;
+  report: GoToCallEventsReport;
+  reportSummaryContent?: NonNullable<GoToCallEventsReportNotification["content"]>;
+}) {
+  const direction = input.report.direction?.trim().toUpperCase() ?? null;
+
+  if (direction !== "INBOUND") {
+    return {
+      matched: false,
+      reason: "not-inbound",
+      type: "inbound-call-report",
+    };
+  }
+
+  const phoneCandidates = Array.from(collectPhoneCandidates(input.report as unknown));
+  const repairOrder = await findInboundRepairOrderByPhone({
+    organizationId: input.organizationId,
+    phoneCandidates,
+  });
+
+  if (!repairOrder) {
+    logGoTo("info", "webhook:inbound-report:no-ro-match", {
+      conversationSpaceId: input.conversationSpaceId,
+      organizationId: input.organizationId,
+      phoneCandidates,
+    });
+    return {
+      matched: false,
+      reason: "no-ro-phone-match",
+      type: "inbound-call-report",
+    };
+  }
+
+  const existingCallSession = await prisma.callSession.findFirst({
+    where: {
+      conversationSpaceId: input.report.conversationSpaceId ?? input.conversationSpaceId,
+      organizationId: input.organizationId,
+    },
+    select: {
+      id: true,
+    },
+  });
+  const callSessionId = existingCallSession?.id ?? randomUUID();
+  const platformSettings = await getPlatformIntegrationSettings();
+  const storageKeys = buildCallSessionStorageKeys({
+    callSessionId,
+    organizationId: input.organizationId,
+    settings: platformSettings,
+  });
+  const reportSummaryContent = input.reportSummaryContent ?? null;
+  const callCreatedAt = parseDate(input.report.callCreated);
+  const callAnsweredAt =
+    parseDate(reportSummaryContent?.callAnswered ?? null) ??
+    parseDate(input.report.callAnswered ?? null);
+  const callEndedAt = parseDate(input.report.callEnded);
+  const durationSeconds = getDurationSeconds(input.report);
+  const wasConnected = didCallConnect(input.report) || Boolean(callAnsweredAt);
+  const callerOutcome =
+    reportSummaryContent?.callerOutcome?.trim() || input.report.callerOutcome?.trim() || null;
+  const derivedCallStatus = getDerivedCallStatus({
+    callAnsweredAt,
+    callEndedAt,
+    callState: "ENDED",
+    callerOutcome,
+    durationSeconds,
+    wasConnected,
+  });
+  const receiver = await resolveInboundReceiverUser({
+    organizationId: input.organizationId,
+    report: input.report,
+  });
+  const reportRecordingIds = getReportRecordingIds(reportSummaryContent);
+  const goToAiSummary =
+    reportSummaryContent?.aiAnalysis?.summary?.trim() ||
+    input.report.aiAnalysis?.summary?.trim() ||
+    null;
+  const contactTimestamp = callEndedAt ?? callAnsweredAt ?? callCreatedAt ?? new Date();
+  const shouldMarkContacted = derivedCallStatus === "HUMAN_ANSWERED";
+
+  await prisma.$transaction(async (transaction) => {
+    const data = {
+      asmNumber: repairOrder.asmNumber,
+      callAnsweredAt,
+      callCreatedAt,
+      callEndedAt,
+      callerOutcome,
+      callState: "ENDED",
+      conversationSpaceId: input.report.conversationSpaceId ?? input.conversationSpaceId,
+      customerName: repairOrder.customerName,
+      customerPhone: repairOrder.phone,
+      durationSeconds,
+      goToAiSummary,
+      goToPrimaryRecordingId: reportRecordingIds[0] ?? null,
+      goToRecordingIds:
+        reportRecordingIds.length > 0 ? (reportRecordingIds as Prisma.InputJsonValue) : undefined,
+      initiatedByUserId: receiver.userId,
+      organizationId: input.organizationId,
+      processedRecordingObjectKey: storageKeys.processedRecordingObjectKey,
+      rawCallReportJson: input.report as Prisma.InputJsonValue,
+      rawRecordingObjectKey: `${storageKeys.rawInboundPrefix}/unmatched/${callSessionId}.wav`,
+      recordingStatus: RecordingProcessingStatus.PENDING,
+      repairOrderId: repairOrder.id,
+      sourceExtension: receiver.sourceExtension,
+      sourceLineId: receiver.sourceLineId,
+      status: CallSessionStatus.QUEUED,
+      storageBucket:
+        input.accessTokenSettings.recordingS3Bucket ?? platformSettings.s3Bucket ?? null,
+      storagePrefix: storageKeys.storagePrefix,
+      transcriptJsonObjectKey: storageKeys.transcriptJsonObjectKey,
+      transcriptStatus: TranscriptProcessingStatus.PENDING,
+      transcriptTextObjectKey: storageKeys.transcriptTextObjectKey,
+      wasConnected,
+    } satisfies Prisma.CallSessionUncheckedCreateInput;
+
+    if (existingCallSession) {
+      await transaction.callSession.update({
+        where: { id: existingCallSession.id },
+        data,
+      });
+    } else {
+      await transaction.callSession.create({
+        data: {
+          ...data,
+          id: callSessionId,
+        },
+      });
+    }
+
+    if (shouldMarkContacted) {
+      await transaction.contactState.upsert({
+        where: {
+          repairOrderId: repairOrder.id,
+        },
+        update: {
+          advisorUserId: receiver.userId,
+          contacted: true,
+          contactedAt: contactTimestamp,
+        },
+        create: {
+          advisorUserId: receiver.userId,
+          contacted: true,
+          contactedAt: contactTimestamp,
+          repairOrderId: repairOrder.id,
+        },
+      });
+
+      const existingContactRecord = await transaction.contactRecord.findFirst({
+        where: {
+          callSessionId,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!existingContactRecord) {
+        await transaction.contactRecord.create({
+          data: {
+            advisorUserId: receiver.userId,
+            callSessionId,
+            contactedAt: contactTimestamp,
+            repairOrderId: repairOrder.id,
+          },
+        });
+      }
+    }
+  });
+
+  logGoTo("info", "webhook:inbound-report:matched", {
+    callSessionId,
+    conversationSpaceId: input.report.conversationSpaceId ?? input.conversationSpaceId,
+    derivedCallStatus,
+    organizationId: input.organizationId,
+    phoneCandidates,
+    receiverUserId: receiver.userId,
+    roNumber: repairOrder.roNumber,
+    shouldMarkContacted,
+  });
+
+  return {
+    matched: true,
+    repairOrderId: repairOrder.id,
+    shouldMarkContacted,
+    type: "inbound-call-report",
+  };
+}
+
 async function processCallEvent(input: {
   organizationId: string;
   payload: GoToCallEventPayload;
@@ -427,8 +786,21 @@ async function processCallEventsReportSummary(input: {
   });
 
   if (!callSession) {
+    const inboundResult = await ingestInboundCallReport({
+      accessTokenSettings: settings,
+      conversationSpaceId: input.conversationSpaceId,
+      organizationId: input.organizationId,
+      report,
+      reportSummaryContent: input.reportSummaryContent,
+    });
+
+    if (inboundResult.matched) {
+      return inboundResult;
+    }
+
     logGoTo("warn", "webhook:call-report:unmatched", {
       conversationSpaceId: input.conversationSpaceId,
+      inboundReason: inboundResult.reason,
       organizationId: input.organizationId,
       reportConversationSpaceId: report.conversationSpaceId ?? null,
     });

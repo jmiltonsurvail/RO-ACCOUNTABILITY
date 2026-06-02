@@ -48,6 +48,20 @@ export default async function ManagerPage() {
                   customerNotes: repairOrder.contactState.customerNotes,
                 }
               : null,
+            callSessions: repairOrder.callSessions.map((callSession) => ({
+              callAnsweredAt: callSession.callAnsweredAt?.toISOString() ?? null,
+              callEndedAt: callSession.callEndedAt?.toISOString() ?? null,
+              callSessionId: callSession.id,
+              callSummary: callSession.callSummary,
+              callState: callSession.callState,
+              callerOutcome: callSession.callerOutcome,
+              durationSeconds: callSession.durationSeconds,
+              goToAiSummary: callSession.goToAiSummary,
+              goToPrimaryRecordingId: callSession.goToPrimaryRecordingId,
+              requestedAt: callSession.requestedAt.toISOString(),
+              transcriptStatus: callSession.transcriptStatus,
+              wasConnected: callSession.wasConnected,
+            })),
             contactRecords: repairOrder.contactRecords.map((record) => ({
               advisorLabel:
                 record.advisorUser?.name?.trim() ||

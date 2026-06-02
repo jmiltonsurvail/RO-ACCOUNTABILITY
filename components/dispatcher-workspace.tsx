@@ -20,6 +20,20 @@ type DispatcherOrder = {
     hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
+  callSessions: Array<{
+    callAnsweredAt: string | null;
+    callEndedAt: string | null;
+    callSessionId: string;
+    callSummary: string | null;
+    callState: string | null;
+    callerOutcome: string | null;
+    durationSeconds: number | null;
+    goToAiSummary: string | null;
+    goToPrimaryRecordingId: string | null;
+    requestedAt: string;
+    transcriptStatus: "FAILED" | "PENDING" | "PROCESSING" | "READY";
+    wasConnected: boolean | null;
+  }>;
   contactRecords: ContactHistoryEntry[];
   customerName: string;
   mode: string;
