@@ -227,6 +227,24 @@ export function ActiveRoBoard({
     [repairOrders],
   );
 
+  const techOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          repairOrders
+            .filter((repairOrder) => repairOrder.techNumber !== null)
+            .map((repairOrder) => [
+              repairOrder.techNumber,
+              {
+                techName: repairOrder.techName,
+                techNumber: repairOrder.techNumber,
+              },
+            ]),
+        ).values(),
+      ).sort((left, right) => (left.techNumber ?? 0) - (right.techNumber ?? 0)),
+    [repairOrders],
+  );
+
   const filteredRepairOrders = useMemo(() => {
     const now = new Date();
     const searchQuery = deferredSearch.trim().toLowerCase();
@@ -689,6 +707,38 @@ export function ActiveRoBoard({
               {modeOptions.map((mode) => (
                 <option key={mode} value={mode}>
                   {mode}
+                </option>
+              ))}
+            </select>
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-zinc-400"
+              fill="none"
+              viewBox="0 0 20 20"
+            >
+              <path
+                d="m5 7.5 5 5 5-5"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.6"
+              />
+            </svg>
+          </label>
+
+          <label className="relative w-48">
+            <span className="sr-only">Tech filter</span>
+            <select
+              className="h-8 w-full appearance-none rounded-md bg-white pl-3 pr-8 text-sm text-zinc-900 ring-1 ring-inset ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+              onChange={(event) => setTechFilter(event.target.value)}
+              value={techFilter}
+            >
+              <option value="all">All techs</option>
+              <option value="unassigned">Unassigned tech</option>
+              {techOptions.map((tech) => (
+                <option key={tech.techNumber} value={String(tech.techNumber)}>
+                  Tech {tech.techNumber}
+                  {tech.techName ? ` · ${tech.techName}` : ""}
                 </option>
               ))}
             </select>

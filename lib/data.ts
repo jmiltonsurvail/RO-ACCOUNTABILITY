@@ -10,6 +10,24 @@ import {
 
 const roCardInclude = {
   blockerState: true,
+  callSessions: {
+    orderBy: { requestedAt: "desc" },
+    take: 8,
+    select: {
+      callAnsweredAt: true,
+      callEndedAt: true,
+      callSummary: true,
+      callState: true,
+      callerOutcome: true,
+      durationSeconds: true,
+      goToAiSummary: true,
+      goToPrimaryRecordingId: true,
+      id: true,
+      requestedAt: true,
+      transcriptStatus: true,
+      wasConnected: true,
+    },
+  },
   contactState: true,
   contactRecords: {
     orderBy: { contactedAt: "desc" },

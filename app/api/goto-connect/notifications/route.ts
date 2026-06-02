@@ -5,6 +5,7 @@ import {
   getGoToConnectSettingsWithAccessToken,
   type GoToCallEventsReport,
 } from "@/lib/goto-connect";
+import { getDerivedCallStatus } from "@/lib/call-session-status";
 import { logGoTo } from "@/lib/goto-debug";
 import { prisma } from "@/lib/prisma";
 
@@ -446,11 +447,21 @@ async function processCallEventsReportSummary(input: {
   const callEndedAt = parseDate(report.callEnded);
   const contactTimestamp = callEndedAt ?? callCreatedAt ?? new Date();
   const wasConnected = didCallConnect(report) || Boolean(callAnsweredAt);
+  const durationSeconds = getDurationSeconds(report);
   const reportRecordingIds = getReportRecordingIds(reportSummaryContent);
   const goToAiSummary =
     reportSummaryContent?.aiAnalysis?.summary?.trim() || report.aiAnalysis?.summary?.trim() || null;
   const callerOutcome =
     reportSummaryContent?.callerOutcome?.trim() || report.callerOutcome?.trim() || null;
+  const derivedCallStatus = getDerivedCallStatus({
+    callAnsweredAt,
+    callEndedAt,
+    callState: "ENDED",
+    callerOutcome,
+    durationSeconds,
+    wasConnected,
+  });
+  const shouldMarkContacted = derivedCallStatus === "HUMAN_ANSWERED";
   const existingContactRecord = await prisma.contactRecord.findFirst({
     where: {
       callSessionId: callSession.id,
@@ -481,7 +492,7 @@ async function processCallEventsReportSummary(input: {
         callState: "ENDED",
         callerOutcome,
         conversationSpaceId: report.conversationSpaceId ?? input.conversationSpaceId,
-        durationSeconds: getDurationSeconds(report),
+        durationSeconds,
         goToAiSummary,
         ...(reportRecordingIds.length > 0
           ? {
@@ -494,7 +505,7 @@ async function processCallEventsReportSummary(input: {
       },
     });
 
-    if (trackedCallSession) {
+    if (trackedCallSession && shouldMarkContacted) {
       await transaction.contactState.upsert({
         where: {
           repairOrderId: trackedCallSession.repairOrderId,
@@ -532,9 +543,11 @@ async function processCallEventsReportSummary(input: {
     callSessionId: callSession.id,
     callerOutcome,
     conversationSpaceId: report.conversationSpaceId ?? input.conversationSpaceId,
-    durationSeconds: getDurationSeconds(report),
+    durationSeconds,
+    derivedCallStatus,
     primaryRecordingId: reportRecordingIds[0] ?? null,
     organizationId: input.organizationId,
+    shouldMarkContacted,
     wasConnected,
   });
 

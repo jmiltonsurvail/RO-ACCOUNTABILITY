@@ -10,6 +10,11 @@ import { CompactStatCard } from "@/components/compact-stat-card";
 import { ContactHistoryList } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
 import {
+  getDerivedCallStatus,
+  getDerivedCallStatusClasses,
+  getDerivedCallStatusLabel,
+} from "@/lib/call-session-status";
+import {
   hasRepairOrderContactToday,
   isRepairOrderAtRisk,
   isRepairOrderOverdue,
@@ -20,6 +25,16 @@ import { cn, formatDateTime } from "@/lib/utils";
 
 type AdvisorQuickFilter = "all" | "at-risk" | "needs-contact" | "overdue" | "rental-car";
 type AdvisorBoardLayout = "list" | "cards";
+
+function getCallAttemptTimestamp(
+  callAttempt: {
+    callAnsweredAt: string | null;
+    callEndedAt: string | null;
+    requestedAt?: string;
+  } | null,
+) {
+  return callAttempt?.requestedAt ?? callAttempt?.callEndedAt ?? callAttempt?.callAnsweredAt ?? null;
+}
 
 function getDueDateTone(value: string | null) {
   if (!value) {
@@ -331,13 +346,22 @@ export function AdvisorRoBoard({
                   const dueDate = blocker?.techPromisedDate ?? repairOrder.promisedAtNormalized;
                   const latestContact = repairOrder.contactRecords[0] ?? null;
                   const latestCallRecord =
+                    repairOrder.callSessions[0] ??
                     repairOrder.contactRecords.find((record) => record.linkedCallRecord)
-                      ?.linkedCallRecord ?? null;
+                      ?.linkedCallRecord ??
+                    null;
                   const latestCallSummary =
+                    repairOrder.callSessions.find((callSession) => callSession.callSummary)
+                      ?.callSummary ??
                     repairOrder.contactRecords.find((record) => record.linkedCallRecord?.callSummary)
                       ?.linkedCallRecord?.callSummary ??
                     latestCallRecord?.goToAiSummary ??
                     null;
+                  const attemptedToday = Boolean(
+                    latestCallRecord &&
+                      new Date(getCallAttemptTimestamp(latestCallRecord) ?? "").toDateString() ===
+                        new Date().toDateString(),
+                  );
                   const dueDateTone = getDueDateTone(dueDate);
                   const selected = selectedRoNumber === repairOrder.roNumber;
                   const callHref = (() => {
@@ -417,6 +441,16 @@ export function AdvisorRoBoard({
                             >
                               {contactedToday ? "Contacted" : "Needs Contact"}
                             </span>
+                            {!contactedToday && attemptedToday && latestCallRecord ? (
+                              <span
+                                className={`rounded-md px-2 py-1 text-xs font-medium ${getDerivedCallStatusClasses(
+                                  getDerivedCallStatus(latestCallRecord),
+                                )}`}
+                              >
+                                Attempted:{" "}
+                                {getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
+                              </span>
+                            ) : null}
                             <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
                               {blocker ? blockerReasonLabels[blocker.blockerReason] : "No blocker"}
                             </span>

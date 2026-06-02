@@ -14,6 +14,31 @@ import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
 import { hasRepairOrderContactToday } from "@/lib/repair-order-urgency";
 import { cn, formatDateTime, hoursSince } from "@/lib/utils";
 
+type AdvisorCallAttempt = {
+  callAnsweredAt: string | null;
+  callEndedAt: string | null;
+  callSessionId: string;
+  callSummary: string | null;
+  callState: string | null;
+  callerOutcome: string | null;
+  durationSeconds: number | null;
+  goToAiSummary: string | null;
+  goToPrimaryRecordingId: string | null;
+  requestedAt: string;
+  transcriptStatus: string;
+  wasConnected: boolean | null;
+};
+
+function getCallAttemptTimestamp(
+  callAttempt: {
+    callAnsweredAt: string | null;
+    callEndedAt: string | null;
+    requestedAt?: string;
+  } | null,
+) {
+  return callAttempt?.requestedAt ?? callAttempt?.callEndedAt ?? callAttempt?.callAnsweredAt ?? null;
+}
+
 function getRepairValueBadgeClasses(value: RepairValue) {
   if (value === "HIGH") {
     return "border-rose-700 bg-rose-600 text-white";
@@ -40,6 +65,7 @@ export type AdvisorRepairOrder = {
     hasRentalCar: boolean;
     customerNotes: string | null;
   } | null;
+  callSessions: AdvisorCallAttempt[];
   contactRecords: ContactHistoryEntry[];
   customerName: string;
   mode: string;
@@ -99,10 +125,19 @@ export function AdvisorContactCard({
     ? `ASM ${repairOrder.asmNumber} · ${repairOrder.advisorName}`
     : `ASM ${repairOrder.asmNumber}`;
   const latestCallSummary =
+    repairOrder.callSessions.find((callSession) => callSession.callSummary)?.callSummary ??
     repairOrder.contactRecords.find((record) => record.linkedCallRecord?.callSummary)
-      ?.linkedCallRecord?.callSummary ?? null;
+      ?.linkedCallRecord?.callSummary ??
+    null;
   const latestCallRecord =
-    repairOrder.contactRecords.find((record) => record.linkedCallRecord)?.linkedCallRecord ?? null;
+    repairOrder.callSessions[0] ??
+    repairOrder.contactRecords.find((record) => record.linkedCallRecord)?.linkedCallRecord ??
+    null;
+  const attemptedToday = Boolean(
+    latestCallRecord &&
+      new Date(getCallAttemptTimestamp(latestCallRecord) ?? "").toDateString() ===
+        new Date().toDateString(),
+  );
 
   return (
     <article
@@ -139,6 +174,15 @@ export function AdvisorContactCard({
         <span className={cn("rounded-md px-1.5 py-0.5 text-[11px] font-medium", contactRecordTone)}>
           {contactRecordLabel}
         </span>
+        {!contactedToday && attemptedToday && latestCallRecord ? (
+          <span
+            className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${getDerivedCallStatusClasses(
+              getDerivedCallStatus(latestCallRecord),
+            )}`}
+          >
+            Attempted: {getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
+          </span>
+        ) : null}
         <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">
           {repairOrder.riskReason}
         </span>
@@ -265,6 +309,12 @@ export function AdvisorContactCard({
       ) : (
         <div className="mt-4 grid gap-4">
           <div className="flex flex-wrap gap-4 text-sm text-zinc-600">
+            <span>
+              Last attempt{" "}
+              {latestCallRecord
+                ? formatDateTime(getCallAttemptTimestamp(latestCallRecord))
+                : "No attempt logged"}
+            </span>
             <span>
               Last contact{" "}
               {repairOrder.contactRecords[0]
