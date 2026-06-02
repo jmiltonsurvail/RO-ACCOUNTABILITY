@@ -16,6 +16,7 @@ import { CompactStatCard } from "@/components/compact-stat-card";
 import { ContactEditModal } from "@/components/contact-edit-modal";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import {
+  type DerivedCallStatus,
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
   getDerivedCallStatusLabel,
@@ -82,6 +83,7 @@ type ActiveRepairOrder = {
 type BlockerFilter = "all" | "blocked" | "unblocked";
 type ContactFilter = "all" | "needs-contact" | "contacted" | "no-record";
 type DueFilter = "all" | "overdue" | "today" | "upcoming" | "missing";
+type CallStatusFilter = "all" | "no-call" | DerivedCallStatus;
 type BoardLayout = "table" | "cards" | "split";
 type QuickView =
   | "all"
@@ -120,6 +122,7 @@ function hasActiveFilters(input: {
   asmFilter: string;
   blockerFilter: BlockerFilter;
   contactFilter: ContactFilter;
+  callStatusFilter: CallStatusFilter;
   dueFilter: DueFilter;
   modeFilter: string;
   quickView: QuickView;
@@ -136,6 +139,7 @@ function hasActiveFilters(input: {
       input.quickView !== "all" ||
       input.blockerFilter !== "all" ||
       input.contactFilter !== "all" ||
+      input.callStatusFilter !== "all" ||
       input.dueFilter !== "all",
   );
 }
@@ -152,6 +156,14 @@ function getCallAttemptTimestamp(
   } | null,
 ) {
   return callAttempt?.requestedAt ?? callAttempt?.callEndedAt ?? callAttempt?.callAnsweredAt ?? null;
+}
+
+function getLatestCallRecord(repairOrder: ActiveRepairOrder) {
+  return (
+    repairOrder.callSessions[0] ??
+    repairOrder.contactRecords.find((record) => record.linkedCallRecord)?.linkedCallRecord ??
+    null
+  );
 }
 
 export function ActiveRoBoard({
@@ -182,6 +194,7 @@ export function ActiveRoBoard({
   const [techFilter, setTechFilter] = useState("all");
   const [blockerFilter, setBlockerFilter] = useState<BlockerFilter>("all");
   const [contactFilter, setContactFilter] = useState<ContactFilter>("all");
+  const [callStatusFilter, setCallStatusFilter] = useState<CallStatusFilter>("all");
   const [dueFilter, setDueFilter] = useState<DueFilter>("all");
   const [quickView, setQuickView] = useState<QuickView>("all");
   const [boardLayout, setBoardLayout] = useState<BoardLayout>("table");
@@ -278,6 +291,8 @@ export function ActiveRoBoard({
         const dueDate = getRepairOrderDueDate(repairOrder);
         const blocked = Boolean(repairOrder.blockerState?.isBlocked);
         const contacted = hasRepairOrderContactToday(repairOrder);
+        const latestCallRecord = getLatestCallRecord(repairOrder);
+        const latestCallStatus = latestCallRecord ? getDerivedCallStatus(latestCallRecord) : null;
         const searchIndex = [
           repairOrder.roNumber,
           repairOrder.tag ?? "",
@@ -349,6 +364,18 @@ export function ActiveRoBoard({
           return false;
         }
 
+        if (callStatusFilter === "no-call" && latestCallRecord) {
+          return false;
+        }
+
+        if (
+          callStatusFilter !== "all" &&
+          callStatusFilter !== "no-call" &&
+          latestCallStatus !== callStatusFilter
+        ) {
+          return false;
+        }
+
         if (dueFilter === "overdue" && !isRepairOrderOverdue(repairOrder, now)) {
           return false;
         }
@@ -399,6 +426,7 @@ export function ActiveRoBoard({
   }, [
     asmFilter,
     blockerFilter,
+    callStatusFilter,
     contactFilter,
     deferredSearch,
     dueFilter,
@@ -480,6 +508,7 @@ export function ActiveRoBoard({
     setTechFilter("all");
     setBlockerFilter("all");
     setContactFilter("all");
+    setCallStatusFilter("all");
     setDueFilter("all");
     setQuickView("all");
   };
@@ -501,6 +530,7 @@ export function ActiveRoBoard({
   const filtersAreActive = hasActiveFilters({
     asmFilter,
     blockerFilter,
+    callStatusFilter,
     contactFilter,
     dueFilter,
     modeFilter,
@@ -795,6 +825,44 @@ export function ActiveRoBoard({
               <option value="overdue">Overdue</option>
               <option value="needs-contact">Needs contact</option>
               <option value="contacted">Contacted today</option>
+            </select>
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-zinc-400"
+              fill="none"
+              viewBox="0 0 20 20"
+            >
+              <path
+                d="m5 7.5 5 5 5-5"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.6"
+              />
+            </svg>
+          </label>
+
+          <label className="relative w-48">
+            <span className="sr-only">Call status filter</span>
+            <select
+              className="h-8 w-full appearance-none rounded-md bg-white pl-3 pr-8 text-sm text-zinc-900 ring-1 ring-inset ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+              onChange={(event) => setCallStatusFilter(event.target.value as CallStatusFilter)}
+              value={callStatusFilter}
+            >
+              <option value="all">All call statuses</option>
+              <option value="HUMAN_ANSWERED">
+                {getDerivedCallStatusLabel("HUMAN_ANSWERED")}
+              </option>
+              <option value="VOICEMAIL_LEFT">
+                {getDerivedCallStatusLabel("VOICEMAIL_LEFT")}
+              </option>
+              <option value="VOICEMAIL_NO_MESSAGE">
+                {getDerivedCallStatusLabel("VOICEMAIL_NO_MESSAGE")}
+              </option>
+              <option value="NO_ANSWER">{getDerivedCallStatusLabel("NO_ANSWER")}</option>
+              <option value="IN_PROGRESS">{getDerivedCallStatusLabel("IN_PROGRESS")}</option>
+              <option value="PENDING">{getDerivedCallStatusLabel("PENDING")}</option>
+              <option value="no-call">No call record</option>
             </select>
             <svg
               aria-hidden="true"
@@ -1160,10 +1228,7 @@ export function ActiveRoBoard({
                   const urgencyScore = getRepairOrderUrgencyScore(repairOrder, slaSettings, now);
                   const expanded = expandedRows.has(repairOrder.roNumber);
                   const latestContact = repairOrder.contactRecords[0] ?? null;
-                  const latestCallRecord =
-                    repairOrder.callSessions[0] ??
-                    repairOrder.contactRecords.find((record) => record.linkedCallRecord)
-                      ?.linkedCallRecord;
+                  const latestCallRecord = getLatestCallRecord(repairOrder);
                   const callStatus = latestCallRecord ? getDerivedCallStatus(latestCallRecord) : null;
                   const callSummary =
                     latestCallRecord?.callSummary || latestCallRecord?.goToAiSummary || null;
