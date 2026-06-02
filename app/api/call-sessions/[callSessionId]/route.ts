@@ -31,6 +31,7 @@ export async function GET(
     select: {
       asmNumber: true,
       callAnsweredAt: true,
+      callDirection: true,
       callSummary: true,
       callState: true,
       callerOutcome: true,
@@ -96,6 +97,7 @@ export async function GET(
     callSession: {
       callSummary: callSession.callSummary,
       callAnsweredAt: callSession.callAnsweredAt?.toISOString() ?? null,
+      callDirection: callSession.callDirection,
       callState: callSession.callState,
       callerOutcome: callSession.callerOutcome,
       customerName: callSession.customerName,

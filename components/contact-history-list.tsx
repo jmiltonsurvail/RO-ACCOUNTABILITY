@@ -15,6 +15,7 @@ export type ContactHistoryEntry = {
   customerNotes: string | null;
   linkedCallRecord: {
     callAnsweredAt: string | null;
+    callDirection?: string | null;
     callEndedAt: string | null;
     callSessionId: string;
     callSummary: string | null;

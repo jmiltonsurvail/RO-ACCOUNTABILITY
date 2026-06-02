@@ -15,6 +15,7 @@ const roCardInclude = {
     take: 8,
     select: {
       callAnsweredAt: true,
+      callDirection: true,
       callEndedAt: true,
       callSummary: true,
       callState: true,
@@ -42,6 +43,7 @@ const roCardInclude = {
       callSession: {
         select: {
           callAnsweredAt: true,
+          callDirection: true,
           callEndedAt: true,
           callSummary: true,
           callState: true,
@@ -78,6 +80,7 @@ const activeRepairOrderBoardInclude = {
     take: 8,
     select: {
       callAnsweredAt: true,
+      callDirection: true,
       callEndedAt: true,
       callSummary: true,
       callState: true,
@@ -105,6 +108,7 @@ const activeRepairOrderBoardInclude = {
       callSession: {
         select: {
           callAnsweredAt: true,
+          callDirection: true,
           callEndedAt: true,
           callSummary: true,
           callState: true,

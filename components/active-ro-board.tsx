@@ -53,6 +53,7 @@ type ActiveRepairOrder = {
   } | null;
   callSessions: Array<{
     callAnsweredAt: string | null;
+    callDirection: string | null;
     callEndedAt: string | null;
     callSessionId: string;
     callSummary: string | null;
@@ -84,6 +85,7 @@ type BlockerFilter = "all" | "blocked" | "unblocked";
 type ContactFilter = "all" | "needs-contact" | "contacted" | "no-record";
 type DueFilter = "all" | "overdue" | "today" | "upcoming" | "missing";
 type CallStatusFilter = "all" | "no-call" | DerivedCallStatus;
+type CallDirectionFilter = "all" | "inbound" | "outbound" | "no-call";
 type BoardLayout = "table" | "cards" | "split";
 type QuickView =
   | "all"
@@ -123,6 +125,7 @@ function hasActiveFilters(input: {
   blockerFilter: BlockerFilter;
   contactFilter: ContactFilter;
   callStatusFilter: CallStatusFilter;
+  callDirectionFilter: CallDirectionFilter;
   dueFilter: DueFilter;
   modeFilter: string;
   quickView: QuickView;
@@ -140,6 +143,7 @@ function hasActiveFilters(input: {
       input.blockerFilter !== "all" ||
       input.contactFilter !== "all" ||
       input.callStatusFilter !== "all" ||
+      input.callDirectionFilter !== "all" ||
       input.dueFilter !== "all",
   );
 }
@@ -164,6 +168,20 @@ function getLatestCallRecord(repairOrder: ActiveRepairOrder) {
     repairOrder.contactRecords.find((record) => record.linkedCallRecord)?.linkedCallRecord ??
     null
   );
+}
+
+function getNormalizedCallDirection(callRecord: { callDirection?: string | null } | null) {
+  const direction = callRecord?.callDirection?.trim().toUpperCase() ?? null;
+
+  if (direction === "INBOUND") {
+    return "inbound";
+  }
+
+  if (direction === "OUTBOUND") {
+    return "outbound";
+  }
+
+  return null;
 }
 
 export function ActiveRoBoard({
@@ -195,6 +213,7 @@ export function ActiveRoBoard({
   const [blockerFilter, setBlockerFilter] = useState<BlockerFilter>("all");
   const [contactFilter, setContactFilter] = useState<ContactFilter>("all");
   const [callStatusFilter, setCallStatusFilter] = useState<CallStatusFilter>("all");
+  const [callDirectionFilter, setCallDirectionFilter] = useState<CallDirectionFilter>("all");
   const [dueFilter, setDueFilter] = useState<DueFilter>("all");
   const [quickView, setQuickView] = useState<QuickView>("all");
   const [boardLayout, setBoardLayout] = useState<BoardLayout>("table");
@@ -293,6 +312,7 @@ export function ActiveRoBoard({
         const contacted = hasRepairOrderContactToday(repairOrder);
         const latestCallRecord = getLatestCallRecord(repairOrder);
         const latestCallStatus = latestCallRecord ? getDerivedCallStatus(latestCallRecord) : null;
+        const latestCallDirection = getNormalizedCallDirection(latestCallRecord);
         const searchIndex = [
           repairOrder.roNumber,
           repairOrder.tag ?? "",
@@ -376,6 +396,18 @@ export function ActiveRoBoard({
           return false;
         }
 
+        if (callDirectionFilter === "no-call" && latestCallRecord) {
+          return false;
+        }
+
+        if (
+          callDirectionFilter !== "all" &&
+          callDirectionFilter !== "no-call" &&
+          latestCallDirection !== callDirectionFilter
+        ) {
+          return false;
+        }
+
         if (dueFilter === "overdue" && !isRepairOrderOverdue(repairOrder, now)) {
           return false;
         }
@@ -426,6 +458,7 @@ export function ActiveRoBoard({
   }, [
     asmFilter,
     blockerFilter,
+    callDirectionFilter,
     callStatusFilter,
     contactFilter,
     deferredSearch,
@@ -509,6 +542,7 @@ export function ActiveRoBoard({
     setBlockerFilter("all");
     setContactFilter("all");
     setCallStatusFilter("all");
+    setCallDirectionFilter("all");
     setDueFilter("all");
     setQuickView("all");
   };
@@ -530,6 +564,7 @@ export function ActiveRoBoard({
   const filtersAreActive = hasActiveFilters({
     asmFilter,
     blockerFilter,
+    callDirectionFilter,
     callStatusFilter,
     contactFilter,
     dueFilter,
@@ -863,6 +898,34 @@ export function ActiveRoBoard({
               <option value="IN_PROGRESS">{getDerivedCallStatusLabel("IN_PROGRESS")}</option>
               <option value="PENDING">{getDerivedCallStatusLabel("PENDING")}</option>
               <option value="no-call">No call record</option>
+            </select>
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-zinc-400"
+              fill="none"
+              viewBox="0 0 20 20"
+            >
+              <path
+                d="m5 7.5 5 5 5-5"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.6"
+              />
+            </svg>
+          </label>
+
+          <label className="relative w-44">
+            <span className="sr-only">Call direction filter</span>
+            <select
+              className="h-8 w-full appearance-none rounded-md bg-white pl-3 pr-8 text-sm text-zinc-900 ring-1 ring-inset ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+              onChange={(event) => setCallDirectionFilter(event.target.value as CallDirectionFilter)}
+              value={callDirectionFilter}
+            >
+              <option value="all">All directions</option>
+              <option value="inbound">Inbound calls</option>
+              <option value="outbound">Outbound calls</option>
+              <option value="no-call">No calls</option>
             </select>
             <svg
               aria-hidden="true"

@@ -348,6 +348,7 @@ model CallSession {
   callAnsweredAt             DateTime?
   callCreatedAt              DateTime?
   callEndedAt                DateTime?
+  callDirection              String?
   conversationSpaceId        String?
   durationSeconds            Int?
   goToAiSummary              String?

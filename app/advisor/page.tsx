@@ -52,6 +52,7 @@ export default async function AdvisorPage() {
         : null,
       callSessions: repairOrder.callSessions.map((callSession) => ({
         callAnsweredAt: callSession.callAnsweredAt?.toISOString() ?? null,
+        callDirection: callSession.callDirection,
         callEndedAt: callSession.callEndedAt?.toISOString() ?? null,
         callSessionId: callSession.id,
         callSummary: callSession.callSummary,
@@ -74,6 +75,7 @@ export default async function AdvisorPage() {
             ? {
                 callAnsweredAt:
                   record.callSession.callAnsweredAt?.toISOString() ?? null,
+                callDirection: record.callSession.callDirection,
                 callEndedAt:
                   record.callSession.callEndedAt?.toISOString() ?? null,
                 callSessionId: record.callSession.id,

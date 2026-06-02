@@ -22,6 +22,7 @@ type DispatcherOrder = {
   } | null;
   callSessions: Array<{
     callAnsweredAt: string | null;
+    callDirection: string | null;
     callEndedAt: string | null;
     callSessionId: string;
     callSummary: string | null;

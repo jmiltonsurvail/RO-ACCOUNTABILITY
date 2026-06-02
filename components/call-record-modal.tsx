@@ -32,6 +32,7 @@ type CallRecordResponse = {
   audioUrl: string | null;
   callSession: {
     callAnsweredAt: string | null;
+    callDirection: string | null;
     callSummary: string | null;
     callState: string | null;
     callCreatedAt: string | null;

@@ -549,6 +549,7 @@ async function ingestInboundCallReport(input: {
       asmNumber: repairOrder.asmNumber,
       callAnsweredAt,
       callCreatedAt,
+      callDirection: input.report.direction?.trim().toUpperCase() || "INBOUND",
       callEndedAt,
       callerOutcome,
       callState: "ENDED",
@@ -860,6 +861,7 @@ async function processCallEventsReportSummary(input: {
       data: {
         callAnsweredAt,
         callCreatedAt,
+        callDirection: report.direction?.trim().toUpperCase() || "OUTBOUND",
         callEndedAt,
         callState: "ENDED",
         callerOutcome,

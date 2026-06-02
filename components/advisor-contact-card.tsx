@@ -16,6 +16,7 @@ import { cn, formatDateTime, hoursSince } from "@/lib/utils";
 
 type AdvisorCallAttempt = {
   callAnsweredAt: string | null;
+  callDirection?: string | null;
   callEndedAt: string | null;
   callSessionId: string;
   callSummary: string | null;
