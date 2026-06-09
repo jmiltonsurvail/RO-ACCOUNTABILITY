@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { formatDateTime } from "@/lib/utils";
 
 export type TextMessageThreadEntry = {
@@ -8,14 +9,26 @@ export type TextMessageThreadEntry = {
   deliveryStatus: string | null;
   direction: "INBOUND" | "OUTBOUND";
   id: string;
+  readAt: string | null;
   sentAt: string;
 };
 
 export function TextMessageThread({
+  latestMessageId,
   messages,
 }: {
+  latestMessageId?: string | null;
   messages: TextMessageThreadEntry[];
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      behavior: "smooth",
+      top: scrollRef.current.scrollHeight,
+    });
+  }, [latestMessageId]);
+
   if (messages.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-zinc-200 bg-white px-4 py-5 text-sm text-zinc-500">
@@ -25,7 +38,10 @@ export function TextMessageThread({
   }
 
   return (
-    <div className="max-h-72 space-y-3 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-3">
+    <div
+      className="max-h-72 space-y-3 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-3"
+      ref={scrollRef}
+    >
       {messages.map((message) => {
         const outbound = message.direction === "OUTBOUND";
 
@@ -38,7 +54,9 @@ export function TextMessageThread({
               className={`max-w-[82%] rounded-lg px-3 py-2 text-sm ${
                 outbound
                   ? "bg-zinc-900 text-white"
-                  : "border border-zinc-200 bg-zinc-50 text-zinc-800"
+                  : message.readAt
+                    ? "border border-zinc-200 bg-zinc-50 text-zinc-800"
+                    : "border border-amber-200 bg-amber-50 text-zinc-900"
               }`}
             >
               <p className="whitespace-pre-wrap leading-6">

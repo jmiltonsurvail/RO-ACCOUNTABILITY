@@ -102,8 +102,12 @@ export default async function AdvisorPage() {
         deliveryStatus: message.deliveryStatus,
         direction: message.direction,
         id: message.id,
+        readAt: message.readAt?.toISOString() ?? null,
         sentAt: message.sentAt.toISOString(),
       })),
+      unreadTextMessageCount: repairOrder.textMessages.filter(
+        (message) => message.direction === "INBOUND" && !message.readAt,
+      ).length,
       customerName: repairOrder.customerName,
       mode: repairOrder.mode,
       model: repairOrder.model,

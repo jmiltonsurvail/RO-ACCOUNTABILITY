@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { CallRecordModal } from "@/components/call-record-modal";
+import { TextMessageThread, type TextMessageThreadEntry } from "@/components/text-message-thread";
 import {
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
@@ -26,6 +27,12 @@ export type ContactHistoryEntry = {
     goToPrimaryRecordingId: string | null;
     transcriptStatus: "FAILED" | "PENDING" | "PROCESSING" | "READY";
     wasConnected: boolean | null;
+  } | null;
+  linkedTextConversation?: {
+    customerName: string;
+    customerPhone: string | null;
+    messages: TextMessageThreadEntry[];
+    roNumber: number;
   } | null;
 };
 
@@ -65,6 +72,49 @@ function getTranscriptStatusLabel(
   return "Pending";
 }
 
+function TextConversationModal({
+  contactTimestamp,
+  conversation,
+  onClose,
+}: {
+  contactTimestamp: string;
+  conversation: NonNullable<ContactHistoryEntry["linkedTextConversation"]>;
+  onClose: () => void;
+}) {
+  const latestMessageId = conversation.messages[conversation.messages.length - 1]?.id ?? null;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-zinc-950/60 px-4 py-6">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-6 py-5">
+          <div>
+            <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+              Text Conversation
+            </p>
+            <h2 className="mt-1 text-xl font-semibold text-zinc-900">
+              RO {conversation.roNumber} · {conversation.customerName}
+            </h2>
+            <p className="mt-2 text-sm text-zinc-600">
+              {conversation.customerPhone || "No phone on file"} · Contacted{" "}
+              {formatDateTime(contactTimestamp)}
+            </p>
+          </div>
+          <button
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:border-zinc-900 hover:text-zinc-950"
+            onClick={onClose}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+        <div className="max-h-[calc(90vh-112px)] overflow-y-auto px-6 py-5">
+          <TextMessageThread latestMessageId={latestMessageId} messages={conversation.messages} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ContactHistoryList({
   entries,
 }: {
@@ -74,8 +124,13 @@ export function ContactHistoryList({
   const selectedEntry =
     selectedEntryIndex !== null ? entries[selectedEntryIndex] ?? null : null;
   const selectedCallRecord = selectedEntry?.linkedCallRecord ?? null;
+  const selectedTextConversation = selectedEntry?.linkedTextConversation ?? null;
   const callEnabledCount = useMemo(
     () => entries.filter((entry) => Boolean(entry.linkedCallRecord)).length,
+    [entries],
+  );
+  const textEnabledCount = useMemo(
+    () => entries.filter((entry) => Boolean(entry.linkedTextConversation)).length,
     [entries],
   );
 
@@ -99,6 +154,11 @@ export function ContactHistoryList({
               {callEnabledCount} Call Record{callEnabledCount === 1 ? "" : "s"}
             </span>
           ) : null}
+          {textEnabledCount > 0 ? (
+            <span className="rounded-md bg-white px-2 py-1 text-[11px] font-medium text-zinc-600">
+              {textEnabledCount} Text Thread{textEnabledCount === 1 ? "" : "s"}
+            </span>
+          ) : null}
         </div>
         <div className="max-h-56 space-y-3 overflow-y-auto px-4 py-4">
           {entries.map((entry, index) => (
@@ -107,7 +167,7 @@ export function ContactHistoryList({
               key={`${entry.contactedAt}-${index}`}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
-                {entry.linkedCallRecord ? (
+                {entry.linkedCallRecord || entry.linkedTextConversation ? (
                   <button
                     className="text-left font-medium text-zinc-900 underline decoration-zinc-300 decoration-2 underline-offset-4 transition hover:text-zinc-700"
                     onClick={() => setSelectedEntryIndex(index)}
@@ -119,8 +179,9 @@ export function ContactHistoryList({
                   <p className="font-medium text-zinc-900">{formatDateTime(entry.contactedAt)}</p>
                 )}
 
-                {entry.linkedCallRecord ? (
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {entry.linkedCallRecord ? (
+                    <>
                     <span
                       className={`rounded-md px-2 py-1 text-[11px] font-semibold ${getDerivedCallStatusClasses(
                         getDerivedCallStatus(entry.linkedCallRecord),
@@ -133,8 +194,14 @@ export function ContactHistoryList({
                     >
                       {getTranscriptStatusLabel(entry.linkedCallRecord.transcriptStatus)}
                     </span>
-                  </div>
-                ) : null}
+                    </>
+                  ) : null}
+                  {entry.linkedTextConversation ? (
+                    <span className="rounded-md bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-900">
+                      Text Thread
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               <p className="mt-1 text-xs uppercase tracking-[0.08em] text-zinc-500">
@@ -152,6 +219,13 @@ export function ContactHistoryList({
         <CallRecordModal
           callRecord={selectedCallRecord}
           contactTimestamp={selectedEntry.contactedAt}
+          onClose={() => setSelectedEntryIndex(null)}
+        />
+      ) : null}
+      {selectedEntry && selectedTextConversation ? (
+        <TextConversationModal
+          contactTimestamp={selectedEntry.contactedAt}
+          conversation={selectedTextConversation}
           onClose={() => setSelectedEntryIndex(null)}
         />
       ) : null}

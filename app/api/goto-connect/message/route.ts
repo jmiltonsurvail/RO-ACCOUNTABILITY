@@ -37,6 +37,31 @@ function redirectToReturn(input: {
   });
 }
 
+function wantsJsonResponse(request: NextRequest) {
+  return (
+    request.headers.get("accept")?.includes("application/json") ||
+    request.headers.get("x-requested-with") === "fetch"
+  );
+}
+
+function sendMessageResult(
+  request: NextRequest,
+  input: {
+    message: string;
+    returnTo: string;
+    roNumber: number;
+    status: "error" | "success";
+  },
+) {
+  if (wantsJsonResponse(request)) {
+    return Response.json(input, {
+      status: input.status === "success" ? 200 : 400,
+    });
+  }
+
+  return redirectToReturn(input);
+}
+
 export async function POST(request: NextRequest) {
   const session = await getServerAuthSession();
 
@@ -68,7 +93,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!messageBody) {
-    return redirectToReturn({
+    return sendMessageResult(request, {
       message: "Enter a text message before sending.",
       returnTo,
       roNumber,
@@ -77,7 +102,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (messageBody.length > 1000) {
-    return redirectToReturn({
+    return sendMessageResult(request, {
       message: "Text message must be 1,000 characters or fewer.",
       returnTo,
       roNumber,
@@ -145,7 +170,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (!contactPhoneNumber) {
-    return redirectToReturn({
+    return sendMessageResult(request, {
       message: "Customer phone number is missing on this RO.",
       returnTo,
       roNumber,
@@ -154,7 +179,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!settings.enabled) {
-    return redirectToReturn({
+    return sendMessageResult(request, {
       message: "GoTo Connect is not enabled for this organization.",
       returnTo,
       roNumber,
@@ -163,7 +188,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!settings.accessToken) {
-    return redirectToReturn({
+    return sendMessageResult(request, {
       message: "GoTo Connect is enabled but the access token is missing in settings.",
       returnTo,
       roNumber,
@@ -172,7 +197,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!ownerPhoneNumber) {
-    return redirectToReturn({
+    return sendMessageResult(request, {
       message: `Set an SMS phone number for ASM ${repairOrder.asmNumber} in GoTo Connect settings before texting customers.`,
       returnTo,
       roNumber,
@@ -181,7 +206,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!payload) {
-    return redirectToReturn({
+    return sendMessageResult(request, {
       message: "GoTo Connect could not build a text request for this RO.",
       returnTo,
       roNumber,
@@ -208,7 +233,7 @@ export async function POST(request: NextRequest) {
       roNumber,
     });
 
-    return redirectToReturn({
+    return sendMessageResult(request, {
       message: failureMessage,
       returnTo,
       roNumber,
@@ -252,6 +277,16 @@ export async function POST(request: NextRequest) {
         repairOrderId: repairOrder.id,
       },
     }),
+    prisma.textMessage.updateMany({
+      where: {
+        direction: TextMessageDirection.INBOUND,
+        readAt: null,
+        repairOrderId: repairOrder.id,
+      },
+      data: {
+        readAt: new Date(),
+      },
+    }),
     prisma.textMessage.create({
       data: {
         advisorUserId: session.user.id,
@@ -293,7 +328,7 @@ export async function POST(request: NextRequest) {
     roNumber,
   });
 
-  return redirectToReturn({
+  return sendMessageResult(request, {
     message: "Text message sent in GoTo Connect.",
     returnTo,
     roNumber,

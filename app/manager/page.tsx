@@ -69,6 +69,28 @@ export default async function ManagerPage() {
                 record.advisorUser?.email ||
                 repairOrder.advisorName ||
                 null,
+              linkedTextConversation:
+                record.customerNotes?.startsWith("Text sent:") ||
+                record.customerNotes?.startsWith("Text received:")
+                  ? {
+                      customerName: repairOrder.customerName,
+                      customerPhone: repairOrder.phone,
+                      messages: repairOrder.textMessages.map((message) => ({
+                        advisorLabel:
+                          message.advisorUser?.name?.trim() ||
+                          message.advisorUser?.email ||
+                          repairOrder.advisorName ||
+                          null,
+                        body: message.body,
+                        deliveryStatus: message.deliveryStatus,
+                        direction: message.direction,
+                        id: message.id,
+                        readAt: message.readAt?.toISOString() ?? null,
+                        sentAt: message.sentAt.toISOString(),
+                      })),
+                      roNumber: repairOrder.roNumber,
+                    }
+                  : null,
               linkedCallRecord: record.callSession
                 ? {
                     callAnsweredAt:

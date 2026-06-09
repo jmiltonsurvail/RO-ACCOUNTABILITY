@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useDeferredValue, useMemo, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { Fragment, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AdvisorContactCard,
   type AdvisorRepairOrder,
@@ -9,8 +9,7 @@ import {
 import { CompactStatCard } from "@/components/compact-stat-card";
 import { ContactHistoryList } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
-import { GoToMessageForm } from "@/components/goto-message-form";
-import { TextMessageThread } from "@/components/text-message-thread";
+import { TextConversation } from "@/components/text-conversation";
 import {
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
@@ -70,12 +69,23 @@ export function AdvisorRoBoard({
   slaSettings: SlaSettingsValues;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [quickFilter, setQuickFilter] = useState<AdvisorQuickFilter>("all");
   const [boardLayout, setBoardLayout] = useState<AdvisorBoardLayout>("list");
   const [selectedRoNumber, setSelectedRoNumber] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    }, 15000);
+
+    return () => window.clearInterval(interval);
+  }, [router]);
 
   const filteredRepairOrders = useMemo(() => {
     const searchQuery = deferredSearch.trim().toLowerCase();
@@ -461,6 +471,12 @@ export function AdvisorRoBoard({
                                 {repairValueLabels[repairOrder.repairValue]}
                               </span>
                             ) : null}
+                            {repairOrder.unreadTextMessageCount > 0 ? (
+                              <span className="rounded-md bg-amber-500 px-2 py-1 text-xs font-semibold text-zinc-950">
+                                {repairOrder.unreadTextMessageCount} New Text
+                                {repairOrder.unreadTextMessageCount === 1 ? "" : "s"}
+                              </span>
+                            ) : null}
                           </div>
                         </td>
                         <td className="bg-zinc-50/70 px-3 py-3 align-middle">
@@ -602,18 +618,13 @@ export function AdvisorRoBoard({
                                   </div>
                                   {repairOrder.phone ? (
                                     <div className="mt-4 border-t border-zinc-100 pt-4">
-                                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                                        <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
-                                          RO Conversation
-                                        </p>
-                                        <span className="text-xs text-zinc-500">
-                                          {repairOrder.phone}
-                                        </span>
-                                      </div>
-                                      <TextMessageThread messages={repairOrder.textMessages} />
-                                      <div className="mt-3">
-                                        <GoToMessageForm compact roNumber={repairOrder.roNumber} />
-                                      </div>
+                                      <TextConversation
+                                        compact
+                                        initialMessages={repairOrder.textMessages}
+                                        initialUnreadCount={repairOrder.unreadTextMessageCount}
+                                        phone={repairOrder.phone}
+                                        roNumber={repairOrder.roNumber}
+                                      />
                                     </div>
                                   ) : null}
                                 </div>

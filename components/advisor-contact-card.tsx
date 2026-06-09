@@ -5,8 +5,8 @@ import { useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
-import { GoToMessageForm } from "@/components/goto-message-form";
-import { TextMessageThread, type TextMessageThreadEntry } from "@/components/text-message-thread";
+import { TextConversation } from "@/components/text-conversation";
+import { type TextMessageThreadEntry } from "@/components/text-message-thread";
 import {
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
@@ -83,6 +83,7 @@ export type AdvisorRepairOrder = {
   tag: string | null;
   techName: string | null;
   techNumber: number | null;
+  unreadTextMessageCount: number;
   year: number;
 };
 
@@ -208,6 +209,12 @@ export function AdvisorContactCard({
             Rental
           </span>
         ) : null}
+        {repairOrder.unreadTextMessageCount > 0 ? (
+          <span className="rounded-md bg-amber-500 px-1.5 py-0.5 text-[11px] font-semibold text-zinc-950">
+            {repairOrder.unreadTextMessageCount} New Text
+            {repairOrder.unreadTextMessageCount === 1 ? "" : "s"}
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-3">
@@ -282,16 +289,12 @@ export function AdvisorContactCard({
           </div>
           {repairOrder.phone ? (
             <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
-                  RO Conversation
-                </p>
-                <span className="text-xs text-zinc-500">{repairOrder.phone}</span>
-              </div>
-              <TextMessageThread messages={repairOrder.textMessages} />
-              <div className="mt-3">
-                <GoToMessageForm roNumber={repairOrder.roNumber} />
-              </div>
+              <TextConversation
+                initialMessages={repairOrder.textMessages}
+                initialUnreadCount={repairOrder.unreadTextMessageCount}
+                phone={repairOrder.phone}
+                roNumber={repairOrder.roNumber}
+              />
             </div>
           ) : null}
           <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
