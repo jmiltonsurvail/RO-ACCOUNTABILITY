@@ -469,6 +469,7 @@ async function resolveInboundReceiverUser(input: {
 }
 
 async function findInboundRepairOrderByPhone(input: {
+  asmNumber?: number | null;
   organizationId: string;
   phoneCandidates: string[];
 }) {
@@ -478,6 +479,11 @@ async function findInboundRepairOrderByPhone(input: {
 
   const repairOrders = await prisma.repairOrder.findMany({
     where: {
+      ...(input.asmNumber !== undefined && input.asmNumber !== null
+        ? {
+            asmNumber: input.asmNumber,
+          }
+        : {}),
       isActive: true,
       organizationId: input.organizationId,
       phone: {
@@ -595,7 +601,30 @@ async function processMessagingNotification(input: {
     };
   }
 
+  const ownerPhoneDigits = normalizePhoneDigits(ownerPhoneNumber);
+  const advisorCandidates = ownerPhoneDigits
+    ? await prisma.user.findMany({
+        where: {
+          active: true,
+          gotoConnectSmsPhoneNumber: {
+            not: null,
+          },
+          organizationId: input.organizationId,
+          role: Role.ADVISOR,
+        },
+        select: {
+          asmNumber: true,
+          gotoConnectSmsPhoneNumber: true,
+          id: true,
+        },
+      })
+    : [];
+  const ownerAdvisor =
+    advisorCandidates.find(
+      (advisor) => normalizePhoneDigits(advisor.gotoConnectSmsPhoneNumber) === ownerPhoneDigits,
+    ) ?? null;
   const repairOrder = await findInboundRepairOrderByPhone({
+    asmNumber: ownerAdvisor?.asmNumber ?? null,
     organizationId: input.organizationId,
     phoneCandidates,
   });
@@ -605,6 +634,7 @@ async function processMessagingNotification(input: {
       direction,
       notificationType,
       organizationId: input.organizationId,
+      ownerAdvisorId: ownerAdvisor?.id ?? null,
       phoneCandidates,
       providerMessageId,
     });
@@ -616,16 +646,19 @@ async function processMessagingNotification(input: {
     };
   }
 
-  const advisor = await prisma.user.findFirst({
-    where: {
-      asmNumber: repairOrder.asmNumber,
-      organizationId: input.organizationId,
-      role: Role.ADVISOR,
-    },
-    select: {
-      id: true,
-    },
-  });
+  const advisor =
+    ownerAdvisor ??
+    (await prisma.user.findFirst({
+      where: {
+        asmNumber: repairOrder.asmNumber,
+        organizationId: input.organizationId,
+        role: Role.ADVISOR,
+      },
+      select: {
+        asmNumber: true,
+        id: true,
+      },
+    }));
   const conversationKey = buildTextConversationKey({
     contactPhoneNumber,
     ownerPhoneNumber,

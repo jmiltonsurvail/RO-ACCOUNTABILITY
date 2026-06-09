@@ -149,36 +149,46 @@ async function syncGoToCallTracking(input: {
 async function syncGoToMessaging(input: {
   accessToken: string;
   organizationId: string;
-  ownerPhoneNumber: string;
 }) {
   logGoTo("info", "messaging-setup:start", {
     organizationId: input.organizationId,
-    ownerPhoneNumber: input.ownerPhoneNumber,
   });
 
-  const existing = await prisma.goToConnectSettings.findUnique({
+  const [existing, advisors] = await Promise.all([
+    prisma.goToConnectSettings.findUnique({
     where: {
       organizationId: input.organizationId,
     },
     select: {
-      messagingSubscriptionConfiguredAt: true,
-      messagingSubscriptionId: true,
       notificationChannelId: true,
       notificationWebhookToken: true,
     },
-  });
+    }),
+    prisma.user.findMany({
+      where: {
+        active: true,
+        gotoConnectSmsPhoneNumber: {
+          not: null,
+        },
+        organizationId: input.organizationId,
+        role: Role.ADVISOR,
+      },
+      select: {
+        asmNumber: true,
+        gotoConnectMessagingSubscriptionConfiguredAt: true,
+        gotoConnectMessagingSubscriptionId: true,
+        gotoConnectSmsPhoneNumber: true,
+        id: true,
+      },
+    }),
+  ]);
 
-  if (
-    existing?.notificationChannelId &&
-    existing.messagingSubscriptionId &&
-    existing.messagingSubscriptionConfiguredAt
-  ) {
-    return {
-      alreadyConfigured: true,
-      messagingSubscriptionId: existing.messagingSubscriptionId,
-      notificationChannelId: existing.notificationChannelId,
-      notificationWebhookToken: existing.notificationWebhookToken,
-    };
+  const advisorsWithSms = advisors.filter((advisor) =>
+    Boolean(advisor.gotoConnectSmsPhoneNumber?.trim()),
+  );
+
+  if (advisorsWithSms.length === 0) {
+    throw new Error("Add at least one advisor SMS phone number before enabling text notifications.");
   }
 
   const origin = process.env.NEXTAUTH_URL?.trim();
@@ -199,29 +209,64 @@ async function syncGoToMessaging(input: {
       channelNickname: `servicesyncnow-${input.organizationId.slice(0, 18)}`,
       webhookUrl,
     }));
-  const messagingSubscriptionId =
-    existing?.messagingSubscriptionId ??
-    (await subscribeToGoToMessages({
-      accessToken: input.accessToken,
-      channelId: notificationChannelId,
-      ownerPhoneNumber: input.ownerPhoneNumber,
-    }));
+
+  const results: Array<{
+    advisorId: string;
+    alreadyConfigured: boolean;
+    asmNumber: number | null;
+    ownerPhoneNumber: string;
+    subscriptionId: string;
+  }> = [];
+
+  for (const advisor of advisorsWithSms) {
+    const ownerPhoneNumber = advisor.gotoConnectSmsPhoneNumber!.trim();
+    const alreadyConfigured = Boolean(
+      advisor.gotoConnectMessagingSubscriptionConfiguredAt &&
+        advisor.gotoConnectMessagingSubscriptionId,
+    );
+    const subscriptionId = alreadyConfigured
+      ? advisor.gotoConnectMessagingSubscriptionId!
+      : await subscribeToGoToMessages({
+          accessToken: input.accessToken,
+          channelId: notificationChannelId,
+          ownerPhoneNumber,
+        });
+
+    if (!alreadyConfigured) {
+      await prisma.user.update({
+        where: {
+          id: advisor.id,
+        },
+        data: {
+          gotoConnectMessagingSubscriptionConfiguredAt: new Date(),
+          gotoConnectMessagingSubscriptionId: subscriptionId,
+        },
+      });
+    }
+
+    results.push({
+      advisorId: advisor.id,
+      alreadyConfigured,
+      asmNumber: advisor.asmNumber,
+      ownerPhoneNumber,
+      subscriptionId,
+    });
+  }
 
   await prisma.goToConnectSettings.update({
     where: {
       organizationId: input.organizationId,
     },
     data: {
-      messagingSubscriptionConfiguredAt: new Date(),
-      messagingSubscriptionId,
       notificationChannelId,
       notificationWebhookToken: webhookToken,
     },
   });
 
   return {
-    alreadyConfigured: false,
-    messagingSubscriptionId,
+    alreadyConfigured: results.every((result) => result.alreadyConfigured),
+    advisorCount: results.length,
+    results,
     notificationChannelId,
     notificationWebhookToken: webhookToken,
   };
@@ -636,6 +681,7 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
 
   const parsed = gotoConnectAdvisorExtensionSchema.safeParse({
     gotoConnectExtension: formData.get("gotoConnectExtension"),
+    gotoConnectSmsPhoneNumber: formData.get("gotoConnectSmsPhoneNumber"),
     userId: formData.get("userId"),
   });
 
@@ -654,6 +700,7 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
       asmNumber: true,
       gotoConnectExtension: true,
       gotoConnectLineId: true,
+      gotoConnectSmsPhoneNumber: true,
       id: true,
     },
   });
@@ -663,6 +710,7 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
   }
 
   const nextExtension = parsed.data.gotoConnectExtension ?? null;
+  const nextSmsPhoneNumber = parsed.data.gotoConnectSmsPhoneNumber ?? null;
   const resolvedLine = await resolveGoToLineByExtension({
     accessToken: runtimeSettings.accessToken,
     accountKey: settings.accountKey,
@@ -674,6 +722,15 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
     data: {
       gotoConnectExtension: nextExtension,
       gotoConnectLineId: resolvedLine?.lineId ?? null,
+      gotoConnectMessagingSubscriptionConfiguredAt:
+        nextSmsPhoneNumber === existingAdvisor.gotoConnectSmsPhoneNumber
+          ? undefined
+          : null,
+      gotoConnectMessagingSubscriptionId:
+        nextSmsPhoneNumber === existingAdvisor.gotoConnectSmsPhoneNumber
+          ? undefined
+          : null,
+      gotoConnectSmsPhoneNumber: nextSmsPhoneNumber,
     },
   });
 
@@ -683,9 +740,11 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
       asmNumber: existingAdvisor.asmNumber,
       previousExtension: existingAdvisor.gotoConnectExtension,
       previousLineId: existingAdvisor.gotoConnectLineId,
+      previousSmsPhoneNumber: existingAdvisor.gotoConnectSmsPhoneNumber,
       resolvedLineId: resolvedLine?.lineId ?? null,
       resolvedLineName: resolvedLine?.lineName ?? null,
       updatedExtension: nextExtension,
+      updatedSmsPhoneNumber: nextSmsPhoneNumber,
     },
     type: ActivityType.GOTO_CONNECT_LINE_MAPPING_UPDATED,
     userId: session.user.id,
@@ -696,7 +755,7 @@ export async function updateGoToConnectAdvisorExtensionAction(formData: FormData
   if (!nextExtension) {
     redirect(
       "/manager/settings/integrations/goto-connect?extensionStatus=success&extensionMessage=" +
-        encodeURIComponent(`Cleared the GoTo extension mapping for ASM ${existingAdvisor.asmNumber}.`),
+        encodeURIComponent(`Saved GoTo settings for ASM ${existingAdvisor.asmNumber}.`),
     );
   }
 
@@ -826,22 +885,15 @@ export async function syncGoToMessagingAction() {
     );
   }
 
-  if (!settings.smsOwnerPhoneNumber) {
-    redirect(
-      "/manager/settings/integrations/goto-connect?messaging=error&messagingMessage=Save+an+SMS+sender+phone+number+before+enabling+text+notifications.",
-    );
-  }
-
   try {
     const result = await syncGoToMessaging({
       accessToken: settings.accessToken,
       organizationId,
-      ownerPhoneNumber: settings.smsOwnerPhoneNumber,
     });
 
     logGoTo("info", "messaging-setup:complete", {
       alreadyConfigured: result.alreadyConfigured,
-      messagingSubscriptionId: result.messagingSubscriptionId,
+      advisorCount: result.advisorCount,
       notificationChannelId: result.notificationChannelId,
       organizationId,
       tokenSuffix: result.notificationWebhookToken?.slice(-8) ?? null,
@@ -852,9 +904,9 @@ export async function syncGoToMessagingAction() {
         ? "GoTo text notifications were already configured."
         : "Configured GoTo text notifications.",
       metadata: {
-        messagingSubscriptionId: result.messagingSubscriptionId,
+        advisorCount: result.advisorCount,
+        advisorSubscriptions: result.results,
         notificationChannelId: result.notificationChannelId,
-        smsOwnerPhoneNumber: settings.smsOwnerPhoneNumber,
       },
       type: ActivityType.GOTO_CONNECT_SETTINGS_UPDATED,
       userId: session.user.id,
@@ -864,8 +916,8 @@ export async function syncGoToMessagingAction() {
     redirect(
       `/manager/settings/integrations/goto-connect?messaging=success&messagingMessage=${encodeURIComponent(
         result.alreadyConfigured
-          ? "GoTo text notifications are already configured."
-          : "GoTo text notifications are configured.",
+          ? `GoTo text notifications are already configured for ${result.advisorCount} advisor numbers.`
+          : `GoTo text notifications are configured for ${result.advisorCount} advisor numbers.`,
       )}`,
     );
   } catch (error) {
@@ -876,7 +928,6 @@ export async function syncGoToMessagingAction() {
     logGoTo("error", "messaging-setup:failed", {
       message: error instanceof Error ? error.message : "Unknown error",
       organizationId,
-      smsOwnerPhoneNumber: settings.smsOwnerPhoneNumber,
     });
 
     redirect(

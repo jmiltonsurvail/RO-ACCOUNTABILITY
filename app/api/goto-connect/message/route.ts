@@ -112,12 +112,26 @@ export async function POST(request: NextRequest) {
     return new Response("Forbidden", { status: 403 });
   }
 
-  const settings = await getGoToConnectSettingsWithAccessToken(organizationId);
+  const [settings, advisor] = await Promise.all([
+    getGoToConnectSettingsWithAccessToken(organizationId),
+    prisma.user.findFirst({
+      where: {
+        asmNumber: repairOrder.asmNumber,
+        organizationId,
+        role: Role.ADVISOR,
+      },
+      select: {
+        gotoConnectSmsPhoneNumber: true,
+        id: true,
+      },
+    }),
+  ]);
   const contactPhoneNumber = normalizePhoneForGoToDialString(repairOrder.phone);
+  const ownerPhoneNumber = advisor?.gotoConnectSmsPhoneNumber?.trim() || null;
   const payload = getGoToSmsPayload({
     body: messageBody,
     contactPhoneNumber,
-    ownerPhoneNumber: settings.smsOwnerPhoneNumber,
+    ownerPhoneNumber,
   });
 
   logGoTo("info", "message:start", {
@@ -157,9 +171,9 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  if (!settings.smsOwnerPhoneNumber) {
+  if (!ownerPhoneNumber) {
     return redirectToReturn({
-      message: "Set the SMS sender phone number in GoTo Connect settings before texting customers.",
+      message: `Set an SMS phone number for ASM ${repairOrder.asmNumber} in GoTo Connect settings before texting customers.`,
       returnTo,
       roNumber,
       status: "error",
@@ -241,13 +255,13 @@ export async function POST(request: NextRequest) {
     prisma.textMessage.create({
       data: {
         advisorUserId: session.user.id,
-        authorPhoneNumber: settings.smsOwnerPhoneNumber,
+        authorPhoneNumber: ownerPhoneNumber,
         body: messageBody,
         contactPhoneNumber,
-        conversationKey: `${settings.smsOwnerPhoneNumber}:${contactPhoneNumber}`,
+        conversationKey: `${ownerPhoneNumber}:${contactPhoneNumber}`,
         direction: TextMessageDirection.OUTBOUND,
         organizationId,
-        ownerPhoneNumber: settings.smsOwnerPhoneNumber,
+        ownerPhoneNumber,
         providerMessageId: goToMessageId,
         repairOrderId: repairOrder.id,
         rawPayload: payload,
@@ -261,7 +275,7 @@ export async function POST(request: NextRequest) {
           customerName: repairOrder.customerName,
           goToMessageId,
           messageBody,
-          ownerPhoneNumber: settings.smsOwnerPhoneNumber,
+          ownerPhoneNumber,
           phone: repairOrder.phone,
         },
         repairOrderId: repairOrder.id,

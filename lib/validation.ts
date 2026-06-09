@@ -179,6 +179,7 @@ export const gotoConnectSettingsSchema = z.object({
 
 export const gotoConnectAdvisorExtensionSchema = z.object({
   gotoConnectExtension: optionalString.pipe(z.string().trim().max(40).optional()),
+  gotoConnectSmsPhoneNumber: optionalString.pipe(z.string().trim().max(40).optional()),
   userId: requiredIdentifier,
 });
 

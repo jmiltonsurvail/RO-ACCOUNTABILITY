@@ -47,6 +47,9 @@ export default async function ManagerGoToConnectSettingsPage({
         email: true,
         gotoConnectExtension: true,
         gotoConnectLineId: true,
+        gotoConnectMessagingSubscriptionConfiguredAt: true,
+        gotoConnectMessagingSubscriptionId: true,
+        gotoConnectSmsPhoneNumber: true,
         id: true,
         name: true,
       },
@@ -55,6 +58,15 @@ export default async function ManagerGoToConnectSettingsPage({
 
   const configuredAdvisorCount = advisors.filter((advisor) =>
     Boolean(advisor.gotoConnectLineId?.trim()),
+  ).length;
+  const smsAdvisorCount = advisors.filter((advisor) =>
+    Boolean(advisor.gotoConnectSmsPhoneNumber?.trim()),
+  ).length;
+  const subscribedSmsAdvisorCount = advisors.filter((advisor) =>
+    Boolean(
+      advisor.gotoConnectSmsPhoneNumber?.trim() &&
+        advisor.gotoConnectMessagingSubscriptionConfiguredAt,
+    ),
   ).length;
   const defaultTestExtension =
     advisors.find((advisor) => advisor.gotoConnectExtension?.trim())?.gotoConnectExtension ?? "";
@@ -126,7 +138,7 @@ export default async function ManagerGoToConnectSettingsPage({
               Text Tracking
             </p>
             <p className="mt-2 text-2xl font-semibold text-slate-950">
-              {settings.messagingSubscriptionConfiguredAt ? "Configured" : "Pending"}
+              {subscribedSmsAdvisorCount}/{smsAdvisorCount}
             </p>
           </div>
           <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
@@ -207,7 +219,7 @@ export default async function ManagerGoToConnectSettingsPage({
             <div>
               <h3 className="text-2xl font-semibold text-slate-950">Text Notifications</h3>
               <p className="mt-2 text-sm text-slate-600">
-                Subscribe the configured SMS sender number so inbound customer texts update the RO conversation.
+                Subscribe each advisor SMS number so inbound customer texts update the RO conversation.
               </p>
             </div>
             <form action={syncGoToMessagingAction}>
@@ -215,7 +227,7 @@ export default async function ManagerGoToConnectSettingsPage({
                 className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                 type="submit"
               >
-                {settings.messagingSubscriptionConfiguredAt
+                {subscribedSmsAdvisorCount > 0
                   ? "Recheck Text Notifications"
                   : "Enable Text Notifications"}
               </button>
@@ -224,18 +236,18 @@ export default async function ManagerGoToConnectSettingsPage({
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                SMS Sender
+                Advisor SMS Numbers
               </p>
               <p className="mt-2 break-all text-sm text-slate-900">
-                {settings.smsOwnerPhoneNumber || "Not configured"}
+                {smsAdvisorCount} configured
               </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Message Subscription
+                Message Subscriptions
               </p>
               <p className="mt-2 break-all text-sm text-slate-900">
-                {settings.messagingSubscriptionId || "Not configured"}
+                {subscribedSmsAdvisorCount} configured
               </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -243,7 +255,8 @@ export default async function ManagerGoToConnectSettingsPage({
                 Last Sync
               </p>
               <p className="mt-2 text-sm text-slate-900">
-                {settings.messagingSubscriptionConfiguredAt || "Not configured"}
+                {advisors.find((advisor) => advisor.gotoConnectMessagingSubscriptionConfiguredAt)
+                  ?.gotoConnectMessagingSubscriptionConfiguredAt?.toISOString() || "Not configured"}
               </p>
             </div>
           </div>
@@ -263,7 +276,7 @@ export default async function ManagerGoToConnectSettingsPage({
         <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-2xl font-semibold text-slate-950">Advisor Extension Map</h3>
+              <h3 className="text-2xl font-semibold text-slate-950">Advisor GoTo Map</h3>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <div className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
@@ -295,7 +308,7 @@ export default async function ManagerGoToConnectSettingsPage({
             {advisors.map((advisor) => (
               <form
                 action={updateGoToConnectAdvisorExtensionAction}
-                className="grid gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1.15fr)_minmax(10rem,0.8fr)_minmax(16rem,1fr)_auto]"
+                className="grid gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1.15fr)_minmax(10rem,0.8fr)_minmax(13rem,0.9fr)_minmax(16rem,1fr)_auto]"
                 key={advisor.id}
               >
                 <input name="userId" type="hidden" value={advisor.id} />
@@ -327,6 +340,23 @@ export default async function ManagerGoToConnectSettingsPage({
                     {advisor.gotoConnectLineId || "Not resolved yet"}
                   </p>
                 </div>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    SMS Number
+                  </span>
+                  <input
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+                    defaultValue={advisor.gotoConnectSmsPhoneNumber ?? ""}
+                    name="gotoConnectSmsPhoneNumber"
+                    placeholder="+15555550100"
+                    type="tel"
+                  />
+                  <span className="mt-2 block break-all text-xs text-slate-500">
+                    {advisor.gotoConnectMessagingSubscriptionId
+                      ? `Subscribed: ${advisor.gotoConnectMessagingSubscriptionId}`
+                      : "Not subscribed yet"}
+                  </span>
+                </label>
                 <div className="flex items-end">
                   <button
                     className="w-full rounded-full border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:text-slate-950"

@@ -231,22 +231,6 @@ export function GoToConnectSettingsForm({
 
         <label className="block">
           <span className="mb-2 block text-sm font-medium text-slate-700">
-            SMS Sender Phone Number
-          </span>
-          <input
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
-            defaultValue={settings.smsOwnerPhoneNumber ?? ""}
-            name="smsOwnerPhoneNumber"
-            placeholder="+15555550100"
-            type="tel"
-          />
-          <span className="mt-2 block text-xs text-slate-500">
-            Use a GoTo phone number with SMS permissions, formatted as E.164.
-          </span>
-        </label>
-
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-700">
             Test Extension
           </span>
           <input

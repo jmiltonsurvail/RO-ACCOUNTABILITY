@@ -135,6 +135,9 @@ model User {
   techNumber           Int?
   gotoConnectExtension String?
   gotoConnectLineId    String?
+  gotoConnectSmsPhoneNumber String?
+  gotoConnectMessagingSubscriptionId String?
+  gotoConnectMessagingSubscriptionConfiguredAt DateTime?
   active               Boolean       @default(true)
   imports              ImportBatch[]
   blockerEntries       BlockerState[]
@@ -149,6 +152,7 @@ model User {
   @@unique([organizationId, role, asmNumber])
   @@unique([organizationId, role, techNumber])
   @@index([organizationId, role])
+  @@index([organizationId, gotoConnectSmsPhoneNumber])
 }
 
 model ImportBatch {
