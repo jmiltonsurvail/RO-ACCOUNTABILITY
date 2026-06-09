@@ -15,6 +15,8 @@ export type GoToConnectSettingsValues = {
   connectedAt: string | null;
   enabled: boolean;
   launchUrlTemplate: string | null;
+  messagingSubscriptionConfiguredAt: string | null;
+  messagingSubscriptionId: string | null;
   notificationChannelId: string | null;
   notificationWebhookToken: string | null;
   organizationId: string | null;
@@ -25,6 +27,7 @@ export type GoToConnectSettingsValues = {
   recordingProvisionedAt: string | null;
   recordingS3Bucket: string | null;
   refreshToken: string | null;
+  smsOwnerPhoneNumber: string | null;
 };
 
 export const defaultGoToConnectSettings: GoToConnectSettingsValues = {
@@ -40,6 +43,8 @@ export const defaultGoToConnectSettings: GoToConnectSettingsValues = {
   connectedAt: null,
   enabled: false,
   launchUrlTemplate: null,
+  messagingSubscriptionConfiguredAt: null,
+  messagingSubscriptionId: null,
   notificationChannelId: null,
   notificationWebhookToken: null,
   organizationId: null,
@@ -50,6 +55,7 @@ export const defaultGoToConnectSettings: GoToConnectSettingsValues = {
   recordingProvisionedAt: null,
   recordingS3Bucket: null,
   refreshToken: null,
+  smsOwnerPhoneNumber: null,
 };
 
 export async function getGoToConnectSettings(
@@ -80,6 +86,9 @@ export async function getGoToConnectSettings(
     connectedAt: settings.connectedAt?.toISOString() ?? null,
     enabled: settings.enabled,
     launchUrlTemplate: settings.launchUrlTemplate,
+    messagingSubscriptionConfiguredAt:
+      settings.messagingSubscriptionConfiguredAt?.toISOString() ?? null,
+    messagingSubscriptionId: settings.messagingSubscriptionId,
     notificationChannelId: settings.notificationChannelId,
     notificationWebhookToken: settings.notificationWebhookToken,
     organizationId: settings.goToOrganizationId,
@@ -90,6 +99,7 @@ export async function getGoToConnectSettings(
     recordingProvisionedAt: settings.recordingProvisionedAt?.toISOString() ?? null,
     recordingS3Bucket: settings.recordingS3Bucket,
     refreshToken: settings.refreshToken,
+    smsOwnerPhoneNumber: settings.smsOwnerPhoneNumber,
   };
 }
 
@@ -115,6 +125,17 @@ type GoToApiErrorResponse = {
   errorCode?: string;
   message?: string;
 };
+
+export const goToOauthScopes = [
+  "users.v1.lines.read",
+  "calls.v2.initiate",
+  "call-events.v1.events.read",
+  "call-events.v1.notifications.manage",
+  "cr.v1.read",
+  "messaging.v1.send",
+  "messaging.v1.read",
+  "messaging.v1.notifications.manage",
+];
 
 export type GoToConnectionTestResult = {
   lineCount: number;
@@ -396,6 +417,7 @@ export function buildGoToOauthAuthorizeUrl(input: {
   url.searchParams.set("client_id", input.clientId);
   url.searchParams.set("redirect_uri", input.redirectUri);
   url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", goToOauthScopes.join(" "));
   url.searchParams.set("state", input.state);
   return url.toString();
 }
@@ -530,6 +552,9 @@ export async function getGoToConnectSettingsWithAccessToken(
         connectedAt: updated.connectedAt?.toISOString() ?? null,
         enabled: updated.enabled,
         launchUrlTemplate: updated.launchUrlTemplate,
+        messagingSubscriptionConfiguredAt:
+          updated.messagingSubscriptionConfiguredAt?.toISOString() ?? null,
+        messagingSubscriptionId: updated.messagingSubscriptionId,
         notificationChannelId: updated.notificationChannelId,
         notificationWebhookToken: updated.notificationWebhookToken,
         organizationId: updated.goToOrganizationId,
@@ -540,6 +565,7 @@ export async function getGoToConnectSettingsWithAccessToken(
         recordingProvisionedAt: updated.recordingProvisionedAt?.toISOString() ?? null,
         recordingS3Bucket: updated.recordingS3Bucket,
         refreshToken: updated.refreshToken,
+        smsOwnerPhoneNumber: updated.smsOwnerPhoneNumber,
       };
     } catch {
       return getGoToConnectSettings(organizationId);
@@ -888,6 +914,75 @@ export async function getGoToCallFailureMessage(response: Response) {
   return `GoTo Connect call request failed with status ${response.status}.`;
 }
 
+export function getGoToSmsPayload(input: {
+  body: string;
+  contactPhoneNumber: string | null;
+  ownerPhoneNumber: string | null;
+}) {
+  const body = input.body.trim();
+
+  if (!body || !input.ownerPhoneNumber || !input.contactPhoneNumber) {
+    return null;
+  }
+
+  return {
+    body,
+    contactPhoneNumbers: [input.contactPhoneNumber],
+    ownerPhoneNumber: input.ownerPhoneNumber,
+  };
+}
+
+export async function getGoToMessageFailureMessage(response: Response) {
+  let payload: GoToApiErrorResponse | null = null;
+
+  try {
+    payload = (await response.json()) as GoToApiErrorResponse;
+  } catch {
+    payload = null;
+  }
+
+  const constraintMessage = payload?.constraintViolations
+    ?.map((violation) => {
+      if (violation.field && violation.description) {
+        return `${violation.field}: ${violation.description}`;
+      }
+
+      return violation.description ?? violation.field ?? null;
+    })
+    .filter((value): value is string => Boolean(value))
+    .join("; ");
+
+  if (response.status === 401) {
+    return "GoTo Connect rejected the access token. Reconnect GoTo and try again.";
+  }
+
+  if (response.status === 403) {
+    return "GoTo Connect denied the text request. Reconnect GoTo with the messaging.v1.send scope and confirm the sender number has SMS permission.";
+  }
+
+  if (response.status === 429) {
+    return "GoTo Connect rate-limited the text request. Try again in a moment.";
+  }
+
+  if (constraintMessage) {
+    return `GoTo Connect rejected the text request: ${constraintMessage}`;
+  }
+
+  if (payload?.description) {
+    return payload.description;
+  }
+
+  if (payload?.message) {
+    return payload.message;
+  }
+
+  if (payload?.errorCode) {
+    return `GoTo Connect returned ${payload.errorCode}.`;
+  }
+
+  return `GoTo Connect text request failed with status ${response.status}.`;
+}
+
 export async function createGoToNotificationChannel(input: {
   accessToken: string;
   webhookUrl: string;
@@ -943,6 +1038,63 @@ export async function createGoToNotificationChannel(input: {
     channelNickname: input.channelNickname,
   });
   return payload.channelId;
+}
+
+export async function subscribeToGoToMessages(input: {
+  accessToken: string;
+  channelId: string;
+  ownerPhoneNumber: string;
+}) {
+  logGoTo("info", "subscribe-messages:start", {
+    channelId: input.channelId,
+    ownerPhoneNumber: input.ownerPhoneNumber,
+  });
+
+  const response = await fetch("https://api.goto.com/messaging/v1/subscriptions", {
+    body: JSON.stringify({
+      channelId: input.channelId,
+      eventTypes: [
+        "INCOMING_MESSAGE",
+        "OUTGOING_MESSAGE",
+        "DELIVERY_STATUS",
+      ],
+      ownerPhoneNumber: input.ownerPhoneNumber,
+    }),
+    headers: {
+      Authorization: `Bearer ${input.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    logGoTo("error", "subscribe-messages:failed", {
+      channelId: input.channelId,
+      ownerPhoneNumber: input.ownerPhoneNumber,
+      status: response.status,
+    });
+    throw new Error(`GoTo messaging subscription failed with status ${response.status}.`);
+  }
+
+  const payload = (await response.json()) as {
+    id?: string;
+  };
+
+  if (!payload.id) {
+    logGoTo("error", "subscribe-messages:missing-subscription-id", {
+      channelId: input.channelId,
+      ownerPhoneNumber: input.ownerPhoneNumber,
+    });
+    throw new Error("GoTo messaging subscription did not return an id.");
+  }
+
+  logGoTo("info", "subscribe-messages:success", {
+    channelId: input.channelId,
+    ownerPhoneNumber: input.ownerPhoneNumber,
+    subscriptionId: payload.id,
+  });
+
+  return payload.id;
 }
 
 export async function subscribeToGoToCallEvents(input: {

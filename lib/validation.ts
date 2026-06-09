@@ -174,6 +174,7 @@ export const gotoConnectSettingsSchema = z.object({
   launchUrlTemplate: optionalString.pipe(z.string().trim().max(2000).optional()),
   organizationId: optionalString.pipe(z.string().trim().max(200).optional()),
   phoneNumberId: optionalString.pipe(z.string().trim().max(200).optional()),
+  smsOwnerPhoneNumber: optionalString.pipe(z.string().trim().max(40).optional()),
 });
 
 export const gotoConnectAdvisorExtensionSchema = z.object({

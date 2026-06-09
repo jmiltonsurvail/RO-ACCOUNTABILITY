@@ -30,6 +30,18 @@ const roCardInclude = {
     },
   },
   contactState: true,
+  textMessages: {
+    orderBy: { sentAt: "asc" },
+    take: 50,
+    include: {
+      advisorUser: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
+    },
+  },
   contactRecords: {
     orderBy: { contactedAt: "desc" },
     take: 12,
@@ -95,6 +107,18 @@ const activeRepairOrderBoardInclude = {
     },
   },
   contactState: true,
+  textMessages: {
+    orderBy: { sentAt: "asc" },
+    take: 50,
+    include: {
+      advisorUser: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
+    },
+  },
   contactRecords: {
     orderBy: { contactedAt: "desc" },
     take: 12,

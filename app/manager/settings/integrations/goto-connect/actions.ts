@@ -18,6 +18,7 @@ import {
   resolveGoToLinesByExtensions,
   subscribeToGoToCallEventReports,
   subscribeToGoToCallEvents,
+  subscribeToGoToMessages,
   testGoToConnection,
 } from "@/lib/goto-connect";
 import { logActivity } from "@/lib/data";
@@ -145,6 +146,87 @@ async function syncGoToCallTracking(input: {
   };
 }
 
+async function syncGoToMessaging(input: {
+  accessToken: string;
+  organizationId: string;
+  ownerPhoneNumber: string;
+}) {
+  logGoTo("info", "messaging-setup:start", {
+    organizationId: input.organizationId,
+    ownerPhoneNumber: input.ownerPhoneNumber,
+  });
+
+  const existing = await prisma.goToConnectSettings.findUnique({
+    where: {
+      organizationId: input.organizationId,
+    },
+    select: {
+      messagingSubscriptionConfiguredAt: true,
+      messagingSubscriptionId: true,
+      notificationChannelId: true,
+      notificationWebhookToken: true,
+    },
+  });
+
+  if (
+    existing?.notificationChannelId &&
+    existing.messagingSubscriptionId &&
+    existing.messagingSubscriptionConfiguredAt
+  ) {
+    return {
+      alreadyConfigured: true,
+      messagingSubscriptionId: existing.messagingSubscriptionId,
+      notificationChannelId: existing.notificationChannelId,
+      notificationWebhookToken: existing.notificationWebhookToken,
+    };
+  }
+
+  const origin = process.env.NEXTAUTH_URL?.trim();
+
+  if (!origin) {
+    throw new Error("NEXTAUTH_URL must be set before GoTo messaging can be configured.");
+  }
+
+  const webhookToken = existing?.notificationWebhookToken ?? randomBytes(24).toString("hex");
+  const webhookUrl = getGoToNotificationWebhookUrl({
+    origin,
+    webhookToken,
+  });
+  const notificationChannelId =
+    existing?.notificationChannelId ??
+    (await createGoToNotificationChannel({
+      accessToken: input.accessToken,
+      channelNickname: `servicesyncnow-${input.organizationId.slice(0, 18)}`,
+      webhookUrl,
+    }));
+  const messagingSubscriptionId =
+    existing?.messagingSubscriptionId ??
+    (await subscribeToGoToMessages({
+      accessToken: input.accessToken,
+      channelId: notificationChannelId,
+      ownerPhoneNumber: input.ownerPhoneNumber,
+    }));
+
+  await prisma.goToConnectSettings.update({
+    where: {
+      organizationId: input.organizationId,
+    },
+    data: {
+      messagingSubscriptionConfiguredAt: new Date(),
+      messagingSubscriptionId,
+      notificationChannelId,
+      notificationWebhookToken: webhookToken,
+    },
+  });
+
+  return {
+    alreadyConfigured: false,
+    messagingSubscriptionId,
+    notificationChannelId,
+    notificationWebhookToken: webhookToken,
+  };
+}
+
 async function upsertGoToClientSettings(input: {
   autoAnswer: boolean;
   clientId: string | null;
@@ -152,6 +234,7 @@ async function upsertGoToClientSettings(input: {
   enabled: boolean;
   organizationId: string;
   phoneNumberId: string | null;
+  smsOwnerPhoneNumber: string | null;
 }) {
   const existing = await prisma.goToConnectSettings.findUnique({
     where: { organizationId: input.organizationId },
@@ -172,6 +255,7 @@ async function upsertGoToClientSettings(input: {
       organizationId: input.organizationId,
       phoneNumberId: input.phoneNumberId,
       refreshToken: existing?.refreshToken ?? null,
+      smsOwnerPhoneNumber: input.smsOwnerPhoneNumber,
     },
     update: {
       autoAnswer: input.autoAnswer,
@@ -179,6 +263,7 @@ async function upsertGoToClientSettings(input: {
       clientSecret: input.clientSecret ?? existing?.clientSecret ?? null,
       enabled: input.enabled,
       phoneNumberId: input.phoneNumberId,
+      smsOwnerPhoneNumber: input.smsOwnerPhoneNumber,
     },
     where: { organizationId: input.organizationId },
   });
@@ -267,6 +352,7 @@ export async function updateGoToConnectSettingsAction(
     launchUrlTemplate: formData.get("launchUrlTemplate"),
     organizationId: formData.get("organizationId"),
     phoneNumberId: formData.get("phoneNumberId"),
+    smsOwnerPhoneNumber: formData.get("smsOwnerPhoneNumber"),
   });
 
   if (!parsed.success) {
@@ -280,6 +366,7 @@ export async function updateGoToConnectSettingsAction(
     enabled: parsed.data.enabled,
     organizationId,
     phoneNumberId: parsed.data.phoneNumberId ?? null,
+    smsOwnerPhoneNumber: parsed.data.smsOwnerPhoneNumber ?? null,
   });
 
   const resolvedAccount = await resolveGoToAccount({
@@ -317,6 +404,7 @@ export async function updateGoToConnectSettingsAction(
       autoAnswer: parsed.data.autoAnswer,
       enabled: parsed.data.enabled,
       phoneNumberId: parsed.data.phoneNumberId ?? null,
+      smsOwnerPhoneNumber: parsed.data.smsOwnerPhoneNumber ?? null,
     },
   });
 
@@ -346,6 +434,9 @@ export async function updateGoToConnectSettingsAction(
         enabled: parsed.data.enabled !== (existing?.enabled ?? false),
         phoneNumberId:
           (parsed.data.phoneNumberId ?? null) !== (existing?.phoneNumberId ?? null),
+        smsOwnerPhoneNumber:
+          (parsed.data.smsOwnerPhoneNumber ?? null) !==
+          (existing?.smsOwnerPhoneNumber ?? null),
       },
       resolvedAccountName: resolvedAccount.account.name,
       reResolvedSummary,
@@ -497,6 +588,7 @@ export async function testGoToConnectSettingsAction(
     launchUrlTemplate: formData.get("launchUrlTemplate"),
     organizationId: formData.get("organizationId"),
     phoneNumberId: formData.get("phoneNumberId"),
+    smsOwnerPhoneNumber: formData.get("smsOwnerPhoneNumber"),
   });
 
   if (!parsed.success) {
@@ -510,6 +602,7 @@ export async function testGoToConnectSettingsAction(
     enabled: parsed.data.enabled,
     organizationId,
     phoneNumberId: parsed.data.phoneNumberId ?? null,
+    smsOwnerPhoneNumber: parsed.data.smsOwnerPhoneNumber ?? null,
   });
 
   const runtimeSettings = await getGoToConnectSettingsWithAccessToken(organizationId);
@@ -722,6 +815,78 @@ export async function syncGoToCallTrackingAction() {
   }
 }
 
+export async function syncGoToMessagingAction() {
+  const session = await requireRole([Role.MANAGER]);
+  const organizationId = requireOrganizationId(session);
+  const settings = await getGoToConnectSettingsWithAccessToken(organizationId);
+
+  if (!settings.accessToken) {
+    redirect(
+      "/manager/settings/integrations/goto-connect?messaging=error&messagingMessage=Connect+GoTo+before+enabling+text+notifications.",
+    );
+  }
+
+  if (!settings.smsOwnerPhoneNumber) {
+    redirect(
+      "/manager/settings/integrations/goto-connect?messaging=error&messagingMessage=Save+an+SMS+sender+phone+number+before+enabling+text+notifications.",
+    );
+  }
+
+  try {
+    const result = await syncGoToMessaging({
+      accessToken: settings.accessToken,
+      organizationId,
+      ownerPhoneNumber: settings.smsOwnerPhoneNumber,
+    });
+
+    logGoTo("info", "messaging-setup:complete", {
+      alreadyConfigured: result.alreadyConfigured,
+      messagingSubscriptionId: result.messagingSubscriptionId,
+      notificationChannelId: result.notificationChannelId,
+      organizationId,
+      tokenSuffix: result.notificationWebhookToken?.slice(-8) ?? null,
+    });
+
+    await logActivity({
+      message: result.alreadyConfigured
+        ? "GoTo text notifications were already configured."
+        : "Configured GoTo text notifications.",
+      metadata: {
+        messagingSubscriptionId: result.messagingSubscriptionId,
+        notificationChannelId: result.notificationChannelId,
+        smsOwnerPhoneNumber: settings.smsOwnerPhoneNumber,
+      },
+      type: ActivityType.GOTO_CONNECT_SETTINGS_UPDATED,
+      userId: session.user.id,
+    });
+
+    revalidatePath("/manager/settings/integrations/goto-connect");
+    redirect(
+      `/manager/settings/integrations/goto-connect?messaging=success&messagingMessage=${encodeURIComponent(
+        result.alreadyConfigured
+          ? "GoTo text notifications are already configured."
+          : "GoTo text notifications are configured.",
+      )}`,
+    );
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    logGoTo("error", "messaging-setup:failed", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      organizationId,
+      smsOwnerPhoneNumber: settings.smsOwnerPhoneNumber,
+    });
+
+    redirect(
+      `/manager/settings/integrations/goto-connect?messaging=error&messagingMessage=${encodeURIComponent(
+        error instanceof Error ? error.message : "Unable to configure GoTo text notifications.",
+      )}`,
+    );
+  }
+}
+
 export async function connectGoToOauthAction(
   _previousState: GoToConnectSettingsActionState,
   formData: FormData,
@@ -739,6 +904,7 @@ export async function connectGoToOauthAction(
     launchUrlTemplate: null,
     organizationId: null,
     phoneNumberId: formData.get("phoneNumberId"),
+    smsOwnerPhoneNumber: formData.get("smsOwnerPhoneNumber"),
   });
 
   if (!parsed.success || !parsed.data.clientId || !parsed.data.clientSecret) {
@@ -752,6 +918,7 @@ export async function connectGoToOauthAction(
     enabled: parsed.data.enabled,
     organizationId,
     phoneNumberId: parsed.data.phoneNumberId ?? null,
+    smsOwnerPhoneNumber: parsed.data.smsOwnerPhoneNumber ?? null,
   });
 
   redirect("/api/goto-connect/oauth/start");

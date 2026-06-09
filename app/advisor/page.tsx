@@ -92,6 +92,18 @@ export default async function AdvisorPage() {
         contactedAt: record.contactedAt.toISOString(),
         customerNotes: record.customerNotes,
       })),
+      textMessages: repairOrder.textMessages.map((message) => ({
+        advisorLabel:
+          message.advisorUser?.name?.trim() ||
+          message.advisorUser?.email ||
+          repairOrder.advisorName ||
+          null,
+        body: message.body,
+        deliveryStatus: message.deliveryStatus,
+        direction: message.direction,
+        id: message.id,
+        sentAt: message.sentAt.toISOString(),
+      })),
       customerName: repairOrder.customerName,
       mode: repairOrder.mode,
       model: repairOrder.model,

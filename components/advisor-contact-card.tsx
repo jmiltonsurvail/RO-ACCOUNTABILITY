@@ -5,6 +5,8 @@ import { useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
+import { GoToMessageForm } from "@/components/goto-message-form";
+import { TextMessageThread, type TextMessageThreadEntry } from "@/components/text-message-thread";
 import {
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
@@ -68,6 +70,7 @@ export type AdvisorRepairOrder = {
   } | null;
   callSessions: AdvisorCallAttempt[];
   contactRecords: ContactHistoryEntry[];
+  textMessages: TextMessageThreadEntry[];
   customerName: string;
   mode: string;
   model: string;
@@ -277,6 +280,20 @@ export function AdvisorContactCard({
           <div className="mt-4">
             <GoToCallFeedback roNumber={repairOrder.roNumber} />
           </div>
+          {repairOrder.phone ? (
+            <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                  RO Conversation
+                </p>
+                <span className="text-xs text-zinc-500">{repairOrder.phone}</span>
+              </div>
+              <TextMessageThread messages={repairOrder.textMessages} />
+              <div className="mt-3">
+                <GoToMessageForm roNumber={repairOrder.roNumber} />
+              </div>
+            </div>
+          ) : null}
           <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
             <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">Latest Call</p>
             {latestCallRecord ? (

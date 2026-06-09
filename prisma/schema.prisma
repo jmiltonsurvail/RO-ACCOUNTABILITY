@@ -87,6 +87,11 @@ enum TranscriptProcessingStatus {
   FAILED
 }
 
+enum TextMessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
 model Organization {
   id                 String               @id @default(cuid())
   name               String
@@ -96,6 +101,7 @@ model Organization {
   importBatches      ImportBatch[]
   repairOrders       RepairOrder[]
   callSessions       CallSession[]
+  textMessages       TextMessage[]
   slaSettings        SlaSettings?
   goToConnectSettings GoToConnectSettings?
   alertRules         AlertRule[]
@@ -134,6 +140,7 @@ model User {
   blockerEntries       BlockerState[]
   contactEntries       ContactState[]
   contactRecords       ContactRecord[]
+  textMessages         TextMessage[]
   initiatedCallSessions CallSession[]    @relation("CallSessionInitiatedBy")
   activities           ActivityLog[]
   createdAt            DateTime      @default(now())
@@ -204,6 +211,7 @@ model RepairOrder {
   contactState         ContactState?
   contactRecords       ContactRecord[]
   callSessions         CallSession[]
+  textMessages         TextMessage[]
   activities           ActivityLog[]
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
@@ -305,6 +313,8 @@ model GoToConnectSettings {
   goToOrganizationId String?
   notificationChannelId String?
   notificationWebhookToken String?
+  messagingSubscriptionId String?
+  messagingSubscriptionConfiguredAt DateTime?
   phoneNumberId     String?
   recordingAwsRegion String?
   recordingIamAccessKeyId String?
@@ -312,9 +322,37 @@ model GoToConnectSettings {
   recordingProvisionedAt DateTime?
   recordingS3Bucket String?
   refreshToken      String?
+  smsOwnerPhoneNumber String?
   launchUrlTemplate String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model TextMessage {
+  id                 String               @id @default(cuid())
+  organizationId     String
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repairOrderId      String
+  repairOrder        RepairOrder          @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  advisorUserId      String?
+  advisorUser        User?                @relation(fields: [advisorUserId], references: [id], onDelete: SetNull)
+  direction          TextMessageDirection
+  providerMessageId  String?
+  conversationKey    String?
+  ownerPhoneNumber   String?
+  contactPhoneNumber String?
+  authorPhoneNumber  String?
+  body               String?
+  deliveryStatus     String?
+  rawPayload         Json?
+  sentAt             DateTime
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@unique([organizationId, providerMessageId])
+  @@index([organizationId, sentAt])
+  @@index([repairOrderId, sentAt])
+  @@index([conversationKey])
 }
 
 model AlertRule {

@@ -9,6 +9,8 @@ import {
 import { CompactStatCard } from "@/components/compact-stat-card";
 import { ContactHistoryList } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
+import { GoToMessageForm } from "@/components/goto-message-form";
+import { TextMessageThread } from "@/components/text-message-thread";
 import {
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
@@ -598,6 +600,22 @@ export function AdvisorRoBoard({
                                       </span>
                                     )}
                                   </div>
+                                  {repairOrder.phone ? (
+                                    <div className="mt-4 border-t border-zinc-100 pt-4">
+                                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                        <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                                          RO Conversation
+                                        </p>
+                                        <span className="text-xs text-zinc-500">
+                                          {repairOrder.phone}
+                                        </span>
+                                      </div>
+                                      <TextMessageThread messages={repairOrder.textMessages} />
+                                      <div className="mt-3">
+                                        <GoToMessageForm compact roNumber={repairOrder.roNumber} />
+                                      </div>
+                                    </div>
+                                  ) : null}
                                 </div>
                                 <ContactHistoryList entries={repairOrder.contactRecords} />
                               </div>

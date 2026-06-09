@@ -5,6 +5,7 @@ import { GoToConnectSettingsForm } from "@/components/goto-connect-settings-form
 import {
   reResolveGoToConnectAdvisorExtensionsAction,
   syncGoToCallTrackingAction,
+  syncGoToMessagingAction,
   updateGoToConnectAdvisorExtensionAction,
 } from "@/app/manager/settings/integrations/goto-connect/actions";
 import { getManagerAlertCount } from "@/lib/alerts";
@@ -19,6 +20,8 @@ export default async function ManagerGoToConnectSettingsPage({
     extensionMessage?: string;
     extensionStatus?: string;
     message?: string;
+    messaging?: string;
+    messagingMessage?: string;
     oauth?: string;
     tracking?: string;
     trackingMessage?: string;
@@ -77,7 +80,7 @@ export default async function ManagerGoToConnectSettingsPage({
           </Link>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
           <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Status
@@ -116,6 +119,14 @@ export default async function ManagerGoToConnectSettingsPage({
             </p>
             <p className="mt-2 text-2xl font-semibold text-slate-950">
               {settings.callEventsConfiguredAt ? "Configured" : "Pending"}
+            </p>
+          </div>
+          <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Text Tracking
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-950">
+              {settings.messagingSubscriptionConfiguredAt ? "Configured" : "Pending"}
             </p>
           </div>
           <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
@@ -187,6 +198,64 @@ export default async function ManagerGoToConnectSettingsPage({
               }`}
             >
               {resolvedSearchParams.trackingMessage}
+            </p>
+          ) : null}
+        </section>
+
+        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-2xl font-semibold text-slate-950">Text Notifications</h3>
+              <p className="mt-2 text-sm text-slate-600">
+                Subscribe the configured SMS sender number so inbound customer texts update the RO conversation.
+              </p>
+            </div>
+            <form action={syncGoToMessagingAction}>
+              <button
+                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                type="submit"
+              >
+                {settings.messagingSubscriptionConfiguredAt
+                  ? "Recheck Text Notifications"
+                  : "Enable Text Notifications"}
+              </button>
+            </form>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                SMS Sender
+              </p>
+              <p className="mt-2 break-all text-sm text-slate-900">
+                {settings.smsOwnerPhoneNumber || "Not configured"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Message Subscription
+              </p>
+              <p className="mt-2 break-all text-sm text-slate-900">
+                {settings.messagingSubscriptionId || "Not configured"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Last Sync
+              </p>
+              <p className="mt-2 text-sm text-slate-900">
+                {settings.messagingSubscriptionConfiguredAt || "Not configured"}
+              </p>
+            </div>
+          </div>
+          {resolvedSearchParams?.messagingMessage ? (
+            <p
+              className={`mt-4 text-sm ${
+                resolvedSearchParams.messaging === "error"
+                  ? "text-rose-600"
+                  : "text-emerald-700"
+              }`}
+            >
+              {resolvedSearchParams.messagingMessage}
             </p>
           ) : null}
         </section>

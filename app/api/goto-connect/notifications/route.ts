@@ -1,7 +1,10 @@
 import {
   CallSessionStatus,
   RecordingProcessingStatus,
+  TextMessageDirection,
   TranscriptProcessingStatus,
+  ActivityType,
+  Role,
   type Prisma,
 } from "@prisma/client";
 import { randomUUID } from "crypto";
@@ -102,6 +105,32 @@ type GoToCallEventsReportNotification = {
   };
 };
 
+type GoToMessagingNotification = {
+  content?: {
+    authorPhoneNumber?: string;
+    body?: string;
+    contactPhoneNumber?: string;
+    contactPhoneNumbers?: string[];
+    deliveryStatusDescription?: string;
+    deliveryStatuses?: Array<{
+      deliveryStatusDescription?: string;
+      messageId?: string;
+    }>;
+    direction?: string;
+    id?: string;
+    messageId?: string;
+    ownerPhoneNumber?: string;
+    timestamp?: string;
+  };
+  data?: {
+    content?: GoToMessagingNotification["content"];
+    source?: string;
+    type?: string;
+  };
+  source?: string;
+  type?: string;
+};
+
 function getEventMetadata(payload: GoToCallEventPayload) {
   return payload.content?.metadata ?? payload.metadata ?? null;
 }
@@ -136,6 +165,18 @@ function getReportType(payload: GoToCallEventsReportNotification) {
 }
 
 function getReportContent(payload: GoToCallEventsReportNotification) {
+  return payload.data?.content ?? payload.content ?? null;
+}
+
+function getMessagingSource(payload: GoToMessagingNotification) {
+  return payload.data?.source ?? payload.source ?? null;
+}
+
+function getMessagingType(payload: GoToMessagingNotification) {
+  return payload.data?.type ?? payload.type ?? null;
+}
+
+function getMessagingContent(payload: GoToMessagingNotification) {
   return payload.data?.content ?? payload.content ?? null;
 }
 
@@ -460,6 +501,244 @@ async function findInboundRepairOrderByPhone(input: {
   });
 
   return matches[0] ?? null;
+}
+
+function getTextMessageDirection(value: string | null | undefined) {
+  const normalized = value?.trim().toUpperCase() ?? null;
+
+  if (normalized === "IN" || normalized === "INBOUND") {
+    return TextMessageDirection.INBOUND;
+  }
+
+  if (normalized === "OUT" || normalized === "OUTBOUND") {
+    return TextMessageDirection.OUTBOUND;
+  }
+
+  return null;
+}
+
+function buildTextConversationKey(input: {
+  contactPhoneNumber: string | null;
+  ownerPhoneNumber: string | null;
+}) {
+  if (!input.ownerPhoneNumber || !input.contactPhoneNumber) {
+    return null;
+  }
+
+  return `${input.ownerPhoneNumber}:${input.contactPhoneNumber}`;
+}
+
+async function processMessagingNotification(input: {
+  organizationId: string;
+  payload: GoToMessagingNotification;
+}) {
+  const content = getMessagingContent(input.payload);
+  const notificationType = getMessagingType(input.payload);
+  const direction = getTextMessageDirection(content?.direction);
+  const ownerPhoneNumber = content?.ownerPhoneNumber?.trim() || null;
+  const contactPhoneNumber =
+    content?.contactPhoneNumber?.trim() ||
+    content?.contactPhoneNumbers?.find((phone) => phone?.trim())?.trim() ||
+    null;
+  const authorPhoneNumber = content?.authorPhoneNumber?.trim() || null;
+  const providerMessageId = content?.id?.trim() || content?.messageId?.trim() || null;
+  const sentAt = parseDate(content?.timestamp) ?? new Date();
+  const deliveryStatus =
+    content?.deliveryStatusDescription?.trim() ||
+    content?.deliveryStatuses?.find((status) => status.deliveryStatusDescription?.trim())
+      ?.deliveryStatusDescription?.trim() ||
+    null;
+  const phoneCandidates = Array.from(
+    new Set(
+      [
+        contactPhoneNumber,
+        authorPhoneNumber && authorPhoneNumber !== ownerPhoneNumber ? authorPhoneNumber : null,
+        ...(content?.contactPhoneNumbers ?? []),
+      ]
+        .map((phone) => normalizePhoneDigits(phone))
+        .filter((phone): phone is string => Boolean(phone)),
+    ),
+  );
+
+  if (!content) {
+    return {
+      matched: false,
+      reason: "not-message",
+      type: "messaging",
+    };
+  }
+
+  if (!direction && notificationType === "delivery-status" && providerMessageId) {
+    const updated = await prisma.textMessage.updateMany({
+      where: {
+        organizationId: input.organizationId,
+        providerMessageId,
+      },
+      data: {
+        deliveryStatus,
+        rawPayload: input.payload as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      matched: updated.count > 0,
+      providerMessageId,
+      type: "messaging-delivery-status",
+    };
+  }
+
+  if (!direction) {
+    return {
+      matched: false,
+      reason: "missing-direction",
+      type: "messaging",
+    };
+  }
+
+  const repairOrder = await findInboundRepairOrderByPhone({
+    organizationId: input.organizationId,
+    phoneCandidates,
+  });
+
+  if (!repairOrder) {
+    logGoTo("info", "webhook:message:no-ro-match", {
+      direction,
+      notificationType,
+      organizationId: input.organizationId,
+      phoneCandidates,
+      providerMessageId,
+    });
+
+    return {
+      matched: false,
+      reason: "no-ro-phone-match",
+      type: "messaging",
+    };
+  }
+
+  const advisor = await prisma.user.findFirst({
+    where: {
+      asmNumber: repairOrder.asmNumber,
+      organizationId: input.organizationId,
+      role: Role.ADVISOR,
+    },
+    select: {
+      id: true,
+    },
+  });
+  const conversationKey = buildTextConversationKey({
+    contactPhoneNumber,
+    ownerPhoneNumber,
+  });
+  const textMessageData = {
+    advisorUserId: direction === TextMessageDirection.OUTBOUND ? advisor?.id ?? null : null,
+    authorPhoneNumber,
+    body: content.body ?? null,
+    contactPhoneNumber,
+    conversationKey,
+    deliveryStatus,
+    direction,
+    organizationId: input.organizationId,
+    ownerPhoneNumber,
+    providerMessageId,
+    rawPayload: input.payload as Prisma.InputJsonValue,
+    repairOrderId: repairOrder.id,
+    sentAt,
+  } satisfies Prisma.TextMessageUncheckedCreateInput;
+
+  await prisma.$transaction(async (transaction) => {
+    if (providerMessageId) {
+      await transaction.textMessage.upsert({
+        where: {
+          organizationId_providerMessageId: {
+            organizationId: input.organizationId,
+            providerMessageId,
+          },
+        },
+        create: textMessageData,
+        update: {
+          authorPhoneNumber,
+          body: content.body ?? null,
+          contactPhoneNumber,
+          conversationKey,
+          deliveryStatus,
+          direction,
+          ownerPhoneNumber,
+          rawPayload: input.payload as Prisma.InputJsonValue,
+          sentAt,
+        },
+      });
+    } else {
+      await transaction.textMessage.create({
+        data: textMessageData,
+      });
+    }
+
+    if (direction === TextMessageDirection.INBOUND) {
+      const customerNotes = content.body
+        ? `Text received: ${content.body}`
+        : "Inbound text message received.";
+
+      await transaction.contactState.upsert({
+        where: {
+          repairOrderId: repairOrder.id,
+        },
+        update: {
+          advisorUserId: advisor?.id ?? null,
+          contacted: true,
+          contactedAt: sentAt,
+          customerNotes,
+        },
+        create: {
+          advisorUserId: advisor?.id ?? null,
+          contacted: true,
+          contactedAt: sentAt,
+          customerNotes,
+          repairOrderId: repairOrder.id,
+        },
+      });
+
+      await transaction.contactRecord.create({
+        data: {
+          advisorUserId: advisor?.id ?? null,
+          contactedAt: sentAt,
+          customerNotes,
+          repairOrderId: repairOrder.id,
+        },
+      });
+
+      await transaction.activityLog.create({
+        data: {
+          message: `Inbound text received for RO ${repairOrder.roNumber}.`,
+          metadata: {
+            authorPhoneNumber,
+            body: content.body ?? null,
+            contactPhoneNumber,
+            ownerPhoneNumber,
+            providerMessageId,
+          },
+          repairOrderId: repairOrder.id,
+          type: ActivityType.CONTACT_UPDATED,
+          userId: advisor?.id ?? null,
+        },
+      });
+    }
+  });
+
+  logGoTo("info", "webhook:message:matched", {
+    direction,
+    notificationType,
+    organizationId: input.organizationId,
+    providerMessageId,
+    roNumber: repairOrder.roNumber,
+  });
+
+  return {
+    direction,
+    matched: true,
+    repairOrderId: repairOrder.id,
+    type: "messaging",
+  };
 }
 
 async function ingestInboundCallReport(input: {
@@ -982,6 +1261,7 @@ export async function POST(request: NextRequest) {
 
   const reportNotification = payload as GoToCallEventsReportNotification;
   const callEvent = payload as GoToCallEventPayload;
+  const messagingNotification = payload as GoToMessagingNotification;
   const topLevelKeys =
     payload && typeof payload === "object" ? Object.keys(payload as Record<string, unknown>) : [];
   const dataKeys =
@@ -1008,8 +1288,26 @@ export async function POST(request: NextRequest) {
   const reportSource = getReportSource(reportNotification);
   const reportType = getReportType(reportNotification);
   const reportContent = getReportContent(reportNotification);
+  const messagingSource = getMessagingSource(messagingNotification);
+  const messagingType = getMessagingType(messagingNotification);
 
   try {
+    if (messagingSource === "messaging") {
+      logGoTo("info", "webhook:branch:messaging", {
+        organizationId: settings.organizationId,
+        type: messagingType,
+      });
+      const result = await processMessagingNotification({
+        organizationId: settings.organizationId,
+        payload: messagingNotification,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        result,
+      });
+    }
+
     if (
       reportSource === "call-events-report" &&
       contentConversationSpaceId
@@ -1062,6 +1360,8 @@ export async function POST(request: NextRequest) {
       dataKeys,
       dataSource: reportSource,
       dataType: reportType,
+      messagingSource,
+      messagingType,
       hasData: Boolean(reportNotification.data || reportNotification.content),
       hasMetadata: Boolean(normalizedMetadata),
       metadataConversationSpaceId: normalizedMetadata?.conversationSpaceId ?? null,

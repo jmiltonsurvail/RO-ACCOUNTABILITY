@@ -89,7 +89,10 @@ export function GoToConnectSettingsForm({
                 <span className="font-mono text-slate-900">calls.v2.initiate</span>{" "}
                 <span className="font-mono text-slate-900">call-events.v1.events.read</span>{" "}
                 <span className="font-mono text-slate-900">call-events.v1.notifications.manage</span>{" "}
-                <span className="font-mono text-slate-900">cr.v1.read</span>
+                <span className="font-mono text-slate-900">cr.v1.read</span>{" "}
+                <span className="font-mono text-slate-900">messaging.v1.send</span>{" "}
+                <span className="font-mono text-slate-900">messaging.v1.read</span>{" "}
+                <span className="font-mono text-slate-900">messaging.v1.notifications.manage</span>
               </p>
               <p>
                 <span className="font-semibold text-slate-900">GoTo User:</span> Use a super
@@ -224,6 +227,22 @@ export function GoToConnectSettingsForm({
             placeholder="Optional outbound caller ID phone number id"
             type="text"
           />
+        </label>
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-slate-700">
+            SMS Sender Phone Number
+          </span>
+          <input
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+            defaultValue={settings.smsOwnerPhoneNumber ?? ""}
+            name="smsOwnerPhoneNumber"
+            placeholder="+15555550100"
+            type="tel"
+          />
+          <span className="mt-2 block text-xs text-slate-500">
+            Use a GoTo phone number with SMS permissions, formatted as E.164.
+          </span>
         </label>
 
         <label className="block">
