@@ -4,9 +4,12 @@ import { useMemo, useState } from "react";
 import { CallRecordModal } from "@/components/call-record-modal";
 import { TextMessageThread, type TextMessageThreadEntry } from "@/components/text-message-thread";
 import {
+  getCallDirectionClasses,
+  getCallDirectionLabel,
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
   getDerivedCallStatusLabel,
+  isMissedInboundCall,
 } from "@/lib/call-session-status";
 import { formatDateTime } from "@/lib/utils";
 
@@ -25,6 +28,7 @@ export type ContactHistoryEntry = {
     durationSeconds: number | null;
     goToAiSummary: string | null;
     goToPrimaryRecordingId: string | null;
+    missedInboundCall?: boolean | null;
     transcriptStatus: "FAILED" | "PENDING" | "PROCESSING" | "READY";
     wasConnected: boolean | null;
   } | null;
@@ -182,6 +186,18 @@ export function ContactHistoryList({
                 <div className="flex flex-wrap items-center gap-2">
                   {entry.linkedCallRecord ? (
                     <>
+                    <span
+                      className={`rounded-md px-2 py-1 text-[11px] font-semibold ${getCallDirectionClasses(
+                        entry.linkedCallRecord,
+                      )}`}
+                    >
+                      {getCallDirectionLabel(entry.linkedCallRecord)}
+                    </span>
+                    {isMissedInboundCall(entry.linkedCallRecord) ? (
+                      <span className="rounded-md bg-rose-600 px-2 py-1 text-[11px] font-semibold text-white">
+                        Missed Inbound
+                      </span>
+                    ) : null}
                     <span
                       className={`rounded-md px-2 py-1 text-[11px] font-semibold ${getDerivedCallStatusClasses(
                         getDerivedCallStatus(entry.linkedCallRecord),

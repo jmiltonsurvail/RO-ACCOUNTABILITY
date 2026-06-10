@@ -25,6 +25,9 @@ import {
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
   getDerivedCallStatusLabel,
+  getNormalizedCallDirection,
+  hasUnresolvedMissedInboundCall,
+  isMissedInboundCall,
 } from "@/lib/call-session-status";
 import { InlineBlockerEditor } from "@/components/inline-blocker-editor";
 import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
@@ -68,6 +71,7 @@ type ActiveRepairOrder = {
     durationSeconds: number | null;
     goToAiSummary: string | null;
     goToPrimaryRecordingId: string | null;
+    missedInboundCall?: boolean | null;
     requestedAt: string;
     transcriptStatus: "FAILED" | "PENDING" | "PROCESSING" | "READY";
     wasConnected: boolean | null;
@@ -92,7 +96,7 @@ type BlockerFilter = "all" | "blocked" | "unblocked";
 type ContactFilter = "all" | "needs-contact" | "contacted" | "no-record";
 type DueFilter = "all" | "overdue" | "today" | "upcoming" | "missing";
 type CallStatusFilter = "all" | "no-call" | DerivedCallStatus;
-type CallDirectionFilter = "all" | "inbound" | "outbound" | "no-call";
+type CallDirectionFilter = "all" | "inbound" | "outbound" | "missed-inbound" | "no-call";
 type BoardLayout = "table" | "cards" | "split";
 type QuickView =
   | "all"
@@ -175,20 +179,6 @@ function getLatestCallRecord(repairOrder: ActiveRepairOrder) {
     repairOrder.contactRecords.find((record) => record.linkedCallRecord)?.linkedCallRecord ??
     null
   );
-}
-
-function getNormalizedCallDirection(callRecord: { callDirection?: string | null } | null) {
-  const direction = callRecord?.callDirection?.trim().toUpperCase() ?? null;
-
-  if (direction === "INBOUND") {
-    return "inbound";
-  }
-
-  if (direction === "OUTBOUND") {
-    return "outbound";
-  }
-
-  return null;
 }
 
 export function ActiveRoBoard({
@@ -410,8 +400,16 @@ export function ActiveRoBoard({
         }
 
         if (
+          callDirectionFilter === "missed-inbound" &&
+          !hasUnresolvedMissedInboundCall(repairOrder.callSessions)
+        ) {
+          return false;
+        }
+
+        if (
           callDirectionFilter !== "all" &&
           callDirectionFilter !== "no-call" &&
+          callDirectionFilter !== "missed-inbound" &&
           latestCallDirection !== callDirectionFilter
         ) {
           return false;
@@ -934,6 +932,7 @@ export function ActiveRoBoard({
               <option value="all">All directions</option>
               <option value="inbound">Inbound calls</option>
               <option value="outbound">Outbound calls</option>
+              <option value="missed-inbound">Missed inbound calls</option>
               <option value="no-call">No calls</option>
             </select>
             <svg
@@ -1006,6 +1005,9 @@ export function ActiveRoBoard({
               const needsContact = needsRepairOrderContact(repairOrder);
               const overdue = isRepairOrderOverdue(repairOrder, now);
               const dueToday = isRepairOrderDueToday(repairOrder, now);
+              const hasMissedInboundCall = hasUnresolvedMissedInboundCall(
+                repairOrder.callSessions,
+              );
 
               return (
                 <article
@@ -1092,6 +1094,11 @@ export function ActiveRoBoard({
                     {hasRentalCar ? (
                       <span className="rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
                         Rental
+                      </span>
+                    ) : null}
+                    {hasMissedInboundCall ? (
+                      <span className="rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                        Missed Inbound Call
                       </span>
                     ) : null}
                   </div>
@@ -1304,6 +1311,9 @@ export function ActiveRoBoard({
                   const callStatus = latestCallRecord ? getDerivedCallStatus(latestCallRecord) : null;
                   const callSummary =
                     latestCallRecord?.callSummary || latestCallRecord?.goToAiSummary || null;
+                  const hasMissedInboundCall = hasUnresolvedMissedInboundCall(
+                    repairOrder.callSessions,
+                  );
                   const attemptedToday = Boolean(
                     latestCallRecord &&
                       new Date(getCallAttemptTimestamp(latestCallRecord) ?? "").toDateString() ===
@@ -1408,11 +1418,19 @@ export function ActiveRoBoard({
                                 Rental
                               </span>
                             ) : null}
+                            {hasMissedInboundCall ? (
+                              <span className="rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                                Missed Inbound Call
+                              </span>
+                            ) : null}
                             {!contacted && attemptedToday && callStatus ? (
                               <span
                                 className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${getDerivedCallStatusClasses(callStatus)}`}
                               >
-                                Attempted: {getDerivedCallStatusLabel(callStatus)}
+                                Attempted:{" "}
+                                {latestCallRecord && isMissedInboundCall(latestCallRecord)
+                                  ? "Missed Inbound"
+                                  : getDerivedCallStatusLabel(callStatus)}
                               </span>
                             ) : null}
                           </div>
@@ -1511,7 +1529,9 @@ export function ActiveRoBoard({
                                       <span
                                         className={`mt-2 inline-flex rounded-md px-2 py-1 text-[11px] font-semibold ${getDerivedCallStatusClasses(callStatus)}`}
                                       >
-                                        {getDerivedCallStatusLabel(callStatus)}
+                                        {isMissedInboundCall(latestCallRecord)
+                                          ? "Missed Inbound"
+                                          : getDerivedCallStatusLabel(callStatus)}
                                       </span>
                                       <p className="mt-2 text-sm leading-6 text-zinc-700">
                                         {callSummary || "No call summary yet."}

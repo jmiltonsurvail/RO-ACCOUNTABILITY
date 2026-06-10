@@ -17,6 +17,8 @@ import {
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
   getDerivedCallStatusLabel,
+  hasUnresolvedMissedInboundCall,
+  isMissedInboundCall,
 } from "@/lib/call-session-status";
 import {
   hasRepairOrderContactToday,
@@ -377,6 +379,9 @@ export function AdvisorRoBoard({
                       new Date(getCallAttemptTimestamp(latestCallRecord) ?? "").toDateString() ===
                         new Date().toDateString(),
                   );
+                  const hasMissedInboundCall = hasUnresolvedMissedInboundCall(
+                    repairOrder.callSessions,
+                  );
                   const dueDateTone = getDueDateTone(dueDate);
                   const selected = selectedRoNumber === repairOrder.roNumber;
                   const hasAnyPhone = Boolean(
@@ -466,7 +471,14 @@ export function AdvisorRoBoard({
                                 )}`}
                               >
                                 Attempted:{" "}
-                                {getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
+                                {isMissedInboundCall(latestCallRecord)
+                                  ? "Missed Inbound"
+                                  : getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
+                              </span>
+                            ) : null}
+                            {hasMissedInboundCall ? (
+                              <span className="rounded-md bg-rose-600 px-2 py-1 text-xs font-semibold text-white">
+                                Missed Inbound Call
                               </span>
                             ) : null}
                             <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
@@ -578,7 +590,9 @@ export function AdvisorRoBoard({
                                   title="Latest Call"
                                 >
                                   <p className="text-sm leading-6 text-zinc-700">
-                                    {latestCallSummary || "No call summary yet."}
+                                    {latestCallRecord && isMissedInboundCall(latestCallRecord)
+                                      ? "Missed inbound call."
+                                      : latestCallSummary || "No call summary yet."}
                                   </p>
                                 </CollapsibleSection>
 

@@ -15,7 +15,7 @@ import {
   getGoToConnectSettingsWithAccessToken,
   type GoToCallEventsReport,
 } from "@/lib/goto-connect";
-import { getDerivedCallStatus } from "@/lib/call-session-status";
+import { getDerivedCallStatus, isMissedInboundCall } from "@/lib/call-session-status";
 import { logGoTo } from "@/lib/goto-debug";
 import { getPlatformIntegrationSettings } from "@/lib/platform-integrations";
 import { prisma } from "@/lib/prisma";
@@ -856,7 +856,17 @@ async function ingestInboundCallReport(input: {
     input.report.aiAnalysis?.summary?.trim() ||
     null;
   const contactTimestamp = callEndedAt ?? callAnsweredAt ?? callCreatedAt ?? new Date();
-  const shouldMarkContacted = derivedCallStatus === "HUMAN_ANSWERED";
+  const shouldMarkContacted = derivedCallStatus === "HUMAN_ANSWERED" && Boolean(receiver.userId);
+  const missedInboundCall = isMissedInboundCall({
+    callAnsweredAt,
+    callDirection: "INBOUND",
+    callEndedAt,
+    callState: "ENDED",
+    callerOutcome,
+    durationSeconds,
+    missedInboundCall: !receiver.userId || derivedCallStatus !== "HUMAN_ANSWERED",
+    wasConnected,
+  });
 
   await prisma.$transaction(async (transaction) => {
     const data = {
@@ -876,6 +886,7 @@ async function ingestInboundCallReport(input: {
       goToRecordingIds:
         reportRecordingIds.length > 0 ? (reportRecordingIds as Prisma.InputJsonValue) : undefined,
       initiatedByUserId: receiver.userId,
+      missedInboundCall,
       organizationId: input.organizationId,
       processedRecordingObjectKey: storageKeys.processedRecordingObjectKey,
       rawCallReportJson: input.report as Prisma.InputJsonValue,
@@ -1149,6 +1160,15 @@ async function processCallEventsReportSummary(input: {
     wasConnected,
   });
   const shouldMarkContacted = derivedCallStatus === "HUMAN_ANSWERED";
+  const missedInboundCall = isMissedInboundCall({
+    callAnsweredAt,
+    callDirection: report.direction?.trim().toUpperCase() || "OUTBOUND",
+    callEndedAt,
+    callState: "ENDED",
+    callerOutcome,
+    durationSeconds,
+    wasConnected,
+  });
   const existingContactRecord = await prisma.contactRecord.findFirst({
     where: {
       callSessionId: callSession.id,
@@ -1182,6 +1202,7 @@ async function processCallEventsReportSummary(input: {
         conversationSpaceId: report.conversationSpaceId ?? input.conversationSpaceId,
         durationSeconds,
         goToAiSummary,
+        missedInboundCall,
         ...(reportRecordingIds.length > 0
           ? {
               goToPrimaryRecordingId: reportRecordingIds[0],

@@ -2,14 +2,18 @@
 
 import { useEffect, useState } from "react";
 import {
+  getCallDirectionClasses,
+  getCallDirectionLabel,
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
   getDerivedCallStatusLabel,
+  isMissedInboundCall,
 } from "@/lib/call-session-status";
 import { formatDateTime } from "@/lib/utils";
 
 type CallRecordSummary = {
   callAnsweredAt: string | null;
+  callDirection?: string | null;
   callEndedAt: string | null;
   callSessionId: string;
   callSummary: string | null;
@@ -18,6 +22,7 @@ type CallRecordSummary = {
   durationSeconds: number | null;
   goToAiSummary: string | null;
   goToPrimaryRecordingId: string | null;
+  missedInboundCall?: boolean | null;
   transcriptStatus: "FAILED" | "PENDING" | "PROCESSING" | "READY";
   wasConnected: boolean | null;
 };
@@ -44,6 +49,7 @@ type CallRecordResponse = {
     goToAiSummary: string | null;
     goToPrimaryRecordingId: string | null;
     id: string;
+    missedInboundCall: boolean;
     repairOrderNumber: number;
     requestedAt: string;
     transcriptError: string | null;
@@ -149,6 +155,7 @@ export function CallRecordModal({
   const transcriptStatus = state.data?.callSession.transcriptStatus ?? callRecord.transcriptStatus;
   const callSummary = state.data?.callSession.callSummary ?? callRecord.callSummary;
   const callStatus = getDerivedCallStatus(state.data?.callSession ?? callRecord);
+  const callDetails = state.data?.callSession ?? callRecord;
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-zinc-950/60 px-4 py-6">
@@ -160,6 +167,16 @@ export function CallRecordModal({
               Contacted {formatDateTime(contactTimestamp)}
             </h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-md px-2 py-1 text-[11px] font-semibold ${getCallDirectionClasses(callDetails)}`}
+              >
+                {getCallDirectionLabel(callDetails)}
+              </span>
+              {isMissedInboundCall(callDetails) ? (
+                <span className="rounded-md bg-rose-600 px-2 py-1 text-[11px] font-semibold text-white">
+                  Missed Inbound
+                </span>
+              ) : null}
               <span
                 className={`rounded-md px-2 py-1 text-[11px] font-semibold ${getDerivedCallStatusClasses(callStatus)}`}
               >
@@ -201,6 +218,10 @@ export function CallRecordModal({
                     <p>RO {state.data.callSession.repairOrderNumber}</p>
                     <p>{state.data.callSession.customerName}</p>
                     <p>{state.data.callSession.customerPhone || "No phone on file"}</p>
+                    <p>Direction {getCallDirectionLabel(state.data.callSession)}</p>
+                    {isMissedInboundCall(state.data.callSession) ? (
+                      <p>Missed inbound call</p>
+                    ) : null}
                     <p>Call started {formatDateTime(state.data.callSession.requestedAt)}</p>
                     <p>
                       Tracking status{" "}

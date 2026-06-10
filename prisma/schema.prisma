@@ -432,6 +432,7 @@ model CallSession {
   callCreatedAt              DateTime?
   callEndedAt                DateTime?
   callDirection              String?
+  missedInboundCall          Boolean                    @default(false)
   conversationSpaceId        String?
   durationSeconds            Int?
   goToAiSummary              String?
@@ -457,5 +458,6 @@ model CallSession {
   updatedAt                  DateTime                   @updatedAt
 
   @@index([organizationId, requestedAt])
+  @@index([repairOrderId, missedInboundCall])
   @@index([repairOrderId, requestedAt])
 }

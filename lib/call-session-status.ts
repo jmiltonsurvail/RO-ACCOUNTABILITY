@@ -1,9 +1,11 @@
 export type CallStatusInput = {
   callAnsweredAt?: Date | string | null;
+  callDirection?: string | null;
   callEndedAt?: Date | string | null;
   callState?: string | null;
   callerOutcome?: string | null;
   durationSeconds?: number | null;
+  missedInboundCall?: boolean | null;
   wasConnected?: boolean | null;
 };
 
@@ -26,6 +28,48 @@ function parseDate(value: Date | string | null | undefined) {
 
 function normalize(value: string | null | undefined) {
   return value?.trim().toUpperCase() ?? null;
+}
+
+export function getNormalizedCallDirection(input: { callDirection?: string | null } | null) {
+  const direction = normalize(input?.callDirection);
+
+  if (direction === "IN" || direction === "INBOUND") {
+    return "inbound";
+  }
+
+  if (direction === "OUT" || direction === "OUTBOUND") {
+    return "outbound";
+  }
+
+  return null;
+}
+
+export function getCallDirectionLabel(input: { callDirection?: string | null } | null) {
+  const direction = getNormalizedCallDirection(input);
+
+  if (direction === "inbound") {
+    return "Inbound";
+  }
+
+  if (direction === "outbound") {
+    return "Outbound";
+  }
+
+  return "Unknown";
+}
+
+export function getCallDirectionClasses(input: { callDirection?: string | null } | null) {
+  const direction = getNormalizedCallDirection(input);
+
+  if (direction === "inbound") {
+    return "bg-sky-100 text-sky-800";
+  }
+
+  if (direction === "outbound") {
+    return "bg-violet-100 text-violet-800";
+  }
+
+  return "bg-slate-200 text-slate-700";
 }
 
 function isHumanAnsweredOutcome(callerOutcome: string | null) {
@@ -99,6 +143,35 @@ export function getDerivedCallStatus(input: CallStatusInput): DerivedCallStatus 
   }
 
   return "PENDING";
+}
+
+export function isMissedInboundCall(input: CallStatusInput | null | undefined) {
+  if (!input) {
+    return false;
+  }
+
+  if (input.missedInboundCall !== null && input.missedInboundCall !== undefined) {
+    return input.missedInboundCall;
+  }
+
+  return (
+    getNormalizedCallDirection(input) === "inbound" &&
+    getDerivedCallStatus(input) !== "HUMAN_ANSWERED"
+  );
+}
+
+export function hasUnresolvedMissedInboundCall(input: CallStatusInput[]) {
+  for (const callSession of input) {
+    if (getDerivedCallStatus(callSession) === "HUMAN_ANSWERED") {
+      return false;
+    }
+
+    if (isMissedInboundCall(callSession)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function getDerivedCallStatusLabel(status: DerivedCallStatus) {

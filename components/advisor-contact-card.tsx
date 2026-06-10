@@ -14,9 +14,11 @@ import {
   type RepairOrderContactPhoneEntry,
 } from "@/components/repair-order-phone-manager";
 import {
+  hasUnresolvedMissedInboundCall,
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
   getDerivedCallStatusLabel,
+  isMissedInboundCall,
 } from "@/lib/call-session-status";
 import { blockerReasonLabels, repairValueLabels } from "@/lib/constants";
 import { hasRepairOrderContactToday } from "@/lib/repair-order-urgency";
@@ -33,6 +35,7 @@ type AdvisorCallAttempt = {
   durationSeconds: number | null;
   goToAiSummary: string | null;
   goToPrimaryRecordingId: string | null;
+  missedInboundCall?: boolean | null;
   requestedAt: string;
   transcriptStatus: string;
   wasConnected: boolean | null;
@@ -151,6 +154,7 @@ export function AdvisorContactCard({
       new Date(getCallAttemptTimestamp(latestCallRecord) ?? "").toDateString() ===
         new Date().toDateString(),
   );
+  const hasMissedInboundCall = hasUnresolvedMissedInboundCall(repairOrder.callSessions);
   const hasAnyPhone = Boolean(repairOrder.phone || repairOrder.contactPhones.length > 0);
 
   return (
@@ -194,7 +198,10 @@ export function AdvisorContactCard({
               getDerivedCallStatus(latestCallRecord),
             )}`}
           >
-            Attempted: {getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
+            Attempted:{" "}
+            {isMissedInboundCall(latestCallRecord)
+              ? "Missed Inbound"
+              : getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
           </span>
         ) : null}
         <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">
@@ -216,6 +223,11 @@ export function AdvisorContactCard({
         {repairOrder.contactState?.hasRentalCar ? (
           <span className="rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
             Rental
+          </span>
+        ) : null}
+        {hasMissedInboundCall ? (
+          <span className="rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+            Missed Inbound Call
           </span>
         ) : null}
         {repairOrder.unreadTextMessageCount > 0 ? (
@@ -298,7 +310,9 @@ export function AdvisorContactCard({
             <CollapsibleSection
               meta={
                 latestCallRecord
-                  ? getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))
+                  ? isMissedInboundCall(latestCallRecord)
+                    ? "Missed Inbound"
+                    : getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))
                   : "None"
               }
               title="Latest Call"
@@ -310,7 +324,9 @@ export function AdvisorContactCard({
                       getDerivedCallStatus(latestCallRecord),
                     )}`}
                   >
-                    {getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
+                    {isMissedInboundCall(latestCallRecord)
+                      ? "Missed Inbound"
+                      : getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
                   </span>
                   <p className="mt-2 text-sm leading-6 text-zinc-700">
                     {latestCallSummary || latestCallRecord.goToAiSummary || "No call summary yet."}

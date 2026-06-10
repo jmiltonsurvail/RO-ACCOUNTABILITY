@@ -61,6 +61,7 @@ export default async function ManagerPage() {
               durationSeconds: callSession.durationSeconds,
               goToAiSummary: callSession.goToAiSummary,
               goToPrimaryRecordingId: callSession.goToPrimaryRecordingId,
+              missedInboundCall: callSession.missedInboundCall,
               requestedAt: callSession.requestedAt.toISOString(),
               transcriptStatus: callSession.transcriptStatus,
               wasConnected: callSession.wasConnected,
@@ -107,6 +108,7 @@ export default async function ManagerPage() {
                     durationSeconds: record.callSession.durationSeconds,
                     goToAiSummary: record.callSession.goToAiSummary,
                     goToPrimaryRecordingId: record.callSession.goToPrimaryRecordingId,
+                    missedInboundCall: record.callSession.missedInboundCall,
                     transcriptStatus: record.callSession.transcriptStatus,
                     wasConnected: record.callSession.wasConnected,
                   }

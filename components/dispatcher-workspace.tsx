@@ -34,6 +34,7 @@ type DispatcherOrder = {
     durationSeconds: number | null;
     goToAiSummary: string | null;
     goToPrimaryRecordingId: string | null;
+    missedInboundCall?: boolean | null;
     requestedAt: string;
     transcriptStatus: "FAILED" | "PENDING" | "PROCESSING" | "READY";
     wasConnected: boolean | null;
