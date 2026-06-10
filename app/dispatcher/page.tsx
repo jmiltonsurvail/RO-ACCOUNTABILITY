@@ -2,6 +2,7 @@ import { Role } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { DispatcherWorkspace } from "@/components/dispatcher-workspace";
 import { getServerAuthSession, requireOrganizationId, requireRole } from "@/lib/auth";
+import { getDisplayCustomerNotes } from "@/lib/contact-notes";
 import { getActiveRepairOrders } from "@/lib/data";
 import { getSlaSettings } from "@/lib/sla-settings";
 
@@ -40,7 +41,7 @@ export default async function DispatcherPage() {
             ? {
                 contacted: repairOrder.contactState.contacted,
                 hasRentalCar: repairOrder.contactState.hasRentalCar,
-                customerNotes: repairOrder.contactState.customerNotes,
+                customerNotes: getDisplayCustomerNotes(repairOrder.contactState.customerNotes),
               }
             : null,
           callSessions: repairOrder.callSessions.map((callSession) => ({
@@ -83,7 +84,7 @@ export default async function DispatcherPage() {
                   }
                 : null,
             contactedAt: record.contactedAt.toISOString(),
-            customerNotes: record.customerNotes,
+            customerNotes: getDisplayCustomerNotes(record.customerNotes),
           })),
           contactPhones: repairOrder.contactPhones.map((phone) => ({
             id: phone.id,

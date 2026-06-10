@@ -3,6 +3,7 @@ import { ActiveRoBoard } from "@/components/active-ro-board";
 import { AppShell } from "@/components/app-shell";
 import { getManagerAlertCount } from "@/lib/alerts";
 import { getServerAuthSession, requireOrganizationId, requireRole } from "@/lib/auth";
+import { getDisplayCustomerNotes, isAutomatedTextContactNote } from "@/lib/contact-notes";
 import { getActiveRepairOrders } from "@/lib/data";
 import { getSlaSettings } from "@/lib/sla-settings";
 export default async function ManagerPage() {
@@ -46,7 +47,7 @@ export default async function ManagerPage() {
               ? {
                   contacted: repairOrder.contactState.contacted,
                   hasRentalCar: repairOrder.contactState.hasRentalCar,
-                  customerNotes: repairOrder.contactState.customerNotes,
+                  customerNotes: getDisplayCustomerNotes(repairOrder.contactState.customerNotes),
                 }
               : null,
             callSessions: repairOrder.callSessions.map((callSession) => ({
@@ -71,8 +72,7 @@ export default async function ManagerPage() {
                 repairOrder.advisorName ||
                 null,
               linkedTextConversation:
-                record.customerNotes?.startsWith("Text sent:") ||
-                record.customerNotes?.startsWith("Text received:")
+                isAutomatedTextContactNote(record.customerNotes)
                   ? {
                       customerName: repairOrder.customerName,
                       customerPhone: repairOrder.phone,
@@ -112,7 +112,7 @@ export default async function ManagerPage() {
                   }
                 : null,
               contactedAt: record.contactedAt.toISOString(),
-              customerNotes: record.customerNotes,
+              customerNotes: getDisplayCustomerNotes(record.customerNotes),
             })),
             contactPhones: repairOrder.contactPhones.map((phone) => ({
               id: phone.id,

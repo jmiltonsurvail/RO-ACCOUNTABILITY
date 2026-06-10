@@ -2,6 +2,7 @@ import { Role } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { AdvisorRoBoard } from "@/components/advisor-ro-board";
 import { requireOrganizationId, requireRole } from "@/lib/auth";
+import { getDisplayCustomerNotes } from "@/lib/contact-notes";
 import { getAdvisorBoard } from "@/lib/data";
 import { getSlaSettings } from "@/lib/sla-settings";
 import {
@@ -47,7 +48,7 @@ export default async function AdvisorPage() {
         ? {
             contacted: repairOrder.contactState.contacted,
             hasRentalCar: repairOrder.contactState.hasRentalCar,
-            customerNotes: repairOrder.contactState.customerNotes,
+            customerNotes: getDisplayCustomerNotes(repairOrder.contactState.customerNotes),
           }
         : null,
       callSessions: repairOrder.callSessions.map((callSession) => ({
@@ -90,7 +91,7 @@ export default async function AdvisorPage() {
               }
             : null,
         contactedAt: record.contactedAt.toISOString(),
-        customerNotes: record.customerNotes,
+        customerNotes: getDisplayCustomerNotes(record.customerNotes),
       })),
       contactPhones: repairOrder.contactPhones.map((phone) => ({
         id: phone.id,

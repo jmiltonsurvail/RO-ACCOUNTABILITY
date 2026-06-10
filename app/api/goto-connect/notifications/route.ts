@@ -716,10 +716,6 @@ async function processMessagingNotification(input: {
     }
 
     if (direction === TextMessageDirection.INBOUND) {
-      const customerNotes = content.body
-        ? `Text received: ${content.body}`
-        : "Inbound text message received.";
-
       await transaction.contactState.upsert({
         where: {
           repairOrderId: repairOrder.id,
@@ -728,13 +724,11 @@ async function processMessagingNotification(input: {
           advisorUserId: advisor?.id ?? null,
           contacted: true,
           contactedAt: sentAt,
-          customerNotes,
         },
         create: {
           advisorUserId: advisor?.id ?? null,
           contacted: true,
           contactedAt: sentAt,
-          customerNotes,
           repairOrderId: repairOrder.id,
         },
       });
@@ -743,7 +737,7 @@ async function processMessagingNotification(input: {
         data: {
           advisorUserId: advisor?.id ?? null,
           contactedAt: sentAt,
-          customerNotes,
+          customerNotes: "Customer text response received.",
           repairOrderId: repairOrder.id,
         },
       });
