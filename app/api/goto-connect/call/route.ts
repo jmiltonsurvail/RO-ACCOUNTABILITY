@@ -51,6 +51,9 @@ export async function GET(request: NextRequest) {
   const roNumberValue = request.nextUrl.searchParams.get("ro");
   const roNumber = Number(roNumberValue);
   const returnTo = request.nextUrl.searchParams.get("returnTo") || "/manager";
+  const requestedPhone = normalizePhoneForGoToDialString(
+    request.nextUrl.searchParams.get("contactPhoneNumber"),
+  );
 
   const organizationId = session.user.organizationId;
 
@@ -71,6 +74,11 @@ export async function GET(request: NextRequest) {
     },
     select: {
       asmNumber: true,
+      contactPhones: {
+        select: {
+          phoneNumber: true,
+        },
+      },
       customerName: true,
       id: true,
       phone: true,
@@ -115,7 +123,16 @@ export async function GET(request: NextRequest) {
           extension: advisor.gotoConnectExtension,
         });
 
-  const dialString = normalizePhoneForGoToDialString(repairOrder.phone);
+  const allowedPhoneNumbers = [
+    normalizePhoneForGoToDialString(repairOrder.phone),
+    ...repairOrder.contactPhones.map((phone) =>
+      normalizePhoneForGoToDialString(phone.phoneNumber),
+    ),
+  ].filter((phone): phone is string => Boolean(phone));
+  const dialString =
+    requestedPhone && allowedPhoneNumbers.includes(requestedPhone)
+      ? requestedPhone
+      : allowedPhoneNumbers[0] ?? null;
   const sourceLineId =
     advisor?.gotoConnectLineId ??
     resolvedLine?.lineId ??
@@ -126,7 +143,7 @@ export async function GET(request: NextRequest) {
     settings,
   });
 
-  const fallbackDialHref = formatPhoneHref(repairOrder.phone);
+  const fallbackDialHref = formatPhoneHref(dialString);
 
   logGoTo("info", "click-to-call:start", {
     asmNumber: repairOrder.asmNumber,
@@ -237,7 +254,7 @@ export async function GET(request: NextRequest) {
       data: {
         asmNumber: repairOrder.asmNumber,
         customerName: repairOrder.customerName,
-        customerPhone: repairOrder.phone,
+        customerPhone: dialString,
         callDirection: "OUTBOUND",
         id: callSessionId,
         initiatedByUserId: session.user.id,
@@ -295,7 +312,7 @@ export async function GET(request: NextRequest) {
     data: {
       asmNumber: repairOrder.asmNumber,
       customerName: repairOrder.customerName,
-      customerPhone: repairOrder.phone,
+      customerPhone: dialString,
       callDirection: "OUTBOUND",
       goToInitiatorId: initiatorId,
       id: callSessionId,

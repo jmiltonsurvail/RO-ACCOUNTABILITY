@@ -56,6 +56,7 @@ enum ActivityType {
   GOTO_CONNECT_SETTINGS_UPDATED
   GOTO_CONNECT_LINE_MAPPING_UPDATED
   GOTO_CONNECT_LINE_MAPPINGS_RERESOLVED
+  RO_NOTE_ADDED
   CALL_RECORDING_RECEIVED
   CALL_TRANSCRIPT_READY
   CALL_TRANSCRIPT_FAILED
@@ -100,6 +101,8 @@ model Organization {
   users              User[]
   importBatches      ImportBatch[]
   repairOrders       RepairOrder[]
+  repairOrderContactPhones RepairOrderContactPhone[]
+  repairOrderNotes   RepairOrderNote[]
   callSessions       CallSession[]
   textMessages       TextMessage[]
   slaSettings        SlaSettings?
@@ -143,6 +146,8 @@ model User {
   blockerEntries       BlockerState[]
   contactEntries       ContactState[]
   contactRecords       ContactRecord[]
+  repairOrderNotes     RepairOrderNote[]
+  createdRepairOrderContactPhones RepairOrderContactPhone[] @relation("RepairOrderContactPhoneCreatedBy")
   textMessages         TextMessage[]
   initiatedCallSessions CallSession[]    @relation("CallSessionInitiatedBy")
   activities           ActivityLog[]
@@ -214,6 +219,8 @@ model RepairOrder {
   blockerState         BlockerState?
   contactState         ContactState?
   contactRecords       ContactRecord[]
+  contactPhones        RepairOrderContactPhone[]
+  advisorNotes         RepairOrderNote[]
   callSessions         CallSession[]
   textMessages         TextMessage[]
   activities           ActivityLog[]
@@ -224,6 +231,23 @@ model RepairOrder {
   @@index([organizationId, isActive])
   @@index([organizationId, asmNumber, isActive])
   @@index([organizationId, mode, isActive])
+}
+
+model RepairOrderContactPhone {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repairOrderId  String
+  repairOrder    RepairOrder  @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  phoneNumber    String
+  label          String?
+  createdById    String?
+  createdBy      User?        @relation("RepairOrderContactPhoneCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([repairOrderId, phoneNumber])
+  @@index([organizationId, phoneNumber])
 }
 
 model BlockerState {
@@ -269,6 +293,21 @@ model ContactRecord {
 
   @@index([callSessionId])
   @@index([repairOrderId, contactedAt])
+}
+
+model RepairOrderNote {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repairOrderId  String
+  repairOrder    RepairOrder  @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  note           String
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([repairOrderId, createdAt])
 }
 
 model ActivityLog {

@@ -85,6 +85,18 @@ export default async function DispatcherPage() {
             contactedAt: record.contactedAt.toISOString(),
             customerNotes: record.customerNotes,
           })),
+          contactPhones: repairOrder.contactPhones.map((phone) => ({
+            id: phone.id,
+            label: phone.label,
+            phoneNumber: phone.phoneNumber,
+          })),
+          advisorNotes: repairOrder.advisorNotes.map((entry) => ({
+            createdAt: entry.createdAt.toISOString(),
+            id: entry.id,
+            note: entry.note,
+            userLabel: entry.user?.name?.trim() || entry.user?.email || null,
+            userRole: entry.user?.role ?? null,
+          })),
           customerName: repairOrder.customerName,
           mode: repairOrder.mode,
           model: repairOrder.model,

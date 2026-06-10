@@ -5,11 +5,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 export function GoToMessageForm({
   compact = false,
+  contactPhoneNumber,
   disabled = false,
   onSent,
   roNumber,
 }: {
   compact?: boolean;
+  contactPhoneNumber?: string | null;
   disabled?: boolean;
   onSent?: () => void;
   roNumber: number;
@@ -90,6 +92,9 @@ export function GoToMessageForm({
     >
       <input name="ro" type="hidden" value={roNumber} />
       <input name="returnTo" type="hidden" value={returnTo} />
+      {contactPhoneNumber ? (
+        <input name="contactPhoneNumber" type="hidden" value={contactPhoneNumber} />
+      ) : null}
       <label className="block">
         <span className="sr-only">Text message</span>
         <textarea

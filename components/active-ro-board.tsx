@@ -15,6 +15,11 @@ import { ClearBlockerButton } from "@/components/clear-blocker-button";
 import { CompactStatCard } from "@/components/compact-stat-card";
 import { ContactEditModal } from "@/components/contact-edit-modal";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
+import { RepairOrderNotes, type RepairOrderNoteEntry } from "@/components/repair-order-notes";
+import {
+  RepairOrderPhoneManager,
+  type RepairOrderContactPhoneEntry,
+} from "@/components/repair-order-phone-manager";
 import {
   type DerivedCallStatus,
   getDerivedCallStatus,
@@ -38,6 +43,7 @@ import { cn, formatDateOnly, formatDateTime, hoursSince } from "@/lib/utils";
 
 type ActiveRepairOrder = {
   advisorName: string | null;
+  advisorNotes: RepairOrderNoteEntry[];
   asmNumber: number;
   blockerState: {
     blockerReason: BlockerReason;
@@ -67,6 +73,7 @@ type ActiveRepairOrder = {
     wasConnected: boolean | null;
   }>;
   contactRecords: ContactHistoryEntry[];
+  contactPhones: RepairOrderContactPhoneEntry[];
   customerName: string;
   mode: string;
   model: string;
@@ -187,6 +194,7 @@ function getNormalizedCallDirection(callRecord: { callDirection?: string | null 
 export function ActiveRoBoard({
   actionMode = "none",
   autoRefreshMs = null,
+  canEditPrimaryPhone = false,
   contactMode = "none",
   emptyMessage = "No repair orders match the current filters.",
   repairOrders,
@@ -196,6 +204,7 @@ export function ActiveRoBoard({
 }: {
   actionMode?: "none" | "edit";
   autoRefreshMs?: number | null;
+  canEditPrimaryPhone?: boolean;
   contactMode?: "none" | "edit";
   emptyMessage?: string;
   includeContactedTodayCard?: boolean;
@@ -1514,6 +1523,14 @@ export function ActiveRoBoard({
                                     </p>
                                   )}
                                 </div>
+                                <RepairOrderNotes notes={repairOrder.advisorNotes} roNumber={repairOrder.roNumber} />
+                                <RepairOrderPhoneManager
+                                  canAddAlternate={canEditPrimaryPhone}
+                                  canEditPrimary={canEditPrimaryPhone}
+                                  contactPhones={repairOrder.contactPhones}
+                                  primaryPhone={repairOrder.phone}
+                                  roNumber={repairOrder.roNumber}
+                                />
                                 <ContactHistoryList entries={repairOrder.contactRecords} />
                               </div>
 

@@ -494,6 +494,11 @@ async function findInboundRepairOrderByPhone(input: {
     select: {
       advisorName: true,
       asmNumber: true,
+      contactPhones: {
+        select: {
+          phoneNumber: true,
+        },
+      },
       customerName: true,
       id: true,
       phone: true,
@@ -502,8 +507,11 @@ async function findInboundRepairOrderByPhone(input: {
   });
 
   const matches = repairOrders.filter((repairOrder) => {
-    const repairOrderPhone = normalizePhoneDigits(repairOrder.phone);
-    return Boolean(repairOrderPhone && input.phoneCandidates.includes(repairOrderPhone));
+    const repairOrderPhones = [
+      normalizePhoneDigits(repairOrder.phone),
+      ...repairOrder.contactPhones.map((phone) => normalizePhoneDigits(phone.phoneNumber)),
+    ].filter((phone): phone is string => Boolean(phone));
+    return repairOrderPhones.some((phone) => input.phoneCandidates.includes(phone));
   });
 
   return matches[0] ?? null;

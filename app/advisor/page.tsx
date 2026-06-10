@@ -92,6 +92,11 @@ export default async function AdvisorPage() {
         contactedAt: record.contactedAt.toISOString(),
         customerNotes: record.customerNotes,
       })),
+      contactPhones: repairOrder.contactPhones.map((phone) => ({
+        id: phone.id,
+        label: phone.label,
+        phoneNumber: phone.phoneNumber,
+      })),
       textMessages: repairOrder.textMessages.map((message) => ({
         advisorLabel:
           message.advisorUser?.name?.trim() ||
@@ -99,6 +104,7 @@ export default async function AdvisorPage() {
           repairOrder.advisorName ||
           null,
         body: message.body,
+        contactPhoneNumber: message.contactPhoneNumber,
         deliveryStatus: message.deliveryStatus,
         direction: message.direction,
         id: message.id,
@@ -108,6 +114,13 @@ export default async function AdvisorPage() {
       unreadTextMessageCount: repairOrder.textMessages.filter(
         (message) => message.direction === "INBOUND" && !message.readAt,
       ).length,
+      advisorNotes: repairOrder.advisorNotes.map((entry) => ({
+        createdAt: entry.createdAt.toISOString(),
+        id: entry.id,
+        note: entry.note,
+        userLabel: entry.user?.name?.trim() || entry.user?.email || null,
+        userRole: entry.user?.role ?? null,
+      })),
       customerName: repairOrder.customerName,
       mode: repairOrder.mode,
       model: repairOrder.model,

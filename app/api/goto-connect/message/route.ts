@@ -1,4 +1,4 @@
-import { ActivityType, Role, TextMessageDirection } from "@prisma/client";
+import { Role, TextMessageDirection } from "@prisma/client";
 import { type NextRequest } from "next/server";
 import { getServerAuthSession } from "@/lib/auth";
 import {
@@ -119,6 +119,11 @@ export async function POST(request: NextRequest) {
     },
     select: {
       asmNumber: true,
+      contactPhones: {
+        select: {
+          phoneNumber: true,
+        },
+      },
       customerName: true,
       id: true,
       phone: true,
@@ -151,7 +156,20 @@ export async function POST(request: NextRequest) {
       },
     }),
   ]);
-  const contactPhoneNumber = normalizePhoneForGoToDialString(repairOrder.phone);
+  const requestedContactPhoneNumber = normalizePhoneForGoToDialString(
+    String(formData.get("contactPhoneNumber") || ""),
+  );
+  const allowedContactPhoneNumbers = [
+    normalizePhoneForGoToDialString(repairOrder.phone),
+    ...repairOrder.contactPhones.map((phone) =>
+      normalizePhoneForGoToDialString(phone.phoneNumber),
+    ),
+  ].filter((phone): phone is string => Boolean(phone));
+  const contactPhoneNumber =
+    requestedContactPhoneNumber &&
+    allowedContactPhoneNumbers.includes(requestedContactPhoneNumber)
+      ? requestedContactPhoneNumber
+      : allowedContactPhoneNumbers[0] ?? null;
   const ownerPhoneNumber = advisor?.gotoConnectSmsPhoneNumber?.trim() || null;
   const payload = getGoToSmsPayload({
     body: messageBody,
@@ -251,32 +269,6 @@ export async function POST(request: NextRequest) {
   }
 
   await prisma.$transaction([
-    prisma.contactState.upsert({
-      create: {
-        advisorUserId: session.user.id,
-        contacted: true,
-        contactedAt: new Date(),
-        customerNotes: `Text sent: ${messageBody}`,
-        repairOrderId: repairOrder.id,
-      },
-      update: {
-        advisorUserId: session.user.id,
-        contacted: true,
-        contactedAt: new Date(),
-        customerNotes: `Text sent: ${messageBody}`,
-      },
-      where: {
-        repairOrderId: repairOrder.id,
-      },
-    }),
-    prisma.contactRecord.create({
-      data: {
-        advisorUserId: session.user.id,
-        contactedAt: new Date(),
-        customerNotes: `Text sent: ${messageBody}`,
-        repairOrderId: repairOrder.id,
-      },
-    }),
     prisma.textMessage.updateMany({
       where: {
         direction: TextMessageDirection.INBOUND,
@@ -301,21 +293,6 @@ export async function POST(request: NextRequest) {
         repairOrderId: repairOrder.id,
         rawPayload: payload,
         sentAt: new Date(),
-      },
-    }),
-    prisma.activityLog.create({
-      data: {
-        message: `Text message sent for RO ${repairOrder.roNumber}.`,
-        metadata: {
-          customerName: repairOrder.customerName,
-          goToMessageId,
-          messageBody,
-          ownerPhoneNumber,
-          phone: repairOrder.phone,
-        },
-        repairOrderId: repairOrder.id,
-        type: ActivityType.CONTACT_UPDATED,
-        userId: session.user.id,
       },
     }),
   ]);

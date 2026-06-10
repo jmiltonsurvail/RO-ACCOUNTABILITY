@@ -2,6 +2,7 @@ import { Role, TextMessageDirection } from "@prisma/client";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatPhoneHref } from "@/lib/utils";
 
 async function getAuthorizedRepairOrder(input: {
   organizationId: string;
@@ -44,6 +45,7 @@ function serializeMessage(message: {
     name: string | null;
   } | null;
   body: string | null;
+  contactPhoneNumber: string | null;
   deliveryStatus: string | null;
   direction: TextMessageDirection;
   id: string;
@@ -53,6 +55,7 @@ function serializeMessage(message: {
   return {
     advisorLabel: message.advisorUser?.name?.trim() || message.advisorUser?.email || null,
     body: message.body,
+    contactPhoneNumber: message.contactPhoneNumber,
     deliveryStatus: message.deliveryStatus,
     direction: message.direction,
     id: message.id,
@@ -61,8 +64,12 @@ function serializeMessage(message: {
   };
 }
 
+function normalizePhone(value: string | null | undefined) {
+  return formatPhoneHref(value)?.replace(/^tel:/, "") ?? null;
+}
+
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ roNumber: string }> },
 ) {
   const session = await getServerAuthSession();
@@ -99,8 +106,13 @@ export async function GET(
     return NextResponse.json({ error: "Repair order not found." }, { status: 404 });
   }
 
+  const contactPhoneNumber = normalizePhone(
+    request.nextUrl.searchParams.get("contactPhoneNumber"),
+  );
+
   const messages = await prisma.textMessage.findMany({
     where: {
+      ...(contactPhoneNumber ? { contactPhoneNumber } : {}),
       repairOrderId: repairOrder.id,
     },
     orderBy: {

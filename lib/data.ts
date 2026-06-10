@@ -30,6 +30,14 @@ const roCardInclude = {
     },
   },
   contactState: true,
+  contactPhones: {
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      label: true,
+      phoneNumber: true,
+    },
+  },
   textMessages: {
     orderBy: { sentAt: "asc" },
     take: 50,
@@ -38,6 +46,19 @@ const roCardInclude = {
         select: {
           email: true,
           name: true,
+        },
+      },
+    },
+  },
+  advisorNotes: {
+    orderBy: { createdAt: "desc" },
+    take: 12,
+    include: {
+      user: {
+        select: {
+          email: true,
+          name: true,
+          role: true,
         },
       },
     },
@@ -107,6 +128,14 @@ const activeRepairOrderBoardInclude = {
     },
   },
   contactState: true,
+  contactPhones: {
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      label: true,
+      phoneNumber: true,
+    },
+  },
   textMessages: {
     orderBy: { sentAt: "asc" },
     take: 50,
@@ -115,6 +144,19 @@ const activeRepairOrderBoardInclude = {
         select: {
           email: true,
           name: true,
+        },
+      },
+    },
+  },
+  advisorNotes: {
+    orderBy: { createdAt: "desc" },
+    take: 12,
+    include: {
+      user: {
+        select: {
+          email: true,
+          name: true,
+          role: true,
         },
       },
     },

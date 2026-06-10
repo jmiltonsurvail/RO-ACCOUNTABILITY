@@ -10,6 +10,8 @@ import { CompactStatCard } from "@/components/compact-stat-card";
 import { ContactHistoryList } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
 import { TextConversation } from "@/components/text-conversation";
+import { RepairOrderNotes } from "@/components/repair-order-notes";
+import { RepairOrderPhoneManager } from "@/components/repair-order-phone-manager";
 import {
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
@@ -376,6 +378,9 @@ export function AdvisorRoBoard({
                   );
                   const dueDateTone = getDueDateTone(dueDate);
                   const selected = selectedRoNumber === repairOrder.roNumber;
+                  const hasAnyPhone = Boolean(
+                    repairOrder.phone || repairOrder.contactPhones.length > 0,
+                  );
                   const callHref = (() => {
                     if (!repairOrder.phone) {
                       return null;
@@ -616,17 +621,31 @@ export function AdvisorRoBoard({
                                       </span>
                                     )}
                                   </div>
-                                  {repairOrder.phone ? (
+                                  {hasAnyPhone ? (
                                     <div className="mt-4 border-t border-zinc-100 pt-4">
                                       <TextConversation
                                         compact
+                                        contactPhones={repairOrder.contactPhones}
                                         initialMessages={repairOrder.textMessages}
-                                        initialUnreadCount={repairOrder.unreadTextMessageCount}
                                         phone={repairOrder.phone}
                                         roNumber={repairOrder.roNumber}
                                       />
                                     </div>
                                   ) : null}
+                                  <div className="mt-4 border-t border-zinc-100 pt-4">
+                                    <RepairOrderPhoneManager
+                                      contactPhones={repairOrder.contactPhones}
+                                      primaryPhone={repairOrder.phone}
+                                      roNumber={repairOrder.roNumber}
+                                    />
+                                  </div>
+                                  <div className="mt-4 border-t border-zinc-100 pt-4">
+                                    <RepairOrderNotes
+                                      canAdd
+                                      notes={repairOrder.advisorNotes}
+                                      roNumber={repairOrder.roNumber}
+                                    />
+                                  </div>
                                 </div>
                                 <ContactHistoryList entries={repairOrder.contactRecords} />
                               </div>

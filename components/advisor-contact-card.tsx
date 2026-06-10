@@ -7,6 +7,11 @@ import { ContactHistoryList, type ContactHistoryEntry } from "@/components/conta
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
 import { TextConversation } from "@/components/text-conversation";
 import { type TextMessageThreadEntry } from "@/components/text-message-thread";
+import { RepairOrderNotes, type RepairOrderNoteEntry } from "@/components/repair-order-notes";
+import {
+  RepairOrderPhoneManager,
+  type RepairOrderContactPhoneEntry,
+} from "@/components/repair-order-phone-manager";
 import {
   getDerivedCallStatus,
   getDerivedCallStatusClasses,
@@ -56,6 +61,7 @@ function getRepairValueBadgeClasses(value: RepairValue) {
 
 export type AdvisorRepairOrder = {
   advisorName: string | null;
+  advisorNotes: RepairOrderNoteEntry[];
   asmNumber: number;
   blockerState: {
     blockerReason: keyof typeof blockerReasonLabels;
@@ -70,6 +76,7 @@ export type AdvisorRepairOrder = {
   } | null;
   callSessions: AdvisorCallAttempt[];
   contactRecords: ContactHistoryEntry[];
+  contactPhones: RepairOrderContactPhoneEntry[];
   textMessages: TextMessageThreadEntry[];
   customerName: string;
   mode: string;
@@ -143,6 +150,7 @@ export function AdvisorContactCard({
       new Date(getCallAttemptTimestamp(latestCallRecord) ?? "").toDateString() ===
         new Date().toDateString(),
   );
+  const hasAnyPhone = Boolean(repairOrder.phone || repairOrder.contactPhones.length > 0);
 
   return (
     <article
@@ -287,16 +295,30 @@ export function AdvisorContactCard({
           <div className="mt-4">
             <GoToCallFeedback roNumber={repairOrder.roNumber} />
           </div>
-          {repairOrder.phone ? (
+          {hasAnyPhone ? (
             <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
               <TextConversation
+                contactPhones={repairOrder.contactPhones}
                 initialMessages={repairOrder.textMessages}
-                initialUnreadCount={repairOrder.unreadTextMessageCount}
                 phone={repairOrder.phone}
                 roNumber={repairOrder.roNumber}
               />
             </div>
           ) : null}
+          <div className="mt-4">
+            <RepairOrderPhoneManager
+              contactPhones={repairOrder.contactPhones}
+              primaryPhone={repairOrder.phone}
+              roNumber={repairOrder.roNumber}
+            />
+          </div>
+          <div className="mt-4">
+            <RepairOrderNotes
+              canAdd
+              notes={repairOrder.advisorNotes}
+              roNumber={repairOrder.roNumber}
+            />
+          </div>
           <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
             <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">Latest Call</p>
             {latestCallRecord ? (

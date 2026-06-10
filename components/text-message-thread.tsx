@@ -6,6 +6,7 @@ import { formatDateTime } from "@/lib/utils";
 export type TextMessageThreadEntry = {
   advisorLabel: string | null;
   body: string | null;
+  contactPhoneNumber: string | null;
   deliveryStatus: string | null;
   direction: "INBOUND" | "OUTBOUND";
   id: string;

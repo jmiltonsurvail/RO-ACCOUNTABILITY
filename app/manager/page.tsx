@@ -26,6 +26,7 @@ export default async function ManagerPage() {
       <div>
         <ActiveRoBoard
           autoRefreshMs={15000}
+          canEditPrimaryPhone
           contactMode="edit"
           includeContactedTodayCard
           repairOrders={activeRepairOrders.map((repairOrder) => ({
@@ -82,6 +83,7 @@ export default async function ManagerPage() {
                           repairOrder.advisorName ||
                           null,
                         body: message.body,
+                        contactPhoneNumber: message.contactPhoneNumber,
                         deliveryStatus: message.deliveryStatus,
                         direction: message.direction,
                         id: message.id,
@@ -111,6 +113,18 @@ export default async function ManagerPage() {
                 : null,
               contactedAt: record.contactedAt.toISOString(),
               customerNotes: record.customerNotes,
+            })),
+            contactPhones: repairOrder.contactPhones.map((phone) => ({
+              id: phone.id,
+              label: phone.label,
+              phoneNumber: phone.phoneNumber,
+            })),
+            advisorNotes: repairOrder.advisorNotes.map((entry) => ({
+              createdAt: entry.createdAt.toISOString(),
+              id: entry.id,
+              note: entry.note,
+              userLabel: entry.user?.name?.trim() || entry.user?.email || null,
+              userRole: entry.user?.role ?? null,
             })),
             customerName: repairOrder.customerName,
             mode: repairOrder.mode,
