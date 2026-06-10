@@ -6,6 +6,7 @@ import {
   AdvisorContactCard,
   type AdvisorRepairOrder,
 } from "@/components/advisor-contact-card";
+import { CollapsibleSection } from "@/components/collapsible-section";
 import { CompactStatCard } from "@/components/compact-stat-card";
 import { ContactHistoryList } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
@@ -521,38 +522,116 @@ export function AdvisorRoBoard({
                       {selected ? (
                         <tr className="border-t border-zinc-100 bg-zinc-50/70">
                           <td colSpan={9} className="px-4 py-4">
-                            <div className="grid gap-4 lg:grid-cols-[1fr_1fr_0.9fr]">
-                              <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                                <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
-                                  Work Snapshot
-                                </p>
-                                <div className="mt-3 space-y-2 text-sm text-zinc-700">
-                                  <p>RO: {repairOrder.roNumber}</p>
-                                  <p>Customer: {repairOrder.customerName}</p>
-                                  <p>
-                                    Vehicle: {repairOrder.year} {repairOrder.model}
-                                  </p>
-                                  <p>Mode: {repairOrder.mode}</p>
-                                  <p>Tag: {repairOrder.tag || "N/A"}</p>
-                                  <p>Phone: {repairOrder.phone || "N/A"}</p>
-                                  <p>
-                                    ASM:{" "}
-                                    {repairOrder.advisorName
-                                      ? `${repairOrder.asmNumber} · ${repairOrder.advisorName}`
-                                      : repairOrder.asmNumber}
-                                  </p>
-                                  <p>
-                                    Tech:{" "}
-                                    {repairOrder.techNumber !== null
-                                      ? `${repairOrder.techNumber}${repairOrder.techName ? ` · ${repairOrder.techName}` : ""}`
-                                      : "Unassigned"}
-                                  </p>
-                                  <p>Repair value: {repairOrder.repairValue ? repairValueLabels[repairOrder.repairValue] : "Not set"}</p>
-                                  <p>Rental car: {repairOrder.contactState?.hasRentalCar ? "Yes" : "No"}</p>
-                                  <p>Priority: {repairOrder.priorityScore}</p>
+                            <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+                              <section className="grid content-start gap-4">
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                  <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                      <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                                        Customer Contact
+                                      </p>
+                                      <p className="mt-2 text-sm text-zinc-700">
+                                        Last contact:{" "}
+                                        {latestContact
+                                          ? formatDateTime(latestContact.contactedAt)
+                                          : "No contact logged"}
+                                      </p>
+                                    </div>
+                                    {callHref ? (
+                                      <a
+                                        className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 transition hover:border-zinc-900 hover:text-zinc-950"
+                                        href={callHref}
+                                      >
+                                        Call Customer
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex h-9 items-center rounded-md border border-zinc-200 px-3 text-xs font-semibold text-zinc-400">
+                                        No Phone
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="mt-3">
+                                    <GoToCallFeedback roNumber={repairOrder.roNumber} />
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="grid gap-4">
+
+                                {hasAnyPhone ? (
+                                  <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                    <TextConversation
+                                      compact
+                                      contactPhones={repairOrder.contactPhones}
+                                      initialMessages={repairOrder.textMessages}
+                                      phone={repairOrder.phone}
+                                      roNumber={repairOrder.roNumber}
+                                    />
+                                  </div>
+                                ) : null}
+
+                                <RepairOrderPhoneManager
+                                  contactPhones={repairOrder.contactPhones}
+                                  primaryPhone={repairOrder.phone}
+                                  roNumber={repairOrder.roNumber}
+                                />
+
+                                <CollapsibleSection
+                                  meta={latestCallSummary ? "Summary" : "None"}
+                                  title="Latest Call"
+                                >
+                                  <p className="text-sm leading-6 text-zinc-700">
+                                    {latestCallSummary || "No call summary yet."}
+                                  </p>
+                                </CollapsibleSection>
+
+                                <CollapsibleSection
+                                  meta={`${repairOrder.contactRecords.length} ${
+                                    repairOrder.contactRecords.length === 1 ? "Entry" : "Entries"
+                                  }`}
+                                  title="Contact History"
+                                >
+                                  <ContactHistoryList entries={repairOrder.contactRecords} />
+                                </CollapsibleSection>
+                              </section>
+
+                              <section className="grid content-start gap-4">
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                  <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                                    Work Snapshot
+                                  </p>
+                                  <div className="mt-3 space-y-2 text-sm text-zinc-700">
+                                    <p>RO: {repairOrder.roNumber}</p>
+                                    <p>Customer: {repairOrder.customerName}</p>
+                                    <p>
+                                      Vehicle: {repairOrder.year} {repairOrder.model}
+                                    </p>
+                                    <p>Mode: {repairOrder.mode}</p>
+                                    <p>Tag: {repairOrder.tag || "N/A"}</p>
+                                    <p>Phone: {repairOrder.phone || "N/A"}</p>
+                                    <p>
+                                      ASM:{" "}
+                                      {repairOrder.advisorName
+                                        ? `${repairOrder.asmNumber} · ${repairOrder.advisorName}`
+                                        : repairOrder.asmNumber}
+                                    </p>
+                                    <p>
+                                      Tech:{" "}
+                                      {repairOrder.techNumber !== null
+                                        ? `${repairOrder.techNumber}${repairOrder.techName ? ` · ${repairOrder.techName}` : ""}`
+                                        : "Unassigned"}
+                                    </p>
+                                    <p>
+                                      Repair value:{" "}
+                                      {repairOrder.repairValue
+                                        ? repairValueLabels[repairOrder.repairValue]
+                                        : "Not set"}
+                                    </p>
+                                    <p>
+                                      Rental car:{" "}
+                                      {repairOrder.contactState?.hasRentalCar ? "Yes" : "No"}
+                                    </p>
+                                    <p>Priority: {repairOrder.priorityScore}</p>
+                                  </div>
+                                </div>
+
                                 <div className="rounded-lg border border-zinc-200 bg-white p-4">
                                   <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
                                     Blocker And Timing
@@ -572,83 +651,26 @@ export function AdvisorRoBoard({
                                         : "N/A"}
                                     </p>
                                     <p>Risk reason: {repairOrder.riskReason}</p>
+                                    <p className="whitespace-pre-wrap leading-6">
+                                      Foreman notes:{" "}
+                                      {blocker?.foremanNotes || "No notes entered."}
+                                    </p>
                                   </div>
                                 </div>
-                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                                  <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
-                                    Notes
-                                  </p>
-                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-700">
-                                    {blocker?.foremanNotes ||
-                                      repairOrder.contactState?.customerNotes ||
-                                      "No notes entered."}
-                                  </p>
-                                </div>
-                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                                  <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
-                                    Latest Call
-                                  </p>
-                                  <p className="mt-2 text-sm leading-6 text-zinc-700">
-                                    {latestCallSummary || "No call summary yet."}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="grid gap-4">
-                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                                  <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
-                                    Customer Contact
-                                  </p>
-                                  <p className="mt-2 text-sm text-zinc-700">
-                                    Last contact:{" "}
-                                    {latestContact
-                                      ? formatDateTime(latestContact.contactedAt)
-                                      : "No contact logged"}
-                                  </p>
-                                  <div className="mt-3">
-                                    <GoToCallFeedback roNumber={repairOrder.roNumber} />
-                                  </div>
-                                  <div className="mt-4">
-                                    {callHref ? (
-                                      <a
-                                        className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 transition hover:border-zinc-900 hover:text-zinc-950"
-                                        href={callHref}
-                                      >
-                                        Call Customer
-                                      </a>
-                                    ) : (
-                                      <span className="inline-flex h-9 items-center rounded-md border border-zinc-200 px-3 text-xs font-semibold text-zinc-400">
-                                        No Phone
-                                      </span>
-                                    )}
-                                  </div>
-                                  {hasAnyPhone ? (
-                                    <div className="mt-4 border-t border-zinc-100 pt-4">
-                                      <TextConversation
-                                        compact
-                                        contactPhones={repairOrder.contactPhones}
-                                        initialMessages={repairOrder.textMessages}
-                                        phone={repairOrder.phone}
-                                        roNumber={repairOrder.roNumber}
-                                      />
-                                    </div>
-                                  ) : null}
-                                  <div className="mt-4 border-t border-zinc-100 pt-4">
-                                    <RepairOrderPhoneManager
-                                      contactPhones={repairOrder.contactPhones}
-                                      primaryPhone={repairOrder.phone}
-                                      roNumber={repairOrder.roNumber}
-                                    />
-                                  </div>
-                                  <div className="mt-4 border-t border-zinc-100 pt-4">
-                                    <RepairOrderNotes
-                                      canAdd
-                                      notes={repairOrder.advisorNotes}
-                                      roNumber={repairOrder.roNumber}
-                                    />
-                                  </div>
-                                </div>
-                                <ContactHistoryList entries={repairOrder.contactRecords} />
-                              </div>
+
+                                <CollapsibleSection
+                                  meta={`${repairOrder.advisorNotes.length} ${
+                                    repairOrder.advisorNotes.length === 1 ? "Note" : "Notes"
+                                  }`}
+                                  title="Internal Notes"
+                                >
+                                  <RepairOrderNotes
+                                    canAdd
+                                    notes={repairOrder.advisorNotes}
+                                    roNumber={repairOrder.roNumber}
+                                  />
+                                </CollapsibleSection>
+                              </section>
                             </div>
                           </td>
                         </tr>

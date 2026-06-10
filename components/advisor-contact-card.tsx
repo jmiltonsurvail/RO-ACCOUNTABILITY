@@ -3,6 +3,7 @@
 import { type RepairValue } from "@prisma/client";
 import { useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { CollapsibleSection } from "@/components/collapsible-section";
 import { ContactHistoryList, type ContactHistoryEntry } from "@/components/contact-history-list";
 import { GoToCallFeedback } from "@/components/goto-call-feedback";
 import { TextConversation } from "@/components/text-conversation";
@@ -244,111 +245,159 @@ export function AdvisorContactCard({
       </div>
 
       {isExpanded ? (
-        <>
-          <div className="mt-4 grid gap-4 text-sm text-zinc-600 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+          <section className="grid content-start gap-4">
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-              <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">Foreman notes</p>
-              <p className="mt-2 leading-6 text-zinc-700">
-                {blocker?.foremanNotes || "No notes entered."}
-              </p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-              <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">Timing</p>
-              <p className="mt-2">
-                Blocked for {blocker ? hoursSince(blocker.blockerStartedAt) : 0} hours
-              </p>
-              <p className="mt-1">
-                Due:{" "}
-                {formatDateTime(
-                  blocker?.techPromisedDate ?? repairOrder.promisedAtNormalized,
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                    Customer Contact
+                  </p>
+                  <p className="mt-2 text-sm text-zinc-700">
+                    Last contact:{" "}
+                    {repairOrder.contactRecords[0]
+                      ? formatDateTime(repairOrder.contactRecords[0].contactedAt)
+                      : "No contact logged"}
+                  </p>
+                </div>
+                {callHref ? (
+                  <a
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 transition hover:border-zinc-900 hover:text-zinc-950"
+                    href={callHref}
+                  >
+                    Call Customer
+                  </a>
+                ) : (
+                  <span className="inline-flex h-9 items-center rounded-md border border-zinc-200 px-3 text-xs font-semibold text-zinc-400">
+                    No Phone
+                  </span>
                 )}
-              </p>
-              <p className="mt-1">
-                Last contact:{" "}
-                {repairOrder.contactRecords[0]
-                  ? formatDateTime(repairOrder.contactRecords[0].contactedAt)
-                  : "No contact logged"}
-              </p>
-              <p className="mt-1">Phone: {repairOrder.phone || "N/A"}</p>
+              </div>
+              <div className="mt-3">
+                <GoToCallFeedback roNumber={repairOrder.roNumber} />
+              </div>
             </div>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-zinc-200 px-4 py-3 text-sm text-zinc-800">
-              <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
-                Rental car
-              </p>
-              <p className="mt-1 font-medium text-zinc-900">
-                {repairOrder.contactState?.hasRentalCar ? "Yes" : "No"}
-              </p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 px-4 py-3 text-sm text-zinc-800">
-              <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
-                Repair Value
-              </p>
-              <p className="mt-1 font-medium text-zinc-900">
-                {repairOrder.repairValue
-                  ? repairValueLabels[repairOrder.repairValue]
-                  : "Not set"}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <GoToCallFeedback roNumber={repairOrder.roNumber} />
-          </div>
-          {hasAnyPhone ? (
-            <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-              <TextConversation
-                contactPhones={repairOrder.contactPhones}
-                initialMessages={repairOrder.textMessages}
-                phone={repairOrder.phone}
-                roNumber={repairOrder.roNumber}
-              />
-            </div>
-          ) : null}
-          <div className="mt-4">
+
+            {hasAnyPhone ? (
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                <TextConversation
+                  contactPhones={repairOrder.contactPhones}
+                  initialMessages={repairOrder.textMessages}
+                  phone={repairOrder.phone}
+                  roNumber={repairOrder.roNumber}
+                />
+              </div>
+            ) : null}
+
             <RepairOrderPhoneManager
               contactPhones={repairOrder.contactPhones}
               primaryPhone={repairOrder.phone}
               roNumber={repairOrder.roNumber}
             />
-          </div>
-          <div className="mt-4">
-            <RepairOrderNotes
-              canAdd
-              notes={repairOrder.advisorNotes}
-              roNumber={repairOrder.roNumber}
-            />
-          </div>
-          <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">Latest Call</p>
-            {latestCallRecord ? (
-              <>
-                <span
-                  className={`mt-2 inline-flex rounded-md px-2 py-1 text-[11px] font-semibold ${getDerivedCallStatusClasses(
-                    getDerivedCallStatus(latestCallRecord),
-                  )}`}
-                >
-                  {getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
-                </span>
-                <p className="mt-2 text-sm leading-6 text-zinc-700">
-                  {latestCallSummary || latestCallRecord.goToAiSummary || "No call summary yet."}
+
+            <CollapsibleSection
+              meta={
+                latestCallRecord
+                  ? getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))
+                  : "None"
+              }
+              title="Latest Call"
+            >
+              {latestCallRecord ? (
+                <>
+                  <span
+                    className={`inline-flex rounded-md px-2 py-1 text-[11px] font-semibold ${getDerivedCallStatusClasses(
+                      getDerivedCallStatus(latestCallRecord),
+                    )}`}
+                  >
+                    {getDerivedCallStatusLabel(getDerivedCallStatus(latestCallRecord))}
+                  </span>
+                  <p className="mt-2 text-sm leading-6 text-zinc-700">
+                    {latestCallSummary || latestCallRecord.goToAiSummary || "No call summary yet."}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm leading-6 text-zinc-700">No call record yet.</p>
+              )}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              meta={`${repairOrder.contactRecords.length} ${
+                repairOrder.contactRecords.length === 1 ? "Entry" : "Entries"
+              }`}
+              title="Contact History"
+            >
+              <ContactHistoryList entries={repairOrder.contactRecords} />
+            </CollapsibleSection>
+          </section>
+
+          <section className="grid content-start gap-4">
+            <div className="rounded-lg border border-zinc-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                Work Snapshot
+              </p>
+              <div className="mt-3 space-y-2 text-sm text-zinc-700">
+                <p>RO: {repairOrder.roNumber}</p>
+                <p>Customer: {repairOrder.customerName}</p>
+                <p>
+                  Vehicle: {repairOrder.year} {repairOrder.model}
                 </p>
-              </>
-            ) : (
-              <p className="mt-2 text-sm leading-6 text-zinc-700">No call record yet.</p>
-            )}
-          </div>
-          <div className="mt-4">
-            <ContactHistoryList entries={repairOrder.contactRecords} />
-          </div>
-          {!callHref ? (
-            <div className="mt-4">
-              <span className="rounded-md border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-400">
-                No Phone
-              </span>
+                <p>Mode: {repairOrder.mode}</p>
+                <p>Tag: {repairOrder.tag || "N/A"}</p>
+                <p>Phone: {repairOrder.phone || "N/A"}</p>
+                <p>{asmLabel}</p>
+                <p>{techLabel}</p>
+                <p>
+                  Repair value:{" "}
+                  {repairOrder.repairValue
+                    ? repairValueLabels[repairOrder.repairValue]
+                    : "Not set"}
+                </p>
+                <p>Rental car: {repairOrder.contactState?.hasRentalCar ? "Yes" : "No"}</p>
+                <p>Priority: {repairOrder.priorityScore}</p>
+              </div>
             </div>
-          ) : null}
-        </>
+
+            <div className="rounded-lg border border-zinc-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">
+                Blocker And Timing
+              </p>
+              <div className="mt-3 space-y-2 text-sm text-zinc-700">
+                <p>Blocker: {blockerLabel}</p>
+                <p>
+                  Blocked for {blocker ? hoursSince(blocker.blockerStartedAt) : 0} hours
+                </p>
+                <p>
+                  Due:{" "}
+                  {formatDateTime(
+                    blocker?.techPromisedDate ?? repairOrder.promisedAtNormalized,
+                  )}
+                </p>
+                <p>
+                  Blocker started:{" "}
+                  {blocker ? formatDateTime(blocker.blockerStartedAt) : "N/A"}
+                </p>
+                <p>Risk reason: {repairOrder.riskReason}</p>
+                <p className="whitespace-pre-wrap leading-6">
+                  Foreman notes: {blocker?.foremanNotes || "No notes entered."}
+                </p>
+              </div>
+            </div>
+
+            <CollapsibleSection
+              meta={`${repairOrder.advisorNotes.length} ${
+                repairOrder.advisorNotes.length === 1 ? "Note" : "Notes"
+              }`}
+              title="Internal Notes"
+            >
+              <RepairOrderNotes
+                canAdd
+                notes={repairOrder.advisorNotes}
+                roNumber={repairOrder.roNumber}
+              />
+            </CollapsibleSection>
+          </section>
+        </div>
       ) : (
         <div className="mt-4 grid gap-4">
           <div className="flex flex-wrap gap-4 text-sm text-zinc-600">
