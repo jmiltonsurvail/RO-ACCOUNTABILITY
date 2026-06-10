@@ -268,18 +268,7 @@ export async function POST(request: NextRequest) {
     goToMessageId = null;
   }
 
-  await prisma.$transaction([
-    prisma.textMessage.updateMany({
-      where: {
-        direction: TextMessageDirection.INBOUND,
-        readAt: null,
-        repairOrderId: repairOrder.id,
-      },
-      data: {
-        readAt: new Date(),
-      },
-    }),
-    prisma.textMessage.create({
+  await prisma.textMessage.create({
       data: {
         advisorUserId: session.user.id,
         authorPhoneNumber: ownerPhoneNumber,
@@ -294,8 +283,7 @@ export async function POST(request: NextRequest) {
         rawPayload: payload,
         sentAt: new Date(),
       },
-    }),
-  ]);
+    });
 
   logGoTo("info", "message:sent", {
     asmNumber: repairOrder.asmNumber,

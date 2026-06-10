@@ -39,18 +39,11 @@ export function TextConversation({
     phoneOptions.find((option) => option.phoneNumber === selectedPhoneNumber) ??
     phoneOptions[0] ??
     null;
-  const visibleMessages = selectedPhone?.phoneNumber
-    ? messages.filter(
-        (message) =>
-          message.contactPhoneNumber === selectedPhone.phoneNumber ||
-          (!message.contactPhoneNumber && selectedPhone.isPrimary),
-      )
-    : messages;
-  const visibleUnreadCount = visibleMessages.filter(
+  const unreadCount = messages.filter(
     (message) => message.direction === "INBOUND" && !message.readAt,
   ).length;
-  const latestMessageId = visibleMessages[visibleMessages.length - 1]?.id ?? null;
-  const hasUnread = visibleUnreadCount > 0;
+  const latestMessageId = messages[messages.length - 1]?.id ?? null;
+  const hasUnread = unreadCount > 0;
 
   const refreshMessages = useCallback(async () => {
     const url = new URL(`/api/repair-orders/${roNumber}/text-messages`, window.location.origin);
@@ -96,11 +89,11 @@ export function TextConversation({
 
   const latestInboundUnread = useMemo(
     () =>
-      visibleMessages
+      messages
         .slice()
         .reverse()
         .find((message) => message.direction === "INBOUND" && !message.readAt),
-    [visibleMessages],
+    [messages],
   );
 
   async function markRead() {
@@ -135,7 +128,7 @@ export function TextConversation({
         {hasUnread ? (
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-md bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-900">
-              {visibleUnreadCount} unread
+              {unreadCount} unread
             </span>
             <button
               className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-semibold text-amber-900 transition hover:border-amber-500"
@@ -150,7 +143,7 @@ export function TextConversation({
       </div>
       {phoneOptions.length > 1 ? (
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-zinc-600">Contact number</span>
+          <span className="mb-1 block text-xs font-medium text-zinc-600">Send to</span>
           <select
             className="h-9 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900"
             onChange={(event) => setSelectedPhoneNumber(event.target.value)}
@@ -169,7 +162,7 @@ export function TextConversation({
           New customer message waiting.
         </p>
       ) : null}
-      <TextMessageThread latestMessageId={latestMessageId} messages={visibleMessages} />
+      <TextMessageThread latestMessageId={latestMessageId} messages={messages} />
       <GoToMessageForm
         compact={compact}
         contactPhoneNumber={selectedPhone?.phoneNumber ?? phone}
